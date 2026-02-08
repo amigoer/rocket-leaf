@@ -1,31 +1,41 @@
 <script setup lang="ts">
-import HelloWorld from './components/HelloWorld.vue'
+import TitleBar from './components/TitleBar.vue'
 </script>
 
 <template>
-  <div class="container">
-    <div>
-      <a data-wml-openURL="https://wails.io">
-        <img src="/wails.png" class="logo" alt="Wails logo"/>
-      </a>
-      <a data-wml-openURL="https://vuejs.org/">
-        <img src="/vue.svg" class="logo vue" alt="Vue logo"/>
-      </a>
-    </div>
-    <HelloWorld msg="Wails + Vue" />
+  <div class="app-container">
+    <TitleBar />
+    <main class="content">
+      <!-- Main content will go here -->
+      <div class="placeholder">
+        <h1>Welcome to Rocket Leaf</h1>
+        <p>A lightweight RocketMQ client.</p>
+      </div>
+    </main>
   </div>
 </template>
 
 <style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--bg-color);
 }
-.logo:hover {
-  filter: drop-shadow(0 0 2em #e80000aa);
+
+.content {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
 }
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #888;
 }
 </style>

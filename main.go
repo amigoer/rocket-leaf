@@ -54,13 +54,21 @@ func main() {
 	// 'BackgroundColour' is the background colour of the window.
 	// 'URL' is the URL that will be loaded into the webview.
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title: "Window 1",
+		Title: "Rocket Leaf",
 		Mac: application.MacWindow{
-			InvisibleTitleBarHeight: 50,
+			InvisibleTitleBarHeight: 30,
 			Backdrop:                application.MacBackdropTranslucent,
-			TitleBar:                application.MacTitleBarHiddenInset,
+			TitleBar: application.MacTitleBar{
+				Hide:               false,
+				HideTitle:          true,
+				FullSizeContent:    true,
+				AppearsTransparent: true,
+			},
 		},
-		BackgroundColour: application.NewRGB(27, 38, 54),
+		Windows: application.WindowsWindow{
+			DisableFramelessWindowDecorations: true, // 启用无边框窗口装饰
+		},
+		BackgroundColour: application.NewRGB(245, 245, 245), // 浅色背景
 		URL:              "/",
 	})
 
