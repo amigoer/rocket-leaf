@@ -80,6 +80,7 @@ const closeWindow = () => {
     user-select: none;
     cursor: default;
     flex-shrink: 0;
+    border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
 }
 
 /* macOS 布局 */
@@ -132,7 +133,7 @@ const closeWindow = () => {
     height: 100%;
     border: none;
     background: transparent;
-    color: #333;
+    color: var(--text-color, #333);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -141,7 +142,7 @@ const closeWindow = () => {
 }
 
 .control-btn:hover {
-    background: rgba(0, 0, 0, 0.08);
+    background: var(--control-hover-bg, rgba(0, 0, 0, 0.08));
 }
 
 .close-btn:hover {

@@ -1,24 +1,60 @@
 <script setup lang="ts">
-import { NLayout, NLayoutContent } from 'naive-ui'
+import { ref, watchEffect } from 'vue'
+import { NLayout, NLayoutContent, NConfigProvider, NGlobalStyle, darkTheme } from 'naive-ui'
 import TitleBar from './components/TitleBar.vue'
 import Sidebar from './components/Sidebar.vue'
+import ContentTopBar from './components/ContentTopBar.vue'
+
+// 当前选中的页面
+const currentPage = ref('dashboard')
+
+// 主题切换
+const isDark = ref(false)
+
+let themeTransitionTimer: number | undefined
+
+const toggleTheme = () => {
+  if (typeof document !== 'undefined') {
+    document.documentElement.classList.add('theme-transition')
+    if (themeTransitionTimer) {
+      window.clearTimeout(themeTransitionTimer)
+    }
+    themeTransitionTimer = window.setTimeout(() => {
+      document.documentElement.classList.remove('theme-transition')
+    }, 260)
+  }
+  isDark.value = !isDark.value
+}
+
+watchEffect(() => {
+  if (typeof document !== 'undefined') {
+    document.documentElement.dataset.theme = isDark.value ? 'dark' : 'light'
+  }
+})
 </script>
 
 <template>
-  <div class="app-container">
-    <TitleBar />
-    <n-layout has-sider class="main-layout">
-      <Sidebar />
-      <n-layout-content class="content">
-        <!-- Main content will go here -->
-        <div class="placeholder">
-          <h1>Welcome to Rocket Leaf</h1>
-          <p>A lightweight RocketMQ client.</p>
-          <p>请从左侧菜单选择功能</p>
-        </div>
-      </n-layout-content>
-    </n-layout>
-  </div>
+  <n-config-provider :theme="isDark ? darkTheme : null">
+    <n-global-style />
+    <div class="app-container">
+      <TitleBar />
+      <n-layout has-sider class="main-layout">
+        <Sidebar @update:currentPage="currentPage = $event" />
+        <n-layout class="content-wrapper">
+          <!-- 内容区域顶部导航 -->
+          <ContentTopBar :currentPage="currentPage" :isDark="isDark" @toggle-theme="toggleTheme" />
+          <!-- 主内容区域 -->
+          <n-layout-content class="content">
+            <div class="placeholder">
+              <h1>Welcome to Rocket Leaf</h1>
+              <p>A lightweight RocketMQ client.</p>
+              <p>请从左侧菜单选择功能</p>
+            </div>
+          </n-layout-content>
+        </n-layout>
+      </n-layout>
+    </div>
+  </n-config-provider>
 </template>
 
 <style scoped>
@@ -36,10 +72,17 @@ import Sidebar from './components/Sidebar.vue'
   overflow: hidden;
 }
 
+.content-wrapper {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .content {
+  flex: 1;
   padding: 20px;
   overflow: auto;
-  background: var(--bg-color, #f5f5f5);
+  background: var(--bg-color, #ffffff);
 }
 
 .placeholder {

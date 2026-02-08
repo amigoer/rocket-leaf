@@ -3,13 +3,54 @@
   --titlebar-height: 30px;
   --bg-color: #ffffff;
   --text-color: #333333;
-  --titlebar-bg: rgba(255, 255, 255, 0.8);
+  --titlebar-bg: #ffffff;
+  --border-color: rgba(0, 0, 0, 0.06);
+  --section-bg: rgba(0, 0, 0, 0.02);
+  --surface-1: #f8f8f8;
+  --surface-1-hover: #f0f0f0;
+  --surface-2: #ffffff;
+  --surface-2-hover: #f5f5f5;
+  --surface-3: #f0f0f0;
+  --text-muted: #888888;
+  --text-secondary: #666666;
+  --chip-bg: rgba(0, 0, 0, 0.04);
+  --control-hover-bg: rgba(0, 0, 0, 0.08);
+  --popover-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --add-icon-border: #cccccc;
+  --menu-item-hover-bg: rgb(243, 243, 245);
+  --menu-item-radius: 3px;
+  --menu-item-height: 42px;
+  --menu-item-bezier: cubic-bezier(.4, 0, .2, 1);
+}
+
+:root[data-theme='dark'] {
+  --bg-color: #0f1115;
+  --text-color: #e5e7eb;
+  --titlebar-bg: #0f1115;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --section-bg: rgba(255, 255, 255, 0.06);
+  --surface-1: #161a22;
+  --surface-1-hover: #1b202a;
+  --surface-2: #141821;
+  --surface-2-hover: #1a202b;
+  --surface-3: #1f2430;
+  --text-muted: #9aa3b2;
+  --text-secondary: #c1c7d2;
+  --chip-bg: rgba(255, 255, 255, 0.08);
+  --control-hover-bg: rgba(255, 255, 255, 0.08);
+  --popover-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --add-icon-border: rgba(255, 255, 255, 0.18);
+  --menu-item-hover-bg: rgba(255, 255, 255, 0.09);
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  cursor: default;
 }
 
 body {
@@ -23,6 +64,19 @@ body {
   font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   user-select: none;
   /* Prevent text selection generally */
+}
+
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    fill 0.25s ease,
+    stroke 0.25s ease;
 }
 
 #app {
