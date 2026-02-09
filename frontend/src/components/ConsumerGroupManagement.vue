@@ -546,8 +546,6 @@ const columns: DataTableColumns<ConsumerGroupItem> = [
   border-radius: 5px;
 }
 
-.summary-card {}
-
 .summary-label {
   font-size: 13px;
   color: var(--text-muted, #888);

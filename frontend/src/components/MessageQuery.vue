@@ -727,10 +727,6 @@ onUnmounted(() => {
   background: var(--surface-2, #fff);
 }
 
-.summary-card {}
-
-.summary-card:hover {}
-
 .summary-label {
   font-size: 12px;
   color: var(--text-muted, #888);

@@ -385,9 +385,6 @@ const columns: DataTableColumns<ConnectionItem> = [
   border-radius: 5px;
 }
 
-.summary-card {}
-
-
 .summary-grid {
   margin-top: 2px;
 }

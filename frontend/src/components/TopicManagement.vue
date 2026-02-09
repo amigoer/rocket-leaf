@@ -401,7 +401,7 @@ const columns: DataTableColumns<TopicItem> = [
             <n-descriptions-item label="Topic">{{ currentTopic.topic }}</n-descriptions-item>
             <n-descriptions-item label="集群">{{ currentTopic.cluster }}</n-descriptions-item>
             <n-descriptions-item label="读写队列">{{ currentTopic.readQueue }}/{{ currentTopic.writeQueue
-              }}</n-descriptions-item>
+            }}</n-descriptions-item>
             <n-descriptions-item label="权限">
               <n-tag size="small" round :type="getPermTagType(currentTopic.perm)">{{ currentTopic.perm }}</n-tag>
             </n-descriptions-item>
@@ -411,7 +411,7 @@ const columns: DataTableColumns<TopicItem> = [
             </n-descriptions-item>
             <n-descriptions-item label="消费者组">{{ currentTopic.consumerGroups }}</n-descriptions-item>
             <n-descriptions-item label="TPS(入/出)">{{ currentTopic.tpsIn }}/{{ currentTopic.tpsOut
-              }}</n-descriptions-item>
+            }}</n-descriptions-item>
             <n-descriptions-item label="最近更新">{{ currentTopic.lastUpdated }}</n-descriptions-item>
             <n-descriptions-item label="描述" :span="2">{{ currentTopic.description || '-' }}</n-descriptions-item>
           </n-descriptions>
@@ -514,8 +514,6 @@ const columns: DataTableColumns<TopicItem> = [
   background: var(--surface-2, #fff);
   border-radius: 5px;
 }
-
-.summary-card {}
 
 .summary-label {
   font-size: 13px;
