@@ -7,6 +7,7 @@ import ContentTopBar from './components/ContentTopBar.vue'
 import DashboardContent from './components/DashboardContent.vue'
 import ConnectionManagement from './components/ConnectionManagement.vue'
 import TopicManagement from './components/TopicManagement.vue'
+import ConsumerGroupManagement from './components/ConsumerGroupManagement.vue'
 
 // 当前选中的页面
 const currentPage = ref('dashboard')
@@ -68,6 +69,7 @@ watchEffect(() => {
               <DashboardContent v-if="currentPage === 'dashboard'" />
               <ConnectionManagement v-else-if="currentPage === 'connections'" />
               <TopicManagement v-else-if="currentPage === 'topics'" />
+              <ConsumerGroupManagement v-else-if="currentPage === 'consumer-groups'" />
               <div v-else class="placeholder">
                 <h1>功能开发中</h1>
                 <p>当前页面：{{ currentPage }}</p>
