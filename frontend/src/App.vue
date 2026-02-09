@@ -5,6 +5,7 @@ import TitleBar from './components/TitleBar.vue'
 import Sidebar from './components/Sidebar.vue'
 import ContentTopBar from './components/ContentTopBar.vue'
 import DashboardContent from './components/DashboardContent.vue'
+import ConnectionManagement from './components/ConnectionManagement.vue'
 
 // 当前选中的页面
 const currentPage = ref('dashboard')
@@ -63,6 +64,7 @@ watchEffect(() => {
           <!-- 主内容区域 -->
           <n-layout-content class="content">
             <DashboardContent v-if="currentPage === 'dashboard'" />
+            <ConnectionManagement v-else-if="currentPage === 'connections'" />
             <div v-else class="placeholder">
               <h1>功能开发中</h1>
               <p>当前页面：{{ currentPage }}</p>
