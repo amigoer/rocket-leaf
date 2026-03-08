@@ -49,10 +49,26 @@ body {
   min-height: 100vh;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 输入框、文本域内仍可选中以便编辑与复制 */
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* 客户端风格：取消网页式蓝色选中高亮 */
+::selection {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
 }
 
 /* 局部滚动条：极细。标准属性仅在支持的浏览器生效，WebKit 用下方伪元素 */
