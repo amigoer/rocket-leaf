@@ -9,6 +9,7 @@ import { OverviewView } from '@/components/OverviewView'
 import { TopicList } from '@/components/TopicList'
 import { ConsumerGroupList } from '@/components/ConsumerGroupList'
 import { MessageView } from '@/components/MessageView'
+import { ClusterView } from '@/components/ClusterView'
 import { PlaceholderView } from '@/components/PlaceholderView'
 import { SettingsView } from '@/components/SettingsView'
 import { useConnections } from '@/hooks/useConnections'
@@ -133,7 +134,7 @@ function App(): React.ReactElement {
       case 'messages':
         return <MessageView />
       case 'cluster':
-        return <PlaceholderView title="集群" description="集群状态与 TPS 监控" />
+        return <ClusterView />
       case 'settings':
         return <SettingsView />
       default:

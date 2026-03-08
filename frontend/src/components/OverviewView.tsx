@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react'
 import { LayoutGrid, Users, Mail, BarChart3, Server, CircleDot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Connection } from '../../bindings/rocket-leaf/internal/model/models.js'
 import { ConnectionStatus } from '../../bindings/rocket-leaf/internal/model/models.js'
 import type { NavId } from './IconSidebar'
+import * as clusterApi from '@/api/cluster'
 
 type Props = {
   connections: Connection[]
@@ -21,6 +23,20 @@ const SHORTCUTS: { id: NavId; icon: React.ElementType; label: string; descriptio
 export function OverviewView({ connections, topicCount, consumerGroupCount = 0, onSelectNav }: Props) {
   const currentConn = connections.find((c) => c.status === ConnectionStatus.StatusOnline)
   const defaultConn = connections.find((c) => c.isDefault)
+  const [clusterBrokerCount, setClusterBrokerCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    clusterApi.getClusterInfo().then((info) => {
+      if (!cancelled && info != null) {
+        const total = info.totalBrokers ?? (info.brokers?.filter(Boolean).length ?? 0)
+        setClusterBrokerCount(total)
+      }
+    }).catch(() => {
+      if (!cancelled) setClusterBrokerCount(null)
+    })
+    return () => { cancelled = true }
+  }, [])
 
   return (
     <div className="flex h-full flex-col">
@@ -74,22 +90,42 @@ export function OverviewView({ connections, topicCount, consumerGroupCount = 0, 
           <section>
             <h2 className="mb-2 text-xs font-medium text-muted-foreground">数据概览</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-md border border-border/40 bg-card px-4 py-3">
+              <button
+                type="button"
+                onClick={() => onSelectNav('topics')}
+                className="rounded-md border border-border/40 bg-card px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-accent/50"
+              >
                 <p className="text-2xl font-semibold tabular-nums text-foreground">{topicCount}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">Topic</p>
-              </div>
-              <div className="rounded-md border border-border/40 bg-card px-4 py-3">
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectNav('consumers')}
+                className="rounded-md border border-border/40 bg-card px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-accent/50"
+              >
                 <p className="text-2xl font-semibold tabular-nums text-foreground">{consumerGroupCount}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">消费者组</p>
-              </div>
-              <div className="rounded-md border border-border/40 bg-card px-4 py-3">
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectNav('messages')}
+                className="rounded-md border border-border/40 bg-card px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-accent/50"
+              >
                 <p className="text-2xl font-semibold tabular-nums text-muted-foreground">—</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">消息</p>
-              </div>
-              <div className="rounded-md border border-border/40 bg-card px-4 py-3">
-                <p className="text-2xl font-semibold tabular-nums text-muted-foreground">—</p>
+                <p className="mt-1 text-[10px] text-muted-foreground/80">按 Topic 查询</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectNav('cluster')}
+                className="rounded-md border border-border/40 bg-card px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-accent/50"
+              >
+                <p className="text-2xl font-semibold tabular-nums text-foreground">
+                  {clusterBrokerCount !== null ? clusterBrokerCount : '—'}
+                </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">集群</p>
-              </div>
+                <p className="mt-1 text-[10px] text-muted-foreground/80">Broker 数</p>
+              </button>
             </div>
           </section>
 

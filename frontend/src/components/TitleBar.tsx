@@ -1,7 +1,6 @@
 import { useMemo, useState, useCallback, useEffect } from 'react'
-import { Sun, Moon, Monitor, Minus, Square, SquareMinus, X } from 'lucide-react'
+import { Minus, Square, SquareMinus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useTheme } from '@/hooks/useTheme'
 
 import logoUrl from '@/assets/logo.png'
 import { Window } from '@wailsio/runtime'
@@ -27,11 +26,6 @@ export function TitleBar() {
   useEffect(() => {
     refreshMaximised()
   }, [refreshMaximised])
-
-  const { mode, effectiveDark, cycleTheme } = useTheme()
-
-  const ThemeIcon = mode === 'system' ? Monitor : effectiveDark ? Moon : Sun
-  const themeLabel = mode === 'system' ? '跟随系统' : mode === 'light' ? '浅色' : '深色'
 
   const handleMinimise = useCallback(() => {
     Window.Minimise().catch(() => { })
@@ -79,15 +73,6 @@ export function TitleBar() {
           </button>
         </div>
       )}
-      <button
-        type="button"
-        onClick={cycleTheme}
-        title={`主题：${themeLabel}（点击切换）`}
-        className={cn(btnClass)}
-        aria-label={`切换主题，当前：${themeLabel}`}
-      >
-        <ThemeIcon className="h-4 w-4" />
-      </button>
     </header>
   )
 }
