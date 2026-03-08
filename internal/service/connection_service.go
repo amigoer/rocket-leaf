@@ -518,3 +518,43 @@ func (s *ConnectionService) Connect(id int) error {
 
 	return nil
 }
+
+// Disconnect 断开指定连接
+func (s *ConnectionService) Disconnect(id int) error {
+	s.mu.Lock()
+	conn, exists := s.connections[id]
+	if !exists {
+		s.mu.Unlock()
+		return fmt.Errorf("连接不存在: %d", id)
+	}
+	nameServer := conn.NameServer
+	wasDefault := conn.IsDefault
+	s.mu.Unlock()
+
+	rocketmq.GetClientManager().RemoveClient(nameServer)
+
+	s.mu.Lock()
+	if c, ok := s.connections[id]; ok {
+		c.Status = model.StatusOffline
+		c.LastCheck = formatNow()
+	}
+	var newDefaultNameServer string
+	if wasDefault {
+		for _, c := range s.connections {
+			if c.ID != id {
+				c.IsDefault = true
+				newDefaultNameServer = c.NameServer
+				break
+			}
+		}
+	}
+	err := s.saveConnectionsLocked()
+	s.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	if newDefaultNameServer != "" {
+		_ = rocketmq.GetClientManager().SetDefaultConnection(newDefaultNameServer)
+	}
+	return nil
+}

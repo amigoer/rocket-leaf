@@ -65,6 +65,15 @@ export async function connect(id: number): Promise<void> {
   }
 }
 
+export async function disconnect(id: number): Promise<void> {
+  try {
+    await ConnectionService.Disconnect(id)
+  } catch (e) {
+    console.error('Disconnect', e)
+    throw e
+  }
+}
+
 export async function connectDefault(): Promise<void> {
   try {
     await ConnectionService.ConnectDefault()

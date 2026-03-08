@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Play, Check, Loader2, Link2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Play, Check, Loader2, Link2, Link2Off, RefreshCw, Shield, Server, Circle, CircleDot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Connection } from '../../bindings/rocket-leaf/internal/model/models.js'
 import { ConnectionStatus } from '../../bindings/rocket-leaf/internal/model/models.js'
 import * as connectionApi from '@/api/connection'
+import { useSettings } from '@/hooks/useSettings'
 
 type FormState = {
   id: number | null
@@ -36,22 +37,53 @@ type Props = {
   error: string | null
   onRefresh: () => void
   onConnect: (id: number) => void
+  onDisconnect: (id: number) => void
+  /** 已连接时点击卡片调用，用于切换到该实例（如设为默认并跳转） */
+  onSelectConnection?: (id: number) => void
   connectingId: number | null
+  disconnectingId: number | null
 }
 
-export function ConnectionManagement({ list, loading, error, onRefresh, onConnect, connectingId }: Props) {
+const MIN_REFRESH_SPIN_MS = 400
+
+export function ConnectionManagement({ list, loading, error, onRefresh, onConnect, onDisconnect, onSelectConnection, connectingId, disconnectingId }: Props) {
+  const { settings } = useSettings()
   const [form, setForm] = useState<FormState>(emptyForm)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [testingId, setTestingId] = useState<number | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const refreshEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const openAdd = () => {
-    setForm(emptyForm)
+  useEffect(() => {
+    if (!loading && refreshing) {
+      if (error) toast.error(error)
+      else toast.success('已刷新')
+      if (refreshEndTimerRef.current) clearTimeout(refreshEndTimerRef.current)
+      refreshEndTimerRef.current = setTimeout(() => {
+        setRefreshing(false)
+        refreshEndTimerRef.current = null
+      }, MIN_REFRESH_SPIN_MS)
+    }
+    return () => {
+      if (refreshEndTimerRef.current) clearTimeout(refreshEndTimerRef.current)
+    }
+  }, [loading, refreshing, error])
+
+  const openAdd = useCallback(() => {
+    const hasGlobalACL = !!(settings.globalAccessKey || settings.globalSecretKey)
+    setForm({
+      ...emptyForm,
+      timeoutSec: Math.max(1, Math.floor(settings.connectTimeoutMs / 1000)),
+      enableACL: hasGlobalACL,
+      accessKey: hasGlobalACL ? settings.globalAccessKey : '',
+      secretKey: hasGlobalACL ? settings.globalSecretKey : '',
+    })
     setActionError(null)
     setDialogOpen(true)
-  }
+  }, [settings.connectTimeoutMs, settings.globalAccessKey, settings.globalSecretKey])
   const openEdit = (c: Connection) => {
     setForm({
       id: c.id,
@@ -134,10 +166,16 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
     try {
       await connectionApi.setDefaultConnection(id)
       onRefresh()
+      toast.success('已设为默认')
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e))
     }
   }
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true)
+    onRefresh()
+  }, [onRefresh])
 
   const handleTest = async (id: number) => {
     setTestingId(id)
@@ -158,16 +196,25 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center justify-between border-b border-border/40 px-4 py-3">
         <h1 className="text-sm font-medium text-foreground">连接管理</h1>
-        <button
-          type="button"
-          onClick={openAdd}
-          className={cn(
-            'inline-flex items-center gap-1.5 rounded-md border border-border/50 px-3 py-1.5 text-sm font-medium hover:bg-accent'
-          )}
-        >
-          <Plus className="h-4 w-4" />
-          添加连接
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={loading}
+            className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+            title="刷新"
+          >
+            <RefreshCw className={cn('h-4 w-4', (loading || refreshing) && 'animate-spin')} />
+          </button>
+          <button
+            type="button"
+            onClick={openAdd}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border/50 px-3 py-1.5 text-sm font-medium hover:bg-accent"
+          >
+            <Plus className="h-4 w-4" />
+            添加连接
+          </button>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto scroll-thin p-4">
         {actionError && !dialogOpen && (
@@ -184,87 +231,142 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
         ) : list.length === 0 ? (
           <p className="text-sm text-muted-foreground">暂无连接，点击「添加连接」创建。</p>
         ) : (
-          <ul className="space-y-1">
-            {list.map((c) => (
-              <li
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {list.map((c, index) => {
+              const isOnlyDefault = c.isDefault && list.findIndex((x) => x.isDefault) === index
+              return (
+              <article
                 key={c.id}
+                onClick={() => {
+                  if (c.status === ConnectionStatus.StatusOnline) {
+                    onSelectConnection?.(c.id)
+                  } else {
+                    onConnect(c.id)
+                  }
+                }}
                 className={cn(
-                  'flex items-center justify-between gap-2 rounded-md border border-border/40 px-3 py-2',
+                  'group flex cursor-pointer flex-col rounded-md border border-border/40 bg-card transition-colors hover:border-primary/50',
                   c.isDefault && 'ring-1 ring-primary/30'
                 )}
               >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground">{c.name}</span>
-                    {c.isDefault && (
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                        默认
-                      </span>
-                    )}
-                    <span
-                      className={cn(
-                        'rounded px-1.5 py-0.5 text-xs',
-                        c.status === ConnectionStatus.StatusOnline
-                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                          : 'bg-muted text-muted-foreground'
+                {/* Header */}
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/30 px-3 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-foreground truncate">{c.name}</span>
+                      {isOnlyDefault && (
+                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                          默认
+                        </span>
                       )}
-                    >
-                      {c.status === ConnectionStatus.StatusOnline ? '已连接' : '未连接'}
-                    </span>
+                      <span
+                        className={cn(
+                          'flex shrink-0 items-center gap-1.5 rounded px-1.5 py-0.5 text-xs',
+                          c.status === ConnectionStatus.StatusOnline
+                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                            : 'bg-muted/80 text-muted-foreground'
+                        )}
+                      >
+                        {c.status === ConnectionStatus.StatusOnline ? (
+                          <CircleDot className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        ) : (
+                          <Circle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        )}
+                        <span>{c.status === ConnectionStatus.StatusOnline ? '已连接' : '未连接'}</span>
+                      </span>
+                    </div>
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{c.nameServer}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  {c.status !== ConnectionStatus.StatusOnline && (
+                  <div
+                    className="flex shrink-0 items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {c.status === ConnectionStatus.StatusOnline ? (
+                      <button
+                        type="button"
+                        onClick={() => onDisconnect(c.id)}
+                        disabled={disconnectingId !== null}
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+                        title="断开连接"
+                      >
+                        {disconnectingId === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2Off className="h-4 w-4" />}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onConnect(c.id)}
+                        disabled={connectingId !== null}
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+                        title="连接"
+                      >
+                        {connectingId === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => onConnect(c.id)}
-                      disabled={connectingId !== null}
-                      className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-                      title="连接"
+                      onClick={() => handleTest(c.id)}
+                      disabled={testingId === c.id}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+                      title="测试连接"
                     >
-                      {connectingId === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                      {testingId === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleTest(c.id)}
-                    disabled={testingId === c.id}
-                    className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-                    title="测试连接"
-                  >
-                    {testingId === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                  </button>
-                  {!c.isDefault && (
+                    {!c.isDefault && (
+                      <button
+                        type="button"
+                        onClick={() => handleSetDefault(c.id)}
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        title="设为默认"
+                      >
+                        <Check className="h-4 w-4" />
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => handleSetDefault(c.id)}
-                      className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                      title="设为默认"
+                      onClick={() => openEdit(c)}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      title="编辑"
                     >
-                      <Check className="h-4 w-4" />
+                      <Pencil className="h-4 w-4" />
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => openEdit(c)}
-                    className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                    title="编辑"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openDeleteConfirm(c.id)}
-                    className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-destructive"
-                    title="删除"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => openDeleteConfirm(c.id)}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-destructive"
+                      title="删除"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-              </li>
-            ))}
-          </ul>
+                {/* Body */}
+                <div className="min-w-0 flex-1 px-3 py-2">
+                  <p className="font-mono text-sm text-foreground truncate" title={c.nameServer}>
+                    {c.nameServer}
+                  </p>
+                  {c.remark != null && c.remark.trim() !== '' && (
+                    <p className="mt-1 truncate text-sm text-muted-foreground" title={c.remark}>
+                      {c.remark}
+                    </p>
+                  )}
+                </div>
+                {/* Footer */}
+                <div className="flex shrink-0 items-center justify-between border-t border-border/30 px-3 py-2">
+                  <span
+                    className="flex items-center gap-1 text-xs text-muted-foreground"
+                    title={c.enableACL ? '已开启 ACL 鉴权' : '未开启 ACL'}
+                  >
+                    <Shield className={cn('h-3.5 w-3.5', c.enableACL && 'text-foreground/70')} />
+                    {c.enableACL ? 'ACL' : '—'}
+                  </span>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Server className="h-3.5 w-3.5" />
+                    NameServer
+                  </span>
+                </div>
+              </article>
+            );
+            })}
+          </div>
         )}
       </div>
 

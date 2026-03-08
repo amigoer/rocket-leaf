@@ -45,6 +45,13 @@ export function DeleteConnection(id: number): $CancellablePromise<void> {
 }
 
 /**
+ * Disconnect 断开指定连接
+ */
+export function Disconnect(id: number): $CancellablePromise<void> {
+    return $Call.ByID(3243007643, id);
+}
+
+/**
  * GetConnection 获取单个连接配置
  */
 export function GetConnection(id: number): $CancellablePromise<model$0.Connection | null> {

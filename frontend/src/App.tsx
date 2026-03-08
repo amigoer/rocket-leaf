@@ -17,29 +17,72 @@ import { cn } from '@/lib/utils'
 function App(): React.ReactElement {
   const [activeNav, setActiveNav] = useState<NavId>('topics')
   const [connectingId, setConnectingId] = useState<number | null>(null)
+  const [disconnectingId, setDisconnectingId] = useState<number | null>(null)
 
   const { list: connections, loading: connectionsLoading, error: connectionsError, refresh: refreshConnections } = useConnections()
   const { list: topics, loading: topicsLoading, error: topicsError, refresh: refreshTopics } = useTopics()
 
   const hasConnected = connections.some((c) => c.status === ConnectionStatus.StatusOnline)
 
-  const handleConnect = useCallback(async (id: number) => {
-    setConnectingId(id)
+  const handleConnect = useCallback(
+    async (id: number) => {
+      setConnectingId(id)
+      try {
+        const othersOnline = connections.filter(
+          (c) => c.status === ConnectionStatus.StatusOnline && c.id !== id
+        )
+        for (const c of othersOnline) {
+          await connectionApi.disconnect(c.id)
+        }
+        await connectionApi.connect(id)
+        await connectionApi.setDefaultConnection(id)
+        await refreshConnections()
+        await refreshTopics()
+        setActiveNav('topics')
+        toast.success('连接成功')
+      } catch (e) {
+        await refreshConnections()
+        toast.error(e instanceof Error ? e.message : String(e))
+      } finally {
+        setConnectingId(null)
+      }
+    },
+    [connections, refreshConnections, refreshTopics]
+  )
+
+  const handleDisconnect = useCallback(async (id: number) => {
+    setDisconnectingId(id)
     try {
-      await connectionApi.connect(id)
+      await connectionApi.disconnect(id)
       await refreshConnections()
-      toast.success('连接成功')
+      toast.success('已断开连接')
     } catch (e) {
       await refreshConnections()
       toast.error(e instanceof Error ? e.message : String(e))
     } finally {
-      setConnectingId(null)
+      setDisconnectingId(null)
     }
   }, [refreshConnections])
 
   const handleOpenConnections = useCallback(() => {
     setActiveNav('connections')
   }, [])
+
+  const handleSelectConnection = useCallback(
+    async (id: number) => {
+      try {
+        await connectionApi.setDefaultConnection(id)
+        await refreshConnections()
+        await refreshTopics()
+        setActiveNav('topics')
+        toast.success('已切换到该实例')
+      } catch (e) {
+        await refreshConnections()
+        toast.error(e instanceof Error ? e.message : String(e))
+      }
+    },
+    [refreshConnections, refreshTopics]
+  )
 
   const renderContent = () => {
     if (!hasConnected && activeNav !== 'connections' && activeNav !== 'settings') {
@@ -54,7 +97,10 @@ function App(): React.ReactElement {
             error={connectionsError}
             onRefresh={refreshConnections}
             onConnect={handleConnect}
+            onDisconnect={handleDisconnect}
+            onSelectConnection={handleSelectConnection}
             connectingId={connectingId}
+            disconnectingId={disconnectingId}
           />
         )
       case 'topics':
