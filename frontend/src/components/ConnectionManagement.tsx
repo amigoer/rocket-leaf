@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Play, Check, Loader2, Wifi } from 'lucide-react'
+import { toast } from 'sonner'
+import { Plus, Pencil, Trash2, Play, Check, Loader2, Link2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Connection } from '../../bindings/rocket-leaf/internal/model/models.js'
 import { ConnectionStatus } from '../../bindings/rocket-leaf/internal/model/models.js'
@@ -44,6 +45,7 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
   const [submitting, setSubmitting] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [testingId, setTestingId] = useState<number | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null)
 
   const openAdd = () => {
     setForm(emptyForm)
@@ -112,11 +114,17 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
     }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('确定删除该连接？')) return
+  const openDeleteConfirm = (id: number) => setDeleteConfirmId(id)
+  const closeDeleteConfirm = () => setDeleteConfirmId(null)
+
+  const handleDeleteConfirm = async () => {
+    if (deleteConfirmId == null) return
+    const id = deleteConfirmId
+    setDeleteConfirmId(null)
     try {
       await connectionApi.deleteConnection(id)
       onRefresh()
+      toast.success('已删除连接')
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e))
     }
@@ -135,10 +143,12 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
     setTestingId(id)
     setActionError(null)
     try {
-      const msg = await connectionApi.testConnection(id)
-      alert(msg || '连接成功')
+      const msg = (await connectionApi.testConnection(id))?.trim() || ''
+      const successText =
+        !msg || /^online$/i.test(msg) ? '连接成功' : msg
+      toast.success(successText)
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : String(e))
+      toast.error(e instanceof Error ? e.message : String(e))
     } finally {
       setTestingId(null)
     }
@@ -160,7 +170,7 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
         </button>
       </div>
       <div className="flex-1 overflow-y-auto scroll-thin p-4">
-        {actionError && (
+        {actionError && !dialogOpen && (
           <div className="mb-3 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {actionError}
           </div>
@@ -213,7 +223,7 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
                       className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
                       title="连接"
                     >
-                      {connectingId === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wifi className="h-4 w-4" />}
+                      {connectingId === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
                     </button>
                   )}
                   <button
@@ -245,7 +255,7 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDelete(c.id)}
+                    onClick={() => openDeleteConfirm(c.id)}
                     className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-destructive"
                     title="删除"
                   >
@@ -259,12 +269,14 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
       </div>
 
       {dialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={closeDialog}>
-          <div
-            className="w-full max-w-md rounded-md border border-border/50 bg-card p-4 shadow-sm"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-md border border-border/50 bg-card p-4 shadow-sm">
             <h2 className="text-sm font-medium text-card-foreground">{form.id == null ? '添加连接' : '编辑连接'}</h2>
+            {actionError && (
+              <div className="mt-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {actionError}
+              </div>
+            )}
             <div className="mt-4 space-y-3">
               <div>
                 <label id="conn-name-label" className="mb-1 block text-xs text-muted-foreground">名称</label>
@@ -327,18 +339,18 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
               {form.enableACL && (
                 <>
                   <div>
-                    <label id="conn-accesskey-label" className="mb-1 block text-xs text-muted-foreground">AccessKey</label>
+                    <label id="conn-accesskey-label" className="mb-1 block text-xs text-muted-foreground">访问密钥（AccessKey）</label>
                     <input
                       id="conn-accesskey"
                       aria-labelledby="conn-accesskey-label"
                       value={form.accessKey}
                       onChange={(e) => setForm((f) => ({ ...f, accessKey: e.target.value }))}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      placeholder="ACL AccessKey"
+                      placeholder="请输入 ACL 访问密钥"
                     />
                   </div>
                   <div>
-                    <label id="conn-secretkey-label" className="mb-1 block text-xs text-muted-foreground">SecretKey</label>
+                    <label id="conn-secretkey-label" className="mb-1 block text-xs text-muted-foreground">密钥（SecretKey）</label>
                     <input
                       id="conn-secretkey"
                       aria-labelledby="conn-secretkey-label"
@@ -346,7 +358,7 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
                       value={form.secretKey}
                       onChange={(e) => setForm((f) => ({ ...f, secretKey: e.target.value }))}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      placeholder="ACL SecretKey"
+                      placeholder="请输入 ACL 密钥"
                     />
                   </div>
                 </>
@@ -363,9 +375,6 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
                 />
               </div>
             </div>
-            {actionError && (
-              <p className="mt-2 text-sm text-destructive">{actionError}</p>
-            )}
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
@@ -386,6 +395,40 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
           </div>
         </div>
       )}
+
+      {deleteConfirmId != null && (() => {
+        const conn = list.find((c) => c.id === deleteConfirmId)
+        const name = conn?.name ?? ''
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={closeDeleteConfirm}>
+            <div
+              className="w-full max-w-sm rounded-md border border-border/50 bg-card p-4 shadow-sm"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-sm font-medium text-card-foreground">删除连接</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {name ? `确定删除连接「${name}」？此操作不可恢复。` : '确定删除该连接？此操作不可恢复。'}
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closeDeleteConfirm}
+                  className="rounded-md border border-border/50 px-3 py-1.5 text-sm hover:bg-accent"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteConfirm}
+                  className="rounded-md bg-destructive px-3 py-1.5 text-sm text-destructive-foreground hover:opacity-90"
+                >
+                  确定删除
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

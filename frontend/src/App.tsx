@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import type React from 'react'
+import { Toaster, toast } from 'sonner'
 import { TitleBar } from '@/components/TitleBar'
 import { IconSidebar, type NavId } from '@/components/IconSidebar'
 import { ConnectionGate } from '@/components/ConnectionGate'
@@ -26,8 +27,10 @@ function App(): React.ReactElement {
     try {
       await connectionApi.connect(id)
       await refreshConnections()
-    } catch {
+      toast.success('连接成功')
+    } catch (e) {
       await refreshConnections()
+      toast.error(e instanceof Error ? e.message : String(e))
     } finally {
       setConnectingId(null)
     }
@@ -38,7 +41,7 @@ function App(): React.ReactElement {
   }, [])
 
   const renderContent = () => {
-    if (!hasConnected && activeNav !== 'connections') {
+    if (!hasConnected && activeNav !== 'connections' && activeNav !== 'settings') {
       return <ConnectionGate onAddConnection={handleOpenConnections} hasConnections={connections.length > 0} />
     }
     switch (activeNav) {
@@ -61,6 +64,8 @@ function App(): React.ReactElement {
         return <PlaceholderView title="消息" description="按 Topic / Key / MessageId 查询与发送" />
       case 'cluster':
         return <PlaceholderView title="集群" description="集群状态与 TPS 监控" />
+      case 'settings':
+        return <PlaceholderView title="设置" description="软件设置" />
       default:
         return null
     }
@@ -79,6 +84,7 @@ function App(): React.ReactElement {
           {renderContent()}
         </main>
       </div>
+      <Toaster position="bottom-right" closeButton style={{ '--width': '260px' } as React.CSSProperties} />
     </div>
   )
 }

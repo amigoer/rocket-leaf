@@ -23,6 +23,7 @@
     --ring: 240 5.9% 10%;
     --radius: 0.375rem;
   }
+
   .dark {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
@@ -78,13 +79,16 @@ textarea,
     scrollbar-color: hsl(var(--border)) transparent;
   }
 }
+
 .scroll-thin::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
+
 .scroll-thin::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .scroll-thin::-webkit-scrollbar-thumb {
   background: hsl(var(--border));
   border-radius: 3px;
