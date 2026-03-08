@@ -5,6 +5,7 @@ import { TitleBar } from '@/components/TitleBar'
 import { IconSidebar, type NavId } from '@/components/IconSidebar'
 import { ConnectionGate } from '@/components/ConnectionGate'
 import { ConnectionManagement } from '@/components/ConnectionManagement'
+import { OverviewView } from '@/components/OverviewView'
 import { TopicList } from '@/components/TopicList'
 import { PlaceholderView } from '@/components/PlaceholderView'
 import { SettingsView } from '@/components/SettingsView'
@@ -15,7 +16,7 @@ import { ConnectionStatus } from '../bindings/rocket-leaf/internal/model/models.
 import { cn } from '@/lib/utils'
 
 function App(): React.ReactElement {
-  const [activeNav, setActiveNav] = useState<NavId>('topics')
+  const [activeNav, setActiveNav] = useState<NavId>('home')
   const [connectingId, setConnectingId] = useState<number | null>(null)
   const [disconnectingId, setDisconnectingId] = useState<number | null>(null)
 
@@ -38,7 +39,7 @@ function App(): React.ReactElement {
         await connectionApi.setDefaultConnection(id)
         await refreshConnections()
         await refreshTopics()
-        setActiveNav('topics')
+        setActiveNav('home')
         toast.success('连接成功')
       } catch (e) {
         await refreshConnections()
@@ -74,7 +75,7 @@ function App(): React.ReactElement {
         await connectionApi.setDefaultConnection(id)
         await refreshConnections()
         await refreshTopics()
-        setActiveNav('topics')
+        setActiveNav('home')
         toast.success('已切换到该实例')
       } catch (e) {
         await refreshConnections()
@@ -89,6 +90,14 @@ function App(): React.ReactElement {
       return <ConnectionGate onAddConnection={handleOpenConnections} hasConnections={connections.length > 0} />
     }
     switch (activeNav) {
+      case 'home':
+        return (
+          <OverviewView
+            connections={connections}
+            topicCount={topics.length}
+            onSelectNav={setActiveNav}
+          />
+        )
       case 'connections':
         return (
           <ConnectionManagement
