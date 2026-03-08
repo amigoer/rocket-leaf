@@ -11,9 +11,18 @@
     "type-check": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
     "@wailsio/runtime": "^3.0.0-alpha.79",
+    "autoprefixer": "^10.4.27",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.577.0",
+    "postcss": "^8.5.8",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.2.1",
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@tsconfig/node24": "^24.0.4",
