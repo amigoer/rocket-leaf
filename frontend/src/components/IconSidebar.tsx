@@ -21,7 +21,7 @@ export function IconSidebar({
   disabledIds?: NavId[]
 }) {
   return (
-    <aside className="flex w-14 shrink-0 flex-col border-r border-border/40 bg-muted/30">
+    <aside className="flex w-14 shrink-0 flex-col border-r border-border/40 bg-muted/30 transition-[background-color,border-color] duration-200 ease-out">
       <nav className="flex flex-col gap-0.5 p-1.5">
         {NAV.map(({ id, icon: Icon, label }) => {
           const disabled = disabledIds.includes(id)
@@ -33,7 +33,7 @@ export function IconSidebar({
             onClick={() => onSelect(id)}
             title={label}
             className={cn(
-              'flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition-colors',
+              'flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color] duration-200 ease-out',
               active === id ? 'bg-accent text-accent-foreground' : 'hover:bg-accent',
               disabled && 'pointer-events-none opacity-50'
             )}
