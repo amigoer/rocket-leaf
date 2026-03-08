@@ -1,7 +1,9 @@
 import { useMemo, useState, useCallback, useEffect } from 'react'
-import { Leaf, Sun, Moon, Monitor, Minus, Square, SquareMinus, X } from 'lucide-react'
+import { Sun, Moon, Monitor, Minus, Square, SquareMinus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/hooks/useTheme'
+
+import logoUrl from '@/assets/logo.png'
 import { Window } from '@wailsio/runtime'
 
 function isMac(): boolean {
@@ -32,15 +34,15 @@ export function TitleBar() {
   const themeLabel = mode === 'system' ? '跟随系统' : mode === 'light' ? '浅色' : '深色'
 
   const handleMinimise = useCallback(() => {
-    Window.Minimise().catch(() => {})
+    Window.Minimise().catch(() => { })
   }, [])
   const handleToggleMaximise = useCallback(() => {
     Window.ToggleMaximise()
       .then(refreshMaximised)
-      .catch(() => {})
+      .catch(() => { })
   }, [refreshMaximised])
   const handleClose = useCallback(() => {
-    Window.Close().catch(() => {})
+    Window.Close().catch(() => { })
   }, [])
 
   const btnClass =
@@ -56,7 +58,7 @@ export function TitleBar() {
         mac && 'pl-[72px]'
       )}
     >
-      <Leaf className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+      <img src={logoUrl} alt="" className="h-9 w-9 shrink-0 object-contain" aria-hidden />
       <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">Rocket-Leaf</span>
       {!mac && (
         <div className="flex shrink-0 items-center gap-0.5">
