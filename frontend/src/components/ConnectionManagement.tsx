@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Play, Check, Loader2, Link2, Link2Off, RefreshCw, Shield, Server, Circle, CircleDot } from 'lucide-react'
+import { Plus, Pencil, Trash2, Play, Check, Loader2, Link2, Link2Off, RefreshCw, Shield, Timer, Circle, CircleDot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Connection } from '../../bindings/rocket-leaf/internal/model/models.js'
 import { ConnectionStatus } from '../../bindings/rocket-leaf/internal/model/models.js'
@@ -259,6 +259,11 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
                           默认
                         </span>
                       )}
+                      {c.env != null && String(c.env).trim() !== '' && (
+                        <span className="shrink-0 rounded bg-muted/80 px-1.5 py-0.5 text-xs text-muted-foreground">
+                          {c.env}
+                        </span>
+                      )}
                       <span
                         className={cn(
                           'flex shrink-0 items-center gap-1.5 rounded px-1.5 py-0.5 text-xs',
@@ -358,9 +363,12 @@ export function ConnectionManagement({ list, loading, error, onRefresh, onConnec
                     <Shield className={cn('h-3.5 w-3.5', c.enableACL && 'text-foreground/70')} />
                     {c.enableACL ? 'ACL' : '—'}
                   </span>
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Server className="h-3.5 w-3.5" />
-                    NameServer
+                  <span
+                    className="flex items-center gap-1 text-xs text-muted-foreground"
+                    title="连接超时"
+                  >
+                    <Timer className="h-3.5 w-3.5" />
+                    超时时间 {c.timeoutSec ?? 10}s
                   </span>
                 </div>
               </article>
