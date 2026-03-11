@@ -6,3 +6,5 @@ build/linux/appimage/build
 build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 .idea
 node_modules
+.DS_Store
+**/.DS_Store
