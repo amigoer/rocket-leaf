@@ -1,15 +1,15 @@
 {
-	"fixed": {
-		"file_version": "0.1.0"
-	},
-	"info": {
-		"0000": {
-			"ProductVersion": "0.1.0",
-			"CompanyName": "My Company",
-			"FileDescription": "A rocket-leaf application",
-			"LegalCopyright": "© 2026, My Company",
-			"ProductName": "My Product",
-			"Comments": "This is a comment"
-		}
-	}
+  "fixed": {
+    "file_version": "0.1.0"
+  },
+  "info": {
+    "0000": {
+      "ProductVersion": "0.1.0",
+      "CompanyName": "Rocket Leaf",
+      "FileDescription": "RocketMQ desktop management client",
+      "LegalCopyright": "© 2026, Rocket Leaf",
+      "ProductName": "Rocket Leaf",
+      "Comments": "Rocket Leaf desktop client"
+    }
+  }
 }
