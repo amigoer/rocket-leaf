@@ -1,0 +1,266 @@
+name: 跨平台构建测试
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  WAILS_VERSION: v3.0.0-alpha.71
+  NODE_VERSION: "20"
+
+jobs:
+  build-linux:
+    name: Linux 构建测试 (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 缓存 Wails CLI
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/wails3
+          key: ${{ runner.os }}-wails-${{ env.WAILS_VERSION }}
+
+      - name: 安装 Linux 构建依赖
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            patchelf \
+            fakeroot \
+            rpm
+
+      - name: 安装 Task
+        uses: arduino/setup-task@v2
+
+      - name: 安装 Wails CLI
+        shell: bash
+        run: |
+          if [ ! -x "$(go env GOPATH)/bin/wails3" ]; then
+            go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
+          fi
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: 执行 Linux 打包测试
+        run: task --taskfile build/linux/Taskfile.yml package ARCH=${{ matrix.arch }}
+
+      - name: 统一 Linux 产物命名
+        shell: bash
+        run: |
+          mkdir -p release-artifacts/linux-${{ matrix.arch }}
+          shopt -s nullglob
+          for file in bin/*.AppImage; do cp -v "$file" "release-artifacts/linux-${{ matrix.arch }}/rocket-leaf-linux-${{ matrix.arch }}.AppImage"; done
+          for file in bin/*.deb; do cp -v "$file" "release-artifacts/linux-${{ matrix.arch }}/rocket-leaf-linux-${{ matrix.arch }}.deb"; done
+          for file in bin/*.rpm; do cp -v "$file" "release-artifacts/linux-${{ matrix.arch }}/rocket-leaf-linux-${{ matrix.arch }}.rpm"; done
+          for file in bin/*.pkg.tar.zst; do cp -v "$file" "release-artifacts/linux-${{ matrix.arch }}/rocket-leaf-linux-${{ matrix.arch }}.pkg.tar.zst"; done
+          if [ -f bin/rocket-leaf ]; then cp -v bin/rocket-leaf "release-artifacts/linux-${{ matrix.arch }}/rocket-leaf-linux-${{ matrix.arch }}"; fi
+
+      - name: 上传 Linux 构建产物
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-test-linux-${{ matrix.arch }}
+          path: release-artifacts/linux-${{ matrix.arch }}/*
+          if-no-files-found: ignore
+
+  build-macos:
+    name: macOS 构建测试 (${{ matrix.arch }})
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 缓存 Wails CLI
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/wails3
+          key: ${{ runner.os }}-wails-${{ env.WAILS_VERSION }}
+
+      - name: 安装 Task
+        uses: arduino/setup-task@v2
+
+      - name: 安装 Wails CLI
+        shell: bash
+        run: |
+          if [ ! -x "$(go env GOPATH)/bin/wails3" ]; then
+            go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
+          fi
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: 执行 macOS 打包测试
+        run: task --taskfile build/darwin/Taskfile.yml package ARCH=${{ matrix.arch }}
+
+      - name: 统一 macOS 产物命名
+        shell: bash
+        run: |
+          mkdir -p release-artifacts/macos-${{ matrix.arch }}
+          if [ -f bin/rocket-leaf ]; then
+            cp -v bin/rocket-leaf "release-artifacts/macos-${{ matrix.arch }}/rocket-leaf-macos-${{ matrix.arch }}"
+          fi
+          if [ -d bin/rocket-leaf.app ]; then
+            ditto -c -k --sequesterRsrc --keepParent "bin/rocket-leaf.app" "release-artifacts/macos-${{ matrix.arch }}/rocket-leaf-macos-${{ matrix.arch }}.app.zip"
+          fi
+
+      - name: 上传 macOS 构建产物
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-test-macos-${{ matrix.arch }}
+          path: release-artifacts/macos-${{ matrix.arch }}/*
+          if-no-files-found: ignore
+
+  build-windows:
+    name: Windows 构建测试 (${{ matrix.arch }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 缓存 Wails CLI
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/wails3.exe
+          key: ${{ runner.os }}-wails-${{ env.WAILS_VERSION }}
+
+      - name: 安装 NSIS
+        shell: powershell
+        run: |
+          choco install nsis -y --no-progress
+          "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: 安装 Task
+        uses: arduino/setup-task@v2
+
+      - name: 安装 Wails CLI
+        shell: powershell
+        run: |
+          if (-not (Test-Path "$(go env GOPATH)\bin\wails3.exe")) {
+            go install github.com/wailsapp/wails/v3/cmd/wails3@${env:WAILS_VERSION}
+          }
+          "$(go env GOPATH)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: 执行 Windows 打包测试
+        shell: powershell
+        run: task --taskfile build/windows/Taskfile.yml package ARCH=${{ matrix.arch }}
+
+      - name: 统一 Windows 产物命名
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path "release-artifacts/windows-${{ matrix.arch }}" | Out-Null
+          if (Test-Path 'bin/rocket-leaf.exe') {
+            Copy-Item 'bin/rocket-leaf.exe' "release-artifacts/windows-${{ matrix.arch }}/rocket-leaf-windows-${{ matrix.arch }}.exe" -Force
+          }
+          Get-ChildItem 'bin' -Filter 'rocket-leaf-*-installer.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object {
+            Copy-Item $_.FullName "release-artifacts/windows-${{ matrix.arch }}/rocket-leaf-windows-${{ matrix.arch }}-installer.exe" -Force
+          }
+          Get-ChildItem 'bin' -Filter 'rocket-leaf-*.msix' -File -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object {
+            Copy-Item $_.FullName "release-artifacts/windows-${{ matrix.arch }}/rocket-leaf-windows-${{ matrix.arch }}.msix" -Force
+          }
+
+      - name: 上传 Windows 构建产物
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-test-windows-${{ matrix.arch }}
+          path: release-artifacts/windows-${{ matrix.arch }}/*
+          if-no-files-found: ignore
+
+  release-metadata:
+    name: 记录 Release 元数据
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - build-linux
+      - build-macos
+      - build-windows
+    steps:
+      - name: 生成 Release 元数据
+        shell: bash
+        run: |
+          mkdir -p release-metadata
+          printf '%s' '${{ github.ref_name }}' > release-metadata/tag.txt
+          printf '%s' '${{ github.sha }}' > release-metadata/sha.txt
+          cat > release-metadata/body.md <<'EOF'
+          ## Version
+          ${{ github.ref_name }}
+
+          ## Platforms
+          - macOS Intel: `rocket-leaf-macos-amd64.app.zip`
+          - macOS Apple Silicon: `rocket-leaf-macos-arm64.app.zip`
+          - Windows x64: `rocket-leaf-windows-amd64-installer.exe`
+          - Windows ARM64: `rocket-leaf-windows-arm64-installer.exe`
+          - Linux x64: `rocket-leaf-linux-amd64.AppImage`, `rocket-leaf-linux-amd64.deb`, `rocket-leaf-linux-amd64.rpm`, `rocket-leaf-linux-amd64.pkg.tar.zst`
+          - Linux ARM64: `rocket-leaf-linux-arm64.AppImage`, `rocket-leaf-linux-arm64.deb`, `rocket-leaf-linux-arm64.rpm`, `rocket-leaf-linux-arm64.pkg.tar.zst`
+          EOF
+
+      - name: 上传 Release 元数据
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-metadata
+          path: release-metadata/*
+          if-no-files-found: error
