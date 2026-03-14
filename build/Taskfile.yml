@@ -31,11 +31,11 @@ tasks:
       - dist/**/*
     deps:
       - task: install:frontend:deps
+    cmds:
       - task: generate:bindings
         vars:
           BUILD_FLAGS:
             ref: .BUILD_FLAGS
-    cmds:
       - npm run {{.BUILD_COMMAND}} -q
     env:
       PRODUCTION: '{{if eq .DEV "true"}}false{{else}}true{{end}}'

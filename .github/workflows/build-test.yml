@@ -74,6 +74,10 @@ jobs:
           fi
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
+      - name: 准备 Linux ARM64 交叉编译镜像
+        if: matrix.arch == 'arm64'
+        run: task setup:docker
+
       - name: 执行 Linux 打包测试
         run: task linux:package ARCH=${{ matrix.arch }}
 
