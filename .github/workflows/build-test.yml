@@ -86,10 +86,10 @@ jobs:
         if: matrix.arch == 'arm64'
         shell: bash
         run: docker images
-        
+
       - name: 执行 Linux 打包测试
         shell: bash
-        run: task linux:package ARCH=${{ matrix.arch }}
+        run: docker images && task linux:package ARCH=${{ matrix.arch }}
 
       - name: 统一 Linux 产物命名
         shell: bash
