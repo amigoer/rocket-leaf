@@ -1,4 +1,4 @@
-name: 跨平台构建测试
+name: Cross-Platform Build Test
 
 on:
   push:
@@ -16,30 +16,30 @@ env:
 
 jobs:
   build-linux:
-    name: Linux 构建测试 (${{ matrix.arch }})
+    name: Linux Build Test (${{ matrix.arch }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         arch: [amd64, arm64]
     steps:
-      - name: 检出代码
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 安装 Go
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
 
-      - name: 安装 Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: 缓存构建工具
+      - name: Cache build tools
         uses: actions/cache@v4
         with:
           path: |
@@ -47,7 +47,7 @@ jobs:
             ~/go/bin/wails3
           key: ${{ runner.os }}-tools-${{ env.WAILS_VERSION }}
 
-      - name: 安装 Linux 构建依赖
+      - name: Install Linux build dependencies
         shell: bash
         run: |
           sudo apt-get update
@@ -60,7 +60,7 @@ jobs:
             fakeroot \
             rpm
 
-      - name: 安装 Task 与 Wails CLI
+      - name: Install Task and Wails CLI
         shell: bash
         run: |
           if [ ! -x "$(go env GOPATH)/bin/task" ]; then
@@ -71,12 +71,12 @@ jobs:
           fi
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: 准备 Docker 环境
+      - name: Prepare Docker environment
         shell: bash
         run: |
           wails3 task setup:docker
         
-      - name: Linux 打包
+      - name: Package Linux app
         shell: bash
         run: |
           if [ "${{ matrix.arch }}" = "arm64" ]; then
@@ -85,7 +85,7 @@ jobs:
             wails3 package GOOS=linux GOARCH=amd64
           fi
 
-      - name: 统一 Linux 产物命名
+      - name: Normalize Linux artifact names
         shell: bash
         run: |
           mkdir -p release-artifacts/linux-${{ matrix.arch }}
@@ -96,7 +96,7 @@ jobs:
           for file in bin/*.pkg.tar.zst; do cp -v "$file" "release-artifacts/linux-${{ matrix.arch }}/rocket-leaf-linux-${{ matrix.arch }}.pkg.tar.zst"; done
           if [ -f bin/rocket-leaf ]; then cp -v bin/rocket-leaf "release-artifacts/linux-${{ matrix.arch }}/rocket-leaf-linux-${{ matrix.arch }}"; fi
 
-      - name: 上传 Linux 构建产物
+      - name: Upload Linux artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -105,26 +105,45 @@ jobs:
           if-no-files-found: ignore
 
   build-macos:
-    name: macOS 构建测试 (universal)
+    name: macOS Build Test (${{ matrix.target }})
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: amd64
+            task: darwin:package
+            arch: amd64
+            artifact_dir: macos-amd64
+            artifact_name: build-test-macos-amd64
+          - target: arm64
+            task: darwin:package
+            arch: arm64
+            artifact_dir: macos-arm64
+            artifact_name: build-test-macos-arm64
+          - target: universal
+            task: darwin:package:universal
+            arch: ''
+            artifact_dir: macos-universal
+            artifact_name: build-test-macos-universal
     steps:
-      - name: 检出代码
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 安装 Go
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
 
-      - name: 安装 Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: 缓存构建工具
+      - name: Cache build tools
         uses: actions/cache@v4
         with:
           path: |
@@ -132,7 +151,7 @@ jobs:
             ~/go/bin/wails3
           key: ${{ runner.os }}-tools-${{ env.WAILS_VERSION }}
 
-      - name: 安装 Task 与 Wails CLI
+      - name: Install Task and Wails CLI
         shell: bash
         run: |
           if [ ! -x "$(go env GOPATH)/bin/task" ]; then
@@ -143,53 +162,59 @@ jobs:
           fi
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: 执行 macOS 通用打包测试
-        run: task darwin:package:universal
-
-      - name: 统一 macOS 产物命名
+      - name: Package macOS app
         shell: bash
         run: |
-          mkdir -p release-artifacts/macos-universal
-          if [ -f bin/rocket-leaf ]; then
-            cp -v bin/rocket-leaf "release-artifacts/macos-universal/rocket-leaf-macos-universal"
-          fi
-          if [ -d bin/rocket-leaf.app ]; then
-            ditto -c -k --sequesterRsrc --keepParent "bin/rocket-leaf.app" "release-artifacts/macos-universal/rocket-leaf-macos-universal.app.zip"
+          if [ -n "${{ matrix.arch }}" ]; then
+            task ${{ matrix.task }} ARCH=${{ matrix.arch }}
+          else
+            task ${{ matrix.task }}
           fi
 
-      - name: 上传 macOS 构建产物
+      - name: Normalize macOS artifact names
+        shell: bash
+        run: |
+          mkdir -p release-artifacts/${{ matrix.artifact_dir }}
+          if [ -f bin/rocket-leaf ]; then
+            cp -v bin/rocket-leaf "release-artifacts/${{ matrix.artifact_dir }}/rocket-leaf-macos-${{ matrix.target }}"
+          fi
+          if [ -d bin/rocket-leaf.app ]; then
+            ditto -c -k --sequesterRsrc --keepParent "bin/rocket-leaf.app" "release-artifacts/${{ matrix.artifact_dir }}/rocket-leaf-macos-${{ matrix.target }}.app.zip"
+          fi
+
+      - name: Upload macOS artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-test-macos-universal
-          path: release-artifacts/macos-universal/*
+          name: ${{ matrix.artifact_name }}
+          path: release-artifacts/${{ matrix.artifact_dir }}/*
           if-no-files-found: ignore
 
   build-windows:
-    name: Windows 构建测试 (${{ matrix.arch }})
+    name: Windows Build Test (${{ matrix.arch }})
     runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
         arch: [amd64, arm64]
     steps:
-      - name: 检出代码
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 安装 Go
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
 
-      - name: 安装 Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: 缓存构建工具
+      - name: Cache build tools
         uses: actions/cache@v4
         with:
           path: |
@@ -197,13 +222,13 @@ jobs:
             ~/go/bin/wails3.exe
           key: ${{ runner.os }}-tools-${{ env.WAILS_VERSION }}
 
-      - name: 安装 NSIS
+      - name: Install NSIS
         shell: powershell
         run: |
           choco install nsis -y --no-progress
           "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: 安装 Task 与 Wails CLI
+      - name: Install Task and Wails CLI
         shell: powershell
         run: |
           if (-not (Test-Path "$(go env GOPATH)\bin\task.exe")) {
@@ -214,11 +239,11 @@ jobs:
           }
           "$(go env GOPATH)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: 执行 Windows 打包测试
+      - name: Package Windows app
         shell: powershell
         run: task windows:package ARCH=${{ matrix.arch }}
 
-      - name: 统一 Windows 产物命名
+      - name: Normalize Windows artifact names
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path "release-artifacts/windows-${{ matrix.arch }}" | Out-Null
@@ -232,7 +257,7 @@ jobs:
             Copy-Item $_.FullName "release-artifacts/windows-${{ matrix.arch }}/rocket-leaf-windows-${{ matrix.arch }}.msix" -Force
           }
 
-      - name: 上传 Windows 构建产物
+      - name: Upload Windows artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -241,7 +266,7 @@ jobs:
           if-no-files-found: ignore
 
   release-metadata:
-    name: 记录 Release 元数据
+    name: Prepare Release Metadata
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs:
@@ -249,7 +274,7 @@ jobs:
       - build-macos
       - build-windows
     steps:
-      - name: 生成 Release 元数据
+      - name: Generate release metadata
         shell: bash
         run: |
           mkdir -p release-metadata
@@ -261,8 +286,12 @@ jobs:
 
           ## Downloads
           ### macOS
-          - Universal: `rocket-leaf-macos-universal.app.zip`
-            Supports both Intel and Apple Silicon Macs.
+          - Intel Macs: `rocket-leaf-macos-amd64.app.zip`
+            Recommended for Intel-based Macs.
+          - Apple Silicon Macs: `rocket-leaf-macos-arm64.app.zip`
+            Recommended for M-series Macs.
+          - Not sure which one to choose: `rocket-leaf-macos-universal.app.zip`
+            Works on both Intel and Apple Silicon Macs.
 
           ### Windows
           - x64 Installer: `rocket-leaf-windows-amd64-installer.exe`
@@ -274,11 +303,11 @@ jobs:
 
           ## Notes
           - This release is published automatically after cross-platform build verification succeeds.
-          - macOS is shipped as a universal build; Windows and Linux are validated in both amd64 and arm64 variants.
+          - macOS is shipped in amd64, arm64, and universal variants; Windows and Linux are validated in both amd64 and arm64 variants.
           - Checksums are not published yet.
           EOF
 
-      - name: 上传 Release 元数据
+      - name: Upload release metadata
         uses: actions/upload-artifact@v4
         with:
           name: release-metadata

@@ -5,45 +5,64 @@
 </p>
 
 <p align="center">
-  <strong>轻量、美观的 RocketMQ 桌面客户端</strong>
+  <strong>A lightweight, polished desktop client for RocketMQ</strong>
 </p>
 
 <p align="center">
   Windows · macOS · Linux
 </p>
 
-## 这是什么？
+<p align="center">
+  <a href="README.zh-CN.md">简体中文</a>
+</p>
 
-Rocket-Leaf 是一个**本地桌面应用**，用来连接和管理 RocketMQ 集群：查 Topic、看消费者、查发消息，不用再部署 Web 控制台，也不用暴露管理端口。
+## What is Rocket-Leaf?
 
-- **开箱即用** — 下载打开即可使用  
-- **跨平台** — 支持 Windows、macOS、Linux  
-- **数据在本地** — 连接配置保存在本机，可随时备份
+Rocket-Leaf is a **local desktop app** for connecting to and managing RocketMQ clusters. It helps you inspect topics, monitor consumers, query messages, and send test messages without deploying a web console or exposing management ports.
 
-## 能做什么？
+- **Ready to use**: download and launch directly
+- **Cross-platform**: available on Windows, macOS, and Linux
+- **Local-first data**: connection profiles stay on your machine and are easy to back up
 
-| 能力         | 说明                                                      |
-| ------------ | --------------------------------------------------------- |
-| **连接管理** | 添加多个集群连接，一键切换，配置本地保存                  |
-| **Topic**    | 列表、搜索、详情（分区/权限/消费者）、创建与删除          |
-| **消费者组** | 列表、消费进度、重置位点、订阅关系                        |
-| **消息**     | 按 Topic / Key / MessageId 查询，看详情、发测试消息、轨迹 |
-| **监控**     | 集群状态、生产/消费 TPS、堆积情况                         |
+## Features
 
-## 下载与安装
+| Capability | Description |
+| ---------- | ----------- |
+| **Connection Management** | Add multiple clusters, switch quickly, and persist profiles locally |
+| **Topics** | Browse, search, inspect details, create, and delete topics |
+| **Consumer Groups** | View groups, inspect offsets, reset progress, and review subscriptions |
+| **Messages** | Query by Topic / Key / MessageId, inspect details, send test messages, and view traces |
+| **Monitoring** | Check cluster health, producer and consumer TPS, and backlog status |
 
-从 [Releases](https://github.com/codermast/rocket-leaf/releases) 下载对应系统的安装包或可执行文件，安装后直接运行即可。
+## Downloads
 
-## 快速开始（第一次使用）
+Download the package or executable for your platform from [Releases](https://github.com/codermast/rocket-leaf/releases).
 
-1. **打开应用**，在首页点击「添加连接」。
-2. **填写集群信息**：NameServer 地址（必填）、账号密码（若集群开启了鉴权）。
-3. **保存并连接**，连接成功后即可在侧栏使用 Topic、消费者组、消息查询等功能。
+### macOS
 
-连接配置会保存在本机，下次打开会自动列出，无需重新填写。
+- **Intel Macs**: `rocket-leaf-macos-amd64.app.zip`
+- **Apple Silicon Macs**: `rocket-leaf-macos-arm64.app.zip`
+- **Not sure which one to choose**: `rocket-leaf-macos-universal.app.zip`
+
+### Windows
+
+- **x64**: installer and portable executable
+- **ARM64**: installer and portable executable
+
+### Linux
+
+- **x64 / ARM64**: AppImage, `.deb`, `.rpm`, and `.pkg.tar.zst` when available
+
+## Quick Start
+
+1. Launch the app and click `Add Connection` on the home screen.
+2. Enter your cluster details: NameServer address is required, and credentials are optional if your cluster uses authentication.
+3. Save and connect. Once connected, you can use Topics, Consumer Groups, Message Query, and other tools from the sidebar.
+
+Connection profiles are stored locally, so they will be available the next time you open the app.
 
 <details>
-<summary>连接数据存储位置（备份/迁移时可参考）</summary>
+<summary>Connection data locations</summary>
 
 - **macOS**: `~/Library/Application Support/rocket-leaf/connections.json`
 - **Linux**: `~/.config/rocket-leaf/connections.json`
@@ -51,11 +70,11 @@ Rocket-Leaf 是一个**本地桌面应用**，用来连接和管理 RocketMQ 集
 
 </details>
 
-## 路线图与参与开发
+## Roadmap and Development
 
-- **功能规划**见 [路线图](docs/ROADMAP.md)。  
-- **参与开发**：欢迎提 Issue 和 PR，Fork 后按常规流程即可。技术栈与项目结构见 [架构说明](docs/ARCHITECTURE.md)。
+- Product planning: [Roadmap](docs/ROADMAP.md)
+- Contributing: issues and pull requests are welcome. See [Architecture](docs/ARCHITECTURE.md) for the current stack and project structure.
 
-## 许可证
+## License
 
-[MIT](LICENSE) · Made with ❤️ by [CoderMast](https://github.com/codermast)
+[MIT](LICENSE) · Made with love by [CoderMast](https://github.com/codermast)

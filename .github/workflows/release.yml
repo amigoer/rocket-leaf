@@ -1,9 +1,9 @@
-name: 发布 GitHub Release
+name: Publish GitHub Release
 
 on:
   workflow_run:
     workflows:
-      - 跨平台构建测试
+      - Cross-Platform Build Test
     types:
       - completed
 
@@ -12,27 +12,27 @@ permissions:
 
 jobs:
   release:
-    name: 生成并发布 Release
+    name: Create and Publish Release
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: 下载本次构建产物
+      - name: Download build artifacts
         uses: dawidd6/action-download-artifact@v3
         with:
           run_id: ${{ github.event.workflow_run.id }}
           path: release-files
           if_no_artifact_found: fail
 
-      - name: 检查 Release 元数据是否存在
+      - name: Verify release metadata exists
         shell: bash
         run: |
           test -f release-files/release-metadata/tag.txt
           test -f release-files/release-metadata/sha.txt
           test -f release-files/release-metadata/body.md
 
-      - name: 读取 Release 元数据
+      - name: Read release metadata
         id: meta
         shell: bash
         run: |
@@ -40,7 +40,7 @@ jobs:
           TARGET_SHA=$(cat release-files/release-metadata/sha.txt)
           BODY_FILE=release-files/release-metadata/body.md
           if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "无效的 tag: $TAG_NAME" >&2
+            echo "Invalid tag: $TAG_NAME" >&2
             exit 1
           fi
           echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
@@ -51,13 +51,13 @@ jobs:
             echo EOF
           } >> "$GITHUB_OUTPUT"
 
-      - name: 查看产物列表
+      - name: List release artifacts
         shell: bash
         run: |
-          echo "将发布以下文件："
+          echo "Files to be published:"
           find release-files -type f | sort
 
-      - name: 创建 GitHub Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag_name }}
@@ -68,6 +68,8 @@ jobs:
           files: |
             release-files/build-test-linux-amd64/*
             release-files/build-test-linux-arm64/*
+            release-files/build-test-macos-amd64/*
+            release-files/build-test-macos-arm64/*
             release-files/build-test-macos-universal/*
             release-files/build-test-windows-amd64/*
             release-files/build-test-windows-arm64/*
