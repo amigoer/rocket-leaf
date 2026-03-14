@@ -74,22 +74,19 @@ jobs:
           fi
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: 检查 Linux ARM64 交叉编译镜像
-        if: matrix.arch == 'arm64'
+      - name: 准备 Docker 环境
         shell: bash
         run: |
-          docker version
           wails3 task setup:docker
-          docker image inspect wails-cross
-
-      - name: 查看 Docker 镜像
-        if: matrix.arch == 'arm64'
+        
+      - name: Linux 打包
         shell: bash
-        run: docker images
-
-      - name: 执行 Linux 打包测试
-        shell: bash
-        run: docker images && task linux:package ARCH=${{ matrix.arch }}
+        run: |
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            wails3 package GOOS=linux GOARCH=arm64
+          else
+            wails3 package GOOS=linux GOARCH=amd64
+          fi
 
       - name: 统一 Linux 产物命名
         shell: bash
