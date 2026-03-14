@@ -42,11 +42,13 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: 缓存 Wails CLI
+      - name: 缓存构建工具
         uses: actions/cache@v4
         with:
-          path: ~/go/bin/wails3
-          key: ${{ runner.os }}-wails-${{ env.WAILS_VERSION }}
+          path: |
+            ~/go/bin/task
+            ~/go/bin/wails3
+          key: ${{ runner.os }}-tools-${{ env.WAILS_VERSION }}
 
       - name: 安装 Linux 构建依赖
         shell: bash
@@ -61,19 +63,19 @@ jobs:
             fakeroot \
             rpm
 
-      - name: 安装 Task
-        uses: arduino/setup-task@v2
-
-      - name: 安装 Wails CLI
+      - name: 安装 Task 与 Wails CLI
         shell: bash
         run: |
+          if [ ! -x "$(go env GOPATH)/bin/task" ]; then
+            go install github.com/go-task/task/v3/cmd/task@latest
+          fi
           if [ ! -x "$(go env GOPATH)/bin/wails3" ]; then
             go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
           fi
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: 执行 Linux 打包测试
-        run: task --taskfile build/linux/Taskfile.yml package ARCH=${{ matrix.arch }}
+        run: task linux:package ARCH=${{ matrix.arch }}
 
       - name: 统一 Linux 产物命名
         shell: bash
@@ -95,12 +97,8 @@ jobs:
           if-no-files-found: ignore
 
   build-macos:
-    name: macOS 构建测试 (${{ matrix.arch }})
+    name: macOS 构建测试 (universal)
     runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [amd64, arm64]
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -118,43 +116,45 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: 缓存 Wails CLI
+      - name: 缓存构建工具
         uses: actions/cache@v4
         with:
-          path: ~/go/bin/wails3
-          key: ${{ runner.os }}-wails-${{ env.WAILS_VERSION }}
+          path: |
+            ~/go/bin/task
+            ~/go/bin/wails3
+          key: ${{ runner.os }}-tools-${{ env.WAILS_VERSION }}
 
-      - name: 安装 Task
-        uses: arduino/setup-task@v2
-
-      - name: 安装 Wails CLI
+      - name: 安装 Task 与 Wails CLI
         shell: bash
         run: |
+          if [ ! -x "$(go env GOPATH)/bin/task" ]; then
+            go install github.com/go-task/task/v3/cmd/task@latest
+          fi
           if [ ! -x "$(go env GOPATH)/bin/wails3" ]; then
             go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
           fi
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: 执行 macOS 打包测试
-        run: task --taskfile build/darwin/Taskfile.yml package ARCH=${{ matrix.arch }}
+      - name: 执行 macOS 通用打包测试
+        run: task darwin:package:universal
 
       - name: 统一 macOS 产物命名
         shell: bash
         run: |
-          mkdir -p release-artifacts/macos-${{ matrix.arch }}
+          mkdir -p release-artifacts/macos-universal
           if [ -f bin/rocket-leaf ]; then
-            cp -v bin/rocket-leaf "release-artifacts/macos-${{ matrix.arch }}/rocket-leaf-macos-${{ matrix.arch }}"
+            cp -v bin/rocket-leaf "release-artifacts/macos-universal/rocket-leaf-macos-universal"
           fi
           if [ -d bin/rocket-leaf.app ]; then
-            ditto -c -k --sequesterRsrc --keepParent "bin/rocket-leaf.app" "release-artifacts/macos-${{ matrix.arch }}/rocket-leaf-macos-${{ matrix.arch }}.app.zip"
+            ditto -c -k --sequesterRsrc --keepParent "bin/rocket-leaf.app" "release-artifacts/macos-universal/rocket-leaf-macos-universal.app.zip"
           fi
 
       - name: 上传 macOS 构建产物
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-test-macos-${{ matrix.arch }}
-          path: release-artifacts/macos-${{ matrix.arch }}/*
+          name: build-test-macos-universal
+          path: release-artifacts/macos-universal/*
           if-no-files-found: ignore
 
   build-windows:
@@ -181,11 +181,13 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: 缓存 Wails CLI
+      - name: 缓存构建工具
         uses: actions/cache@v4
         with:
-          path: ~/go/bin/wails3.exe
-          key: ${{ runner.os }}-wails-${{ env.WAILS_VERSION }}
+          path: |
+            ~/go/bin/task.exe
+            ~/go/bin/wails3.exe
+          key: ${{ runner.os }}-tools-${{ env.WAILS_VERSION }}
 
       - name: 安装 NSIS
         shell: powershell
@@ -193,12 +195,12 @@ jobs:
           choco install nsis -y --no-progress
           "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: 安装 Task
-        uses: arduino/setup-task@v2
-
-      - name: 安装 Wails CLI
+      - name: 安装 Task 与 Wails CLI
         shell: powershell
         run: |
+          if (-not (Test-Path "$(go env GOPATH)\bin\task.exe")) {
+            go install github.com/go-task/task/v3/cmd/task@latest
+          }
           if (-not (Test-Path "$(go env GOPATH)\bin\wails3.exe")) {
             go install github.com/wailsapp/wails/v3/cmd/wails3@${env:WAILS_VERSION}
           }
@@ -206,7 +208,7 @@ jobs:
 
       - name: 执行 Windows 打包测试
         shell: powershell
-        run: task --taskfile build/windows/Taskfile.yml package ARCH=${{ matrix.arch }}
+        run: task windows:package ARCH=${{ matrix.arch }}
 
       - name: 统一 Windows 产物命名
         shell: powershell
@@ -246,16 +248,26 @@ jobs:
           printf '%s' '${{ github.ref_name }}' > release-metadata/tag.txt
           printf '%s' '${{ github.sha }}' > release-metadata/sha.txt
           cat > release-metadata/body.md <<'EOF'
-          ## Version
-          ${{ github.ref_name }}
+          ## Release
+          Production release for **${{ github.ref_name }}**.
 
-          ## Platforms
-          - macOS Intel: `rocket-leaf-macos-amd64.app.zip`
-          - macOS Apple Silicon: `rocket-leaf-macos-arm64.app.zip`
-          - Windows x64: `rocket-leaf-windows-amd64-installer.exe`
-          - Windows ARM64: `rocket-leaf-windows-arm64-installer.exe`
-          - Linux x64: `rocket-leaf-linux-amd64.AppImage`, `rocket-leaf-linux-amd64.deb`, `rocket-leaf-linux-amd64.rpm`, `rocket-leaf-linux-amd64.pkg.tar.zst`
-          - Linux ARM64: `rocket-leaf-linux-arm64.AppImage`, `rocket-leaf-linux-arm64.deb`, `rocket-leaf-linux-arm64.rpm`, `rocket-leaf-linux-arm64.pkg.tar.zst`
+          ## Downloads
+          ### macOS
+          - Universal: `rocket-leaf-macos-universal.app.zip`
+            Supports both Intel and Apple Silicon Macs.
+
+          ### Windows
+          - x64 Installer: `rocket-leaf-windows-amd64-installer.exe`
+          - ARM64 Installer: `rocket-leaf-windows-arm64-installer.exe`
+
+          ### Linux
+          - x64: `rocket-leaf-linux-amd64.AppImage`, `rocket-leaf-linux-amd64.deb`, `rocket-leaf-linux-amd64.rpm`, `rocket-leaf-linux-amd64.pkg.tar.zst`
+          - ARM64: `rocket-leaf-linux-arm64.AppImage`, `rocket-leaf-linux-arm64.deb`, `rocket-leaf-linux-arm64.rpm`, `rocket-leaf-linux-arm64.pkg.tar.zst`
+
+          ## Notes
+          - This release is published automatically after cross-platform build verification succeeds.
+          - macOS is shipped as a universal build; Windows and Linux are validated in both amd64 and arm64 variants.
+          - Checksums are not published yet.
           EOF
 
       - name: 上传 Release 元数据
