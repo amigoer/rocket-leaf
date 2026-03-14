@@ -2,9 +2,6 @@ name: 跨平台构建测试
 
 on:
   push:
-    branches:
-      - main
-      - master
     tags:
       - "v*"
   pull_request:
