@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Page, PageBody, PageHeader, RefreshButton } from "@/design/shell";
 import { Input } from "@/components/ui/input";
@@ -11,15 +11,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KV, Panel, PanelHeader, SectionLabel } from "@/components";
+import { KV, Panel, PanelHeader, SectionLabel, useConfirm } from "@/components";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { BoardState } from "@/design/boards/BoardState";
 import { useActiveMQDestinations } from "@/hooks/activemq/useActiveMQDestinations";
 import {
   browseWillBeCapped,
   destination as readDestination,
+  type ActiveMQDestination,
   type DestinationKind,
 } from "@/mq/activemq/destinations";
 import { formatBytes, formatCount } from "@/lib/format";
+import { formatErrorMessage } from "@/lib/utils";
+import { useConnectionScope } from "@/mq/ConnectionScope";
+import * as activemqApi from "@/api/activemq";
+import {
+  DestinationDialogActiveMQ,
+  MoveDialogActiveMQ,
+} from "./DestinationDialogActiveMQ";
 
 const MONO11 = { fontSize: "11px" } as const;
 
@@ -64,7 +74,11 @@ type KindFilter = "all" | DestinationKind;
 export function DestinationsActiveMQ() {
   const { t } = useTranslation();
   const state = useActiveMQDestinations();
+  const { id: connID } = useConnectionScope();
+  const confirm = useConfirm();
   const [search, setSearch] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [moving, setMoving] = useState<string | null>(null);
   const [kind, setKind] = useState<KindFilter>("all");
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -89,6 +103,76 @@ export function DestinationsActiveMQ() {
   // Which product answered decides what the table can show, and every row on
   // one connection comes from the same broker.
   const product = destinations[0]?.product ?? null;
+
+  const create = useCallback(
+    async (name: string, kind: DestinationKind) => {
+      await activemqApi.createDestination(connID, name, kind === "topic");
+      toast.success(t("board.activemq.destinations.created", { name }));
+      await state.refresh();
+    },
+    [connID, state, t],
+  );
+
+  const purge = useCallback(
+    async (entry: ActiveMQDestination) => {
+      const ok = await confirm({
+        title: t("board.activemq.destinations.purgeTitle", { name: entry.name }),
+        // The depth, because it is the number being discarded and the reader
+        // is about to lose it. A topic's is the sum across its subscriptions,
+        // which is what purging one actually empties.
+        description: t("board.activemq.destinations.purgeDesc", {
+          count: entry.depth ?? 0,
+        }),
+        confirmLabel: t("board.common.purge"),
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await activemqApi.purgeQueue(connID, entry.name);
+        toast.success(t("board.activemq.destinations.purged", { name: entry.name }));
+        await state.refresh();
+      } catch (purgeError) {
+        toast.error(t("board.activemq.destinations.purgeFailed"), {
+          description: formatErrorMessage(purgeError),
+        });
+      }
+    },
+    [confirm, connID, state, t],
+  );
+
+  const remove = useCallback(
+    async (entry: ActiveMQDestination) => {
+      const ok = await confirm({
+        title: t("board.activemq.destinations.deleteTitle", { name: entry.name }),
+        description: t("board.activemq.destinations.deleteDesc"),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await activemqApi.removeDestination(connID, entry.name);
+        toast.success(t("board.activemq.destinations.deleted", { name: entry.name }));
+        setSelected(null);
+        await state.refresh();
+      } catch (deleteError) {
+        toast.error(t("board.activemq.destinations.deleteFailed"), {
+          description: formatErrorMessage(deleteError),
+        });
+      }
+    },
+    [confirm, connID, state, t],
+  );
+
+  const move = useCallback(
+    async (from: string, to: string) => {
+      const moved = await activemqApi.moveMessages(connID, { from, to });
+      // The broker's own count, which is what separates a move that matched
+      // nothing from one that moved everything.
+      toast.success(t("board.activemq.destinations.moved", { count: moved }));
+      await state.refresh();
+    },
+    [connID, state, t],
+  );
 
   return (
     <Page>
@@ -121,6 +205,9 @@ export function DestinationsActiveMQ() {
               placeholder={t("board.activemq.destinations.search")}
               onChange={(event) => setSearch(event.target.value)}
             />
+            <Button size="sm" onClick={() => setCreating(true)}>
+              {t("board.activemq.destinations.create")}
+            </Button>
             <RefreshButton
               refreshing={state.refreshing}
               online={state.online}
@@ -128,6 +215,17 @@ export function DestinationsActiveMQ() {
             />
           </div>
         }
+      />
+      <DestinationDialogActiveMQ
+        open={creating}
+        onOpenChange={setCreating}
+        onCreate={create}
+      />
+      <MoveDialogActiveMQ
+        open={moving != null}
+        onOpenChange={(next) => setMoving(next ? moving : null)}
+        from={moving ?? ""}
+        onMove={(to) => move(moving ?? "", to)}
       />
       <BoardState state={state}>
         <PageBody>
@@ -285,6 +383,22 @@ export function DestinationsActiveMQ() {
                     than a browse can reach - and the number they are looking
                     at is the one that will not fit.
                   */}
+                  <div style={{ display: "flex", gap: "6px", marginTop: "12px" }}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setMoving(detail.name)}
+                    >
+                      {t("board.activemq.destinations.moveAction")}
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => void purge(detail)}>
+                      {t("board.common.purge")}
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => void remove(detail)}>
+                      {t("common.delete")}
+                    </Button>
+                  </div>
+
                   {browseWillBeCapped(detail) && (
                     <p
                       style={{

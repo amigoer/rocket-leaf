@@ -2,6 +2,7 @@ package activemq
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -472,4 +473,134 @@ func TestLiveArtemisSubscriptionsAreNotListedAsDestinations(t *testing.T) {
 	if events.Subscribers != 2 {
 		t.Errorf("subscribers = %d, want 2", events.Subscribers)
 	}
+}
+
+// Purging and moving, against both trees.
+//
+// Purge is the one where Artemis's two levels bite: a multicast address holds
+// nothing itself, so emptying a topic means emptying every subscription queue
+// under it, and a driver that called removeAllMessages on the address would
+// report success and change nothing.
+func TestLivePurgeEmptiesADestination(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		require func(*testing.T)
+		profile model.ConnectionProfile
+	}{
+		{"artemis", requireArtemis, artemisProfile("")},
+		{"classic", requireClassic, classicProfile("")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.require(t)
+			ctx := liveContext(t)
+			conn, err := open(ctx, tc.profile)
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+
+			queue := "MQS.TEST.purge." + tc.name
+			if err := conn.CreateDestination(ctx, model.DestinationSpec{
+				Ref: model.DestinationRef{Name: queue},
+			}); err != nil {
+				t.Fatalf("create: %v", err)
+			}
+			defer func() { _ = conn.RemoveDestination(ctx, model.DestinationRef{Name: queue}) }()
+
+			for i := range 5 {
+				if err := sendTestMessage(ctx, conn, queue, fmt.Sprintf("purge-%d", i)); err != nil {
+					t.Fatalf("send: %v", err)
+				}
+			}
+			if depth := depthOf(t, ctx, conn, queue); depth != 5 {
+				t.Fatalf("depth before purge = %d, want 5", depth)
+			}
+
+			if err := conn.PurgeQueue(ctx, model.DestinationRef{Name: queue}); err != nil {
+				t.Fatalf("purge: %v", err)
+			}
+			if depth := depthOf(t, ctx, conn, queue); depth != 0 {
+				t.Errorf("depth after purge = %d, want 0", depth)
+			}
+		})
+	}
+}
+
+// Moving reports the broker's own count, which is what makes the number worth
+// showing: a move that matched nothing and a move that moved everything are
+// otherwise the same successful call.
+func TestLiveMoveReportsWhatTheBrokerMoved(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		require func(*testing.T)
+		profile model.ConnectionProfile
+	}{
+		{"artemis", requireArtemis, artemisProfile("")},
+		{"classic", requireClassic, classicProfile("")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.require(t)
+			ctx := liveContext(t)
+			conn, err := open(ctx, tc.profile)
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+
+			from := "MQS.TEST.move.from." + tc.name
+			to := "MQS.TEST.move.to." + tc.name
+			for _, name := range []string{from, to} {
+				if err := conn.CreateDestination(ctx, model.DestinationSpec{
+					Ref: model.DestinationRef{Name: name},
+				}); err != nil {
+					t.Fatalf("create %s: %v", name, err)
+				}
+				defer func() { _ = conn.RemoveDestination(ctx, model.DestinationRef{Name: name}) }()
+			}
+
+			for i := range 3 {
+				if err := sendTestMessage(ctx, conn, from, fmt.Sprintf("move-%d", i)); err != nil {
+					t.Fatalf("send: %v", err)
+				}
+			}
+
+			moved, err := conn.MoveMessages(ctx, model.MoveRequest{From: from, ToRoutingKey: to})
+			if err != nil {
+				t.Fatalf("move: %v", err)
+			}
+			if moved != 3 {
+				t.Errorf("moved = %d, want 3", moved)
+			}
+			if depth := depthOf(t, ctx, conn, from); depth != 0 {
+				t.Errorf("source depth = %d, want 0", depth)
+			}
+			if depth := depthOf(t, ctx, conn, to); depth != 3 {
+				t.Errorf("target depth = %d, want 3", depth)
+			}
+		})
+	}
+}
+
+// sendTestMessage puts one text message on a destination through the same JMX
+// operation the publish page uses, so a test needs no wire client.
+func sendTestMessage(ctx context.Context, conn *Conn, queue, body string) error {
+	mbean := conn.names.destination(queue, queueKind)
+	if conn.tiers.product == artemis {
+		_, err := conn.jolokia.call(ctx, execOperation(mbean,
+			"sendMessage(java.util.Map,int,java.lang.String,boolean,java.lang.String,java.lang.String)",
+			nil, 3, body, true, conn.config.username, conn.config.password))
+		return err
+	}
+	_, err := conn.jolokia.call(ctx, execOperation(mbean,
+		"sendTextMessage(java.lang.String)", body))
+	return err
+}
+
+func depthOf(t *testing.T, ctx context.Context, conn *Conn, queue string) int64 {
+	t.Helper()
+	detail, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: queue})
+	if err != nil {
+		t.Fatalf("detail for %s: %v", queue, err)
+	}
+	return detail.Depth
 }

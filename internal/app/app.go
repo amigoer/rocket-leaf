@@ -16,6 +16,7 @@ import (
 	"github.com/amigoer/mq-studio/internal/driver/redisstream"
 	"github.com/amigoer/mq-studio/internal/driver/rocketmq"
 	"github.com/amigoer/mq-studio/internal/service/access"
+	activemqservice "github.com/amigoer/mq-studio/internal/service/activemq"
 	"github.com/amigoer/mq-studio/internal/service/cluster"
 	"github.com/amigoer/mq-studio/internal/service/collector"
 	"github.com/amigoer/mq-studio/internal/service/configuration"
@@ -52,6 +53,7 @@ type Services struct {
 	Pulsar      *pulsarservice.Service
 	RedisStream *redisstreamservice.Service
 	NATS        *natsservice.Service
+	ActiveMQ    *activemqservice.Service
 
 	// Conns resolves a profile id to a live connection. The bridge needs it to
 	// answer capability questions without going through a domain service.
@@ -107,6 +109,7 @@ func New() (*Services, error) {
 		Pulsar:      pulsarservice.New(conns, settingsService),
 		RedisStream: redisstreamservice.New(conns, settingsService),
 		NATS:        natsservice.New(conns, settingsService),
+		ActiveMQ:    activemqservice.New(conns, settingsService),
 		Conns:       conns,
 		Collector:   collector.New(sampleActiveConnection(clusterService, registry), registry.HasActive),
 		registry:    registry,

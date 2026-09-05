@@ -75,6 +75,12 @@ func TestConnDeclaresNoConceptActiveMQDoesNotHave(t *testing.T) {
 				"different capability this driver does declare.",
 		},
 		{
+			model.CapQueueRebalance,
+			"a destination lives on the broker that owns it. Classic forwards between " +
+				"brokers over a network connector and Artemis over a cluster connection, " +
+				"and neither is a redistribution a client asks for.",
+		},
+		{
 			model.CapPendingEntries,
 			"an in-flight message is held by the broker for a consumer and is not " +
 				"enumerable: JMX reports how many are dispatched and awaiting " +

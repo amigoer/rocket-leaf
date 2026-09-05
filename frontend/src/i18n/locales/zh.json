@@ -3955,7 +3955,24 @@
         "note": {
           "classic": "ActiveMQ Classic。队列与主题分属两棵 MBean 树；advisory 主题已隐藏——broker 会为每个目的地的每类事件各发布一个。",
           "artemis": "ActiveMQ Artemis。一行是一个地址：anycast 即队列，multicast 即主题；multicast 地址下挂的队列是它的持久订阅，而不是独立的目的地。"
-        }
+        },
+        "create": "新建目的地",
+        "createTitle": "新建目的地",
+        "kindHint": "队列和主题可以同名——在 Classic 上它们是两棵树里的两个对象——所以这一项无法自动判断。",
+        "created": "已创建 {{name}}",
+        "purgeTitle": "清空 {{name}}？",
+        "purgeDesc": "将丢弃 {{count}} 条消息，且无法撤销。对主题执行会清空它下面的每一个订阅。",
+        "purged": "已清空 {{name}}",
+        "purgeFailed": "清空目的地失败",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "将删除该目的地及其持有的全部内容，且无法撤销。",
+        "deleted": "已删除 {{name}}",
+        "deleteFailed": "删除目的地失败",
+        "moveTitle": "把消息移出 {{name}}",
+        "moveTarget": "移入",
+        "moveHint": "消息将被移入的目的地。ActiveMQ 按名称移动——中间没有 exchange 或 routing key。",
+        "moveAction": "移动",
+        "moved": "已移动 {{count}} 条消息"
       }
     }
   }

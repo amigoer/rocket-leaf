@@ -257,6 +257,80 @@ export class AclUserInput {
 }
 
 /**
+ * ActiveMQDestinationInput is a destination declaration as the ActiveMQ form
+ * collects it.
+ * 
+ * Deliberately not TopicService.Create's shape. That one takes a broker
+ * address, a read queue count, a write queue count and a permission string,
+ * which is RocketMQ's vocabulary; a JMS destination has none of those, and a
+ * form that filled them in with placeholders would be lying about what it
+ * sent.
+ */
+export class ActiveMQDestinationInput {
+    "name": string;
+
+    /**
+     * Topic rather than a kind string, because there are exactly two and a
+     * boolean cannot arrive misspelled. It is not inferable from the name: a
+     * queue and a topic may both be called ORDERS, and on Classic they are
+     * different objects in different trees.
+     */
+    "topic": boolean;
+
+    /** Creates a new ActiveMQDestinationInput instance. */
+    constructor($$source: Partial<ActiveMQDestinationInput> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("topic" in $$source)) {
+            this["topic"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ActiveMQDestinationInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ActiveMQDestinationInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ActiveMQDestinationInput($$parsedSource as Partial<ActiveMQDestinationInput>);
+    }
+}
+
+/**
+ * MoveInput names one destination to drain into another.
+ * 
+ * Flatter than the canonical MoveRequest because ActiveMQ has no exchange and
+ * no routing key: a JMS move puts the message in the named destination, with
+ * no topology in between for it to take.
+ */
+export class ActiveMQMoveInput {
+    "from": string;
+    "to": string;
+
+    /** Creates a new ActiveMQMoveInput instance. */
+    constructor($$source: Partial<ActiveMQMoveInput> = {}) {
+        if (!("from" in $$source)) {
+            this["from"] = "";
+        }
+        if (!("to" in $$source)) {
+            this["to"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ActiveMQMoveInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ActiveMQMoveInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ActiveMQMoveInput($$parsedSource as Partial<ActiveMQMoveInput>);
+    }
+}
+
+/**
  * AutoClaimInput moves whatever has been idle too long, without naming ids.
  */
 export class AutoClaimInput {

@@ -3955,7 +3955,24 @@
         "note": {
           "classic": "ActiveMQ Classic. A queue and a topic live in separate MBean trees, and advisory topics are hidden — the broker publishes one per destination per event.",
           "artemis": "ActiveMQ Artemis. A row is an address: anycast makes it a queue, multicast a topic, and a multicast address's queues are its durable subscriptions rather than destinations of their own."
-        }
+        },
+        "create": "New destination",
+        "createTitle": "New destination",
+        "kindHint": "A queue and a topic can share a name — on Classic they are different objects in different trees — so this cannot be inferred.",
+        "created": "Created {{name}}",
+        "purgeTitle": "Purge {{name}}?",
+        "purgeDesc": "Discards {{count}} messages. There is no undo. On a topic this empties every subscription under it.",
+        "purged": "Purged {{name}}",
+        "purgeFailed": "Could not purge the destination",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "Removes the destination and everything it holds. There is no undo.",
+        "deleted": "Deleted {{name}}",
+        "deleteFailed": "Could not delete the destination",
+        "moveTitle": "Move messages out of {{name}}",
+        "moveTarget": "Into",
+        "moveHint": "The destination messages are moved into. ActiveMQ moves by name — there is no exchange or routing key in between.",
+        "moveAction": "Move",
+        "moved": "Moved {{count}} messages"
       }
     }
   }
