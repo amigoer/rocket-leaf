@@ -4036,6 +4036,25 @@
           "properties": "Properties",
           "body": "Body"
         }
+      },
+      "dlq": {
+        "count": "{{count}} dead-letter destinations",
+        "name": "Destination",
+        "depth": "Holding",
+        "consumers": "Consumers",
+        "sources": "Fed by",
+        "retry": "Retry all",
+        "retryTitle": "Retry everything in {{name}}?",
+        "retryDesc": "Sends {{count}} messages back to the destinations they originally failed on. Anything that fails again comes back here.",
+        "retried": "Retried {{count}} messages",
+        "retryFailed": "Could not retry",
+        "retryNote": "Each message goes back to the destination it failed on, not onto a separate retry path. Both products retry the whole destination — neither takes a selector.",
+        "noSourcesClassic": "Classic decides where a dead letter goes by a broker-wide policy and keeps no record of what fed this destination. Naming the sources from the destination list would be a guess.",
+        "noSourcesArtemis": "Nothing points here any more. Whatever is holding will stay: no queue names this address, so it will never receive anything again.",
+        "section": {
+          "state": "State",
+          "sources": "Fed by"
+        }
       }
     }
   }

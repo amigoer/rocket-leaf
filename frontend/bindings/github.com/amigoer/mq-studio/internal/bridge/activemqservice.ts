@@ -14,6 +14,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as model$0 from "../model/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 /**
@@ -28,6 +32,21 @@ export function CreateDestination(connID: number, input: $models.ActiveMQDestina
  */
 export function CreateSubscription(connID: number, input: $models.ActiveMQSubscriptionInput): $CancellablePromise<void> {
     return $Call.ByID(1443470090, connID, input);
+}
+
+/**
+ * DeadLetterQueues finds the destinations dead letters land in, and the
+ * destinations that feed them.
+ * 
+ * The sources are empty on Classic and filled on Artemis, and that is the
+ * broker rather than the driver: Artemis records a dead-letter address on
+ * every queue, so the topology can be walked backwards; Classic decides by a
+ * broker-wide policy and keeps no record of where a dead letter came from.
+ */
+export function DeadLetterQueues(connID: number): $CancellablePromise<(model$0.DeadLetterQueue | null)[]> {
+    return $Call.ByID(1379698213, connID).then(($result: any) => {
+        return $$createType2($result);
+    });
 }
 
 /**
@@ -63,3 +82,20 @@ export function RemoveDestination(connID: number, name: string): $CancellablePro
 export function RemoveSubscription(connID: number, name: string): $CancellablePromise<void> {
     return $Call.ByID(2685825414, connID, name);
 }
+
+/**
+ * RetryDeadLetters sends a dead-lettered destination's contents back to the
+ * destinations each message originally failed on, and reports how many the
+ * broker moved.
+ * 
+ * The whole destination, because that is the only form either product offers:
+ * retryMessages() takes no arguments on Classic or on Artemis.
+ */
+export function RetryDeadLetters(connID: number, name: string): $CancellablePromise<number> {
+    return $Call.ByID(1164999678, connID, name);
+}
+
+// Private type creation functions
+const $$createType0 = model$0.DeadLetterQueue.createFrom;
+const $$createType1 = $Create.Nullable($$createType0);
+const $$createType2 = $Create.Array($$createType1);

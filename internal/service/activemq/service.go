@@ -156,3 +156,38 @@ func (s *Service) RemoveSubscription(ctx context.Context, connID int, name strin
 	defer cancel()
 	return api.RemoveSubscription(ctx, model.SubscriptionRef{Name: name})
 }
+
+// DeadLetterQueues finds the destinations dead letters land in, and what feeds
+// them.
+func (s *Service) DeadLetterQueues(ctx context.Context, connID int) ([]*model.DeadLetterQueue, error) {
+	api, err := port[driver.DeadLetterTopology](s, connID, model.CapDeadLetterTopology)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.DeadLetterQueues(ctx, "")
+}
+
+// retrier is the driver's own retry, which is not one of the canonical ports.
+//
+// DeadLetterReader's ResendMessage is RocketMQ's shape - a consumer group, a
+// client id and one message id - and this operation is none of those, so
+// asserting the concrete surface is more honest than bending it into a port
+// that means something else.
+type retrier interface {
+	RetryDeadLetters(ctx context.Context, ref model.DestinationRef) (int, error)
+}
+
+// RetryDeadLetters sends a dead-lettered destination's contents back to the
+// destinations each message originally failed on, reporting the broker's own
+// count.
+func (s *Service) RetryDeadLetters(ctx context.Context, connID int, name string) (int, error) {
+	api, err := port[retrier](s, connID, model.CapDeadLetterTopology)
+	if err != nil {
+		return 0, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.RetryDeadLetters(ctx, model.DestinationRef{Name: name})
+}

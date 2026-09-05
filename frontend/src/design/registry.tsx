@@ -75,6 +75,7 @@ import { NatsWorkbench } from "./boards/nats/NatsWorkbench";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
 import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
+import { DlqActiveMQ } from "./boards/dlq/DlqActiveMQ";
 import { NotDesigned } from "./boards/misc/NotDesigned";
 
 /**
@@ -162,6 +163,7 @@ const BOARDS: Partial<
     rabbitmq: DlqRabbitMQ,
     pulsar: DlqPulsar,
     redis: PelRedis,
+    activemq: DlqActiveMQ,
   },
   cluster: {
     rocketmq: ClusterRocketMQ,

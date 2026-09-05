@@ -164,10 +164,15 @@ func (c *Conn) classicDestination(name string, kind destinationKind, read map[st
 	putInt(attributes, AttrMemoryPercent, read["MemoryPercentUsage"])
 	putInt(attributes, AttrMessageSize, read["AverageMessageSize"])
 	putBool(attributes, AttrPaused, read["Paused"])
-	// The broker's own flag, not a name match: a deployment can point its
-	// dead-letter strategy at any destination it likes.
+	// Two judgements, and both are needed. The broker's own DLQ flag is
+	// authoritative when set - a deployment can point its dead-letter strategy
+	// at any destination it likes, and only the broker knows which. But
+	// Classic does not set the flag until the destination has actually
+	// received a dead letter, so the default one reads false on a broker that
+	// has never failed a delivery, which is exactly when somebody goes looking
+	// for it.
 	putBool(attributes, AttrIsDeadLetter, read["DLQ"])
-	if attributes[AttrIsDeadLetter] == "" && isDeadLetter(classic, name) {
+	if attributes[AttrIsDeadLetter] != "true" && isDeadLetter(classic, name) {
 		attributes[AttrIsDeadLetter] = "true"
 	}
 

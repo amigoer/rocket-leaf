@@ -75,6 +75,20 @@ func TestConnDeclaresNoConceptActiveMQDoesNotHave(t *testing.T) {
 				"different capability this driver does declare.",
 		},
 		{
+			model.CapDLQ,
+			"a dead-letter destination here is an ordinary destination that something " +
+				"else points at, not one derived from a subscription's name. It is found " +
+				"by walking the declarations backwards, which is what CapDeadLetterTopology " +
+				"is - and this driver does declare that one.",
+		},
+		{
+			model.CapMessageResend,
+			"neither product resends one message to one group. Both retry a selection " +
+				"and put each message back on the destination it originally failed on, " +
+				"which is a different operation from RocketMQ's - it has no consumer " +
+				"group in it at all.",
+		},
+		{
 			model.CapQueueRebalance,
 			"a destination lives on the broker that owns it. Classic forwards between " +
 				"brokers over a network connector and Artemis over a cluster connection, " +

@@ -1,5 +1,7 @@
 import { ActiveMQService } from "@bindings/bridge";
 import type { ActiveMQMoveInput } from "@bindings/bridge/models";
+import type { DeadLetterQueue } from "@bindings/model/models";
+import { present } from "./client";
 
 export type { ActiveMQMoveInput };
 
@@ -65,3 +67,24 @@ export const createSubscription = (
 /** Unsubscribe, discarding whatever the subscription was still owed. */
 export const removeSubscription = (connID: number, name: string): Promise<void> =>
   ActiveMQService.RemoveSubscription(connID, name);
+
+/**
+ * The destinations dead letters land in, and what feeds them.
+ *
+ * The sources are filled on Artemis and empty on Classic, and that is the
+ * broker rather than the app: Artemis records a dead-letter address on every
+ * queue, so the topology can be walked backwards; Classic decides by a
+ * broker-wide policy and keeps no record of where a dead letter came from.
+ */
+export const deadLetterQueues = (connID: number): Promise<DeadLetterQueue[]> =>
+  ActiveMQService.DeadLetterQueues(connID).then(present);
+
+/**
+ * Send a dead-lettered destination's contents back where each message came
+ * from, reporting the broker's own count.
+ *
+ * The whole destination, because that is the only form either product offers:
+ * retryMessages() takes no arguments on Classic or on Artemis.
+ */
+export const retryDeadLetters = (connID: number, name: string): Promise<number> =>
+  ActiveMQService.RetryDeadLetters(connID, name);

@@ -103,3 +103,24 @@ func (s *ActiveMQService) CreateSubscription(connID int, input ActiveMQSubscript
 func (s *ActiveMQService) RemoveSubscription(connID int, name string) error {
 	return s.service.RemoveSubscription(context.Background(), connID, name)
 }
+
+// DeadLetterQueues finds the destinations dead letters land in, and the
+// destinations that feed them.
+//
+// The sources are empty on Classic and filled on Artemis, and that is the
+// broker rather than the driver: Artemis records a dead-letter address on
+// every queue, so the topology can be walked backwards; Classic decides by a
+// broker-wide policy and keeps no record of where a dead letter came from.
+func (s *ActiveMQService) DeadLetterQueues(connID int) ([]*model.DeadLetterQueue, error) {
+	return s.service.DeadLetterQueues(context.Background(), connID)
+}
+
+// RetryDeadLetters sends a dead-lettered destination's contents back to the
+// destinations each message originally failed on, and reports how many the
+// broker moved.
+//
+// The whole destination, because that is the only form either product offers:
+// retryMessages() takes no arguments on Classic or on Artemis.
+func (s *ActiveMQService) RetryDeadLetters(connID int, name string) (int, error) {
+	return s.service.RetryDeadLetters(context.Background(), connID, name)
+}

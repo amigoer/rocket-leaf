@@ -4036,6 +4036,25 @@
           "properties": "属性",
           "body": "内容"
         }
+      },
+      "dlq": {
+        "count": "{{count}} 个死信目的地",
+        "name": "目的地",
+        "depth": "堆积",
+        "consumers": "消费者",
+        "sources": "来源",
+        "retry": "全部重投",
+        "retryTitle": "重投 {{name}} 中的全部消息？",
+        "retryDesc": "会把 {{count}} 条消息送回它们当初失败的目的地。再次失败的还会回到这里。",
+        "retried": "已重投 {{count}} 条消息",
+        "retryFailed": "重投失败",
+        "retryNote": "每条消息回到它失败的那个目的地，而不是另开一条重试链路。两个产品都只能整个目的地重投——都不接受 selector。",
+        "noSourcesClassic": "Classic 通过 broker 级策略决定死信去向，不记录是谁把消息送到这里的。按目的地名称去推断来源只会是猜测。",
+        "noSourcesArtemis": "已经没有任何队列指向这里。里面堆积的消息不会再动：没有队列声明这个地址，它也不会再收到任何东西。",
+        "section": {
+          "state": "状态",
+          "sources": "来源"
+        }
       }
     }
   }

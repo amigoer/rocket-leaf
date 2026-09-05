@@ -888,3 +888,120 @@ func TestLiveBrowsingAnArtemisTopicSaysWhereTheMessagesAre(t *testing.T) {
 		t.Error("browsing a multicast address answered instead of saying where to look")
 	}
 }
+
+// Dead letters, which this family has properly and most of the others do not.
+//
+// Kafka has no broker-side dead-letter queue; NATS moves nothing; Redis keeps
+// a pending list because it gives up on nothing. ActiveMQ moves the message to
+// a destination the operator named and can put it back where it came from,
+// which makes it the first family ever to exercise the retry.
+func TestLiveDeadLettersAreFoundByWalkingTheDeclarations(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		require func(*testing.T)
+		profile model.ConnectionProfile
+		expect  string
+	}{
+		{"artemis", requireArtemis, artemisProfile(""), "DLQ"},
+		{"classic", requireClassic, classicProfile(""), "ActiveMQ.DLQ"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.require(t)
+			ctx := liveContext(t)
+			conn, err := open(ctx, tc.profile)
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+
+			// Classic creates ActiveMQ.DLQ the first time something is dead
+			// lettered, so a broker that has never failed a delivery has none
+			// - which is a true answer rather than a missing one.
+			if tc.name == "classic" {
+				if err := conn.CreateDestination(ctx, model.DestinationSpec{
+					Ref: model.DestinationRef{Name: tc.expect},
+				}); err != nil {
+					t.Fatalf("create the dead-letter queue: %v", err)
+				}
+			}
+
+			queues, err := conn.DeadLetterQueues(ctx, "")
+			if err != nil {
+				t.Fatalf("dead letter queues: %v", err)
+			}
+			var found *model.DeadLetterQueue
+			for _, queue := range queues {
+				if queue.Name == tc.expect {
+					found = queue
+				}
+			}
+			if found == nil {
+				names := make([]string, 0, len(queues))
+				for _, queue := range queues {
+					names = append(names, queue.Name)
+				}
+				t.Fatalf("%s is not among the dead-letter queues %v", tc.expect, names)
+			}
+
+			// Artemis records a DeadLetterAddress on every queue, so the page
+			// can say which destinations feed this one. Classic decides by
+			// broker policy and keeps no such record, so the list is empty -
+			// and inventing it from names would be a guess dressed as
+			// topology.
+			if tc.name == "artemis" && len(found.Sources) == 0 {
+				t.Error("artemis declares a dead-letter address per queue and no sources were found")
+			}
+			if tc.name == "classic" && len(found.Sources) != 0 {
+				t.Errorf("classic keeps no record of what fed a dead-letter queue, got %d sources",
+					len(found.Sources))
+			}
+		})
+	}
+}
+
+// Retry puts each message back on the destination it originally failed on,
+// which is the operation no other family in this app has. Both products spell
+// it retryMessages() with no arguments - the selector-taking form the
+// documentation describes exists on neither.
+func TestLiveRetryPutsDeadLettersBackWhereTheyCameFrom(t *testing.T) {
+	requireArtemis(t)
+	ctx := liveContext(t)
+	conn, err := open(ctx, artemisProfile(""))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	origin := "MQS.TEST.dlq.origin"
+	if err := conn.CreateDestination(ctx, model.DestinationSpec{
+		Ref: model.DestinationRef{Name: origin},
+	}); err != nil {
+		t.Fatalf("create origin: %v", err)
+	}
+	defer func() { _ = conn.RemoveDestination(ctx, model.DestinationRef{Name: origin}) }()
+
+	// The annotations Artemis itself writes when it dead-letters a message,
+	// which is what retryMessages reads to know where to put it back. Setting
+	// them by hand is the only way to produce a dead letter without a consumer
+	// that refuses one max-delivery-attempts times.
+	dlq := conn.names.artemisQueue("DLQ", "DLQ", anycast)
+	for i := range 2 {
+		if _, err := conn.jolokia.call(ctx, execOperation(dlq,
+			"sendMessage(java.util.Map,int,java.lang.String,boolean,java.lang.String,java.lang.String)",
+			map[string]string{"_AMQ_ORIG_ADDRESS": origin, "_AMQ_ORIG_QUEUE": origin},
+			3, fmt.Sprintf("dead-%d", i), true, liveArtemisUser, liveArtemisPass)); err != nil {
+			t.Fatalf("send to the dead-letter queue: %v", err)
+		}
+	}
+
+	retried, err := conn.RetryDeadLetters(ctx, model.DestinationRef{Name: "DLQ"})
+	if err != nil {
+		t.Fatalf("retry: %v", err)
+	}
+	if retried < 2 {
+		t.Errorf("retried = %d, want at least the 2 this test dead-lettered", retried)
+	}
+	if depth := depthOf(t, ctx, conn, origin); depth != 2 {
+		t.Errorf("the origin holds %d after the retry, want 2", depth)
+	}
+}
