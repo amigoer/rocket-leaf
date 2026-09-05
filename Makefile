@@ -20,6 +20,7 @@ ARCH ?=
 	e2e-nats-plain-up e2e-nats-plain-down \
 	e2e-activemq-up e2e-activemq-seed e2e-activemq-down \
 	e2e-activemq-classic-up e2e-activemq-classic-down \
+	e2e-nsq-up e2e-nsq-seed e2e-nsq-down \
 	check ci clean \
 	website-dev website-build
 
@@ -169,6 +170,15 @@ e2e-activemq-classic-up: ## Start the ActiveMQ Classic broker, the family's othe
 
 e2e-activemq-classic-down: ## Stop the ActiveMQ Classic environment
 	npm run e2e:activemq:classic:down
+
+e2e-nsq-up: ## Start the two-nsqd, two-nsqlookupd NSQ cluster the live tests use
+	npm run e2e:nsq:up
+
+e2e-nsq-seed: ## Fill the NSQ cluster with topics and channels for the cross-check
+	npm run e2e:nsq:seed
+
+e2e-nsq-down: ## Stop the NSQ environment and remove its volumes
+	npm run e2e:nsq:down
 
 e2e: ## Run the live tests against a running, seeded RocketMQ E2E environment
 	npm run test:e2e

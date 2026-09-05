@@ -1,0 +1,131 @@
+name: mq-studio-e2e-nsq
+
+# An NSQ cluster: two nsqd and two nsqlookupd.
+#
+# Two nsqd because one cannot produce the thing this driver has to get right.
+# A topic is created on the daemon it was asked for and exists there alone, so
+# its depth is a sum across the cluster and its placement is a real fact about
+# where it lives - neither of which a single-node environment can be wrong
+# about. Two nsqlookupd because the directory board lists a tier, and a tier of
+# one is a list that cannot lose an entry.
+#
+# Every nsqd broadcasts 127.0.0.1 rather than its container name. nsqlookupd
+# hands back whatever the nsqd said about itself, and the driver's node list is
+# read from there; a broadcast name only the compose network resolves would
+# produce a directory board full of addresses the app cannot reach. The
+# published ports therefore match the in-container ones exactly, which is why
+# the second nsqd is moved to 4152/4153 rather than remapped.
+
+services:
+  nsqlookupd:
+    image: nsqio/nsq:v1.3.0
+    hostname: nsqlookupd
+    command: /nsqlookupd --broadcast-address=nsqlookupd
+    ports:
+      - '127.0.0.1:4160:4160'
+      - '127.0.0.1:4161:4161'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:4161/ping']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  nsqlookupd2:
+    image: nsqio/nsq:v1.3.0
+    hostname: nsqlookupd2
+    command: /nsqlookupd --tcp-address=0.0.0.0:4162 --http-address=0.0.0.0:4163 --broadcast-address=nsqlookupd2
+    ports:
+      - '127.0.0.1:4162:4162'
+      - '127.0.0.1:4163:4163'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:4163/ping']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  nsqd:
+    image: nsqio/nsq:v1.3.0
+    hostname: nsqd
+    command: >
+      /nsqd
+      --lookupd-tcp-address=nsqlookupd:4160
+      --lookupd-tcp-address=nsqlookupd2:4162
+      --broadcast-address=127.0.0.1
+      --data-path=/data
+    depends_on:
+      nsqlookupd:
+        condition: service_healthy
+      nsqlookupd2:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:4150:4150'
+      - '127.0.0.1:4151:4151'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:4151/ping']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    volumes:
+      - nsqd-data:/data
+
+  nsqd2:
+    image: nsqio/nsq:v1.3.0
+    hostname: nsqd2
+    # A memory queue of 10 rather than the default 10000. Everything past it
+    # spills to a per-channel file on disk and is counted in backend_depth, so
+    # a modest seed here exercises the path a default-configured daemon would
+    # need six figures of backlog to reach.
+    command: >
+      /nsqd
+      --tcp-address=0.0.0.0:4152
+      --http-address=0.0.0.0:4153
+      --lookupd-tcp-address=nsqlookupd:4160
+      --lookupd-tcp-address=nsqlookupd2:4162
+      --broadcast-address=127.0.0.1
+      --mem-queue-size=10
+      --data-path=/data
+    depends_on:
+      nsqlookupd:
+        condition: service_healthy
+      nsqlookupd2:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:4152:4152'
+      - '127.0.0.1:4153:4153'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:4153/ping']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    volumes:
+      - nsqd2-data:/data
+
+  # One connected consumer, so the clients board has a row to draw and the
+  # cross-check has a per-channel client list to compare against.
+  #
+  # It reads MQS.SEED.events, the one seeded topic nothing publishes to, for a
+  # reason worth stating: a consumer attached to a topic that has a backlog
+  # would drain it, and the depths the rest of the environment exists to
+  # provide would be gone by the time a test looked. Here it connects, holds a
+  # ready count, and takes nothing.
+  #
+  # It finds its nsqd through nsqlookupd rather than being pointed at one, so
+  # it also proves discovery works: until the seed creates the topic there is
+  # nothing to connect to, and go-nsq keeps polling rather than exiting.
+  consumer:
+    image: nsqio/nsq:v1.3.0
+    command: /nsq_tail --lookupd-http-address=nsqlookupd:4161 --topic=MQS.SEED.events --channel=watchers
+    depends_on:
+      nsqd:
+        condition: service_healthy
+      nsqd2:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  nsqd-data:
+  nsqd2-data:

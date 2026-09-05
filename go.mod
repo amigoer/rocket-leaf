@@ -24,6 +24,7 @@ require (
 	github.com/twmb/franz-go/pkg/kfake v0.0.0-20260820024614-9b174ed31afe
 	github.com/twmb/franz-go/pkg/kmsg v1.13.1
 	github.com/wailsapp/wails/v3 v3.0.0-beta.16
+	golang.org/x/sync v0.22.0
 	golang.org/x/sys v0.47.0
 )
 
@@ -87,7 +88,6 @@ require (
 	golang.org/x/mod v0.38.0 // indirect
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
