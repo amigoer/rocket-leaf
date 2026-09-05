@@ -24,3 +24,10 @@ type ClientRuntime interface {
 	Test(profile model.ConnectionProfile) error
 	CloseAll()
 }
+
+// EndpointPolicy answers whether a family must be given an address, from
+// the driver's own descriptor. Injected for the same reason ClientRuntime
+// is: a profile store must not import a driver.
+type EndpointPolicy interface {
+	RequiresEndpoints(kind model.MQKind) bool
+}

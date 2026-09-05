@@ -34,7 +34,7 @@ func TestLoadMigratesThePreKindFormat(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	service := New(path, fakeSettings{connectTimeout: 3 * time.Second}, noopRuntime{})
+	service := New(path, fakeSettings{connectTimeout: 3 * time.Second}, noopRuntime{}, addressedEndpoints{})
 
 	profiles := service.GetConnections()
 	if len(profiles) != 1 {
@@ -66,7 +66,7 @@ func TestLoadMigratesThePreKindFormat(t *testing.T) {
 func TestSaveWritesTheKindSchemaWithEncryptedSecrets(t *testing.T) {
 	ensureTestCrypto(t)
 	path := filepath.Join(t.TempDir(), "connections.json")
-	service := New(path, fakeSettings{connectTimeout: 3 * time.Second}, noopRuntime{})
+	service := New(path, fakeSettings{connectTimeout: 3 * time.Second}, noopRuntime{}, addressedEndpoints{})
 
 	if _, err := service.AddConnection(profileOf("prod", "", "ns:9876", 5, true, "plain-ak", "plain-sk", "")); err != nil {
 		t.Fatal(err)

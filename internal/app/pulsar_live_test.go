@@ -46,7 +46,7 @@ func livePulsarStack(t *testing.T) (*connection.Service, *driver.Registry) {
 
 	settingsService := settings.New(paths.SettingsFile)
 	connections := connection.New(
-		paths.ConnectionsFile, settingsService, newRegistryRuntime(registry))
+		paths.ConnectionsFile, settingsService, newRegistryRuntime(registry), newDescriptorEndpoints())
 	return connections, registry
 }
 

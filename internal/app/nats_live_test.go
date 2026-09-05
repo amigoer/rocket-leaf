@@ -89,7 +89,8 @@ func newNatsStack(t *testing.T) *natsStack {
 
 	conns := newConnSource(registry)
 	return &natsStack{
-		connections:  connection.New(paths.ConnectionsFile, settingsService, newRegistryRuntime(registry)),
+		connections: connection.New(
+			paths.ConnectionsFile, settingsService, newRegistryRuntime(registry), newDescriptorEndpoints()),
 		nats:         natsservice.New(conns, settingsService),
 		destinations: destination.New(conns, settingsService),
 		messages:     message.New(conns, settingsService),

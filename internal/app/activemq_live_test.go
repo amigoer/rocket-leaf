@@ -87,7 +87,8 @@ func newActiveMQStack(t *testing.T) *activeMQStack {
 
 	conns := newConnSource(registry)
 	return &activeMQStack{
-		connections:  connection.New(paths.ConnectionsFile, settingsService, newRegistryRuntime(registry)),
+		connections: connection.New(
+			paths.ConnectionsFile, settingsService, newRegistryRuntime(registry), newDescriptorEndpoints()),
 		activemq:     activemqservice.New(conns, settingsService),
 		destinations: destination.New(conns, settingsService),
 		messages:     message.New(conns, settingsService),

@@ -134,7 +134,7 @@ func TestConnectionPersistReload(t *testing.T) {
 	if _, err := service.AddConnection(profileOf("keep", "development", "127.0.0.1:9876", 5, true, "ak1", "sk1", "")); err != nil {
 		t.Fatal(err)
 	}
-	reloaded := New(service.dataFilePath, fakeSettings{connectTimeout: 3 * time.Second, autoConnect: true}, noopRuntime{})
+	reloaded := New(service.dataFilePath, fakeSettings{connectTimeout: 3 * time.Second, autoConnect: true}, noopRuntime{}, addressedEndpoints{})
 	list := reloaded.GetConnections()
 	if len(list) != 1 || list[0].Secret(model.SecretAccessKey) != "ak1" || list[0].Secret(model.SecretSecretKey) != "sk1" {
 		t.Fatalf("reloaded credentials do not match: %#v", list)
@@ -196,7 +196,7 @@ func TestDriverSecretsSurviveAReload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{})
+	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{}, addressedEndpoints{})
 	stored, err := reopened.GetConnection(added.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -362,7 +362,7 @@ func TestRocketMQNamespaceSurvivesAReload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{})
+	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{}, addressedEndpoints{})
 	stored, err := reopened.GetConnection(added.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -377,7 +377,7 @@ func TestRocketMQNamespaceSurvivesAReload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reopened = New(service.dataFilePath, fakeSettings{}, noopRuntime{})
+	reopened = New(service.dataFilePath, fakeSettings{}, noopRuntime{}, addressedEndpoints{})
 	stored, err = reopened.GetConnection(unscoped.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -410,7 +410,7 @@ func TestKafkaProfileSurvivesAReload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{})
+	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{}, addressedEndpoints{})
 	stored, err := reopened.GetConnection(added.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -458,7 +458,7 @@ func TestAnonymousKafkaProfileSurvivesAReload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{})
+	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{}, addressedEndpoints{})
 	stored, err := reopened.GetConnection(added.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -496,7 +496,7 @@ func TestKafkaDroppingSASLClearsTheStoredCredential(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{})
+	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{}, addressedEndpoints{})
 	stored, err := reopened.GetConnection(added.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -532,7 +532,7 @@ func TestPulsarTokenSurvivesAReload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{})
+	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{}, addressedEndpoints{})
 	stored, err := reopened.GetConnection(added.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -705,7 +705,7 @@ func TestRedisStreamProfileSurvivesAReload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{})
+	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{}, addressedEndpoints{})
 	stored, err := reopened.GetConnection(added.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -751,7 +751,7 @@ func TestRedisStreamKeepsAPasswordWithNoUsername(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{})
+	reopened := New(service.dataFilePath, fakeSettings{}, noopRuntime{}, addressedEndpoints{})
 	stored, err := reopened.GetConnection(added.ID)
 	if err != nil {
 		t.Fatal(err)

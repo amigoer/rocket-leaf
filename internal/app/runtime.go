@@ -27,6 +27,25 @@ func newRegistryRuntime(registry *driver.Registry) connection.ClientRuntime {
 	return &registryRuntime{registry: registry}
 }
 
+// descriptorEndpoints answers the connection service's endpoint question from
+// the driver's own form, and lives here for the same reason registryRuntime
+// does: only the composition root may know both halves.
+type descriptorEndpoints struct{}
+
+func newDescriptorEndpoints() connection.EndpointPolicy { return descriptorEndpoints{} }
+
+// RequiresEndpoints demands an address for a kind no driver is compiled in
+// for. Such a profile cannot be opened anyway, and letting it save without one
+// would only replace the error the user can act on with a later one they
+// cannot.
+func (descriptorEndpoints) RequiresEndpoints(kind model.MQKind) bool {
+	d, ok := driver.Lookup(kind)
+	if !ok {
+		return true
+	}
+	return d.Descriptor().RequiresEndpoints()
+}
+
 // dialTimeout is how long opening or testing one profile may take. The profile
 // arrives resolved, so a zero here means the profile carried no timeout.
 func dialTimeout(profile model.ConnectionProfile) time.Duration {

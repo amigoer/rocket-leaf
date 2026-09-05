@@ -38,7 +38,7 @@ func TestRealServicesConfigurationWorkflow(t *testing.T) {
 		t.Fatalf("initialize encryption key: %v", err)
 	}
 	settings := settingsservice.New(paths.SettingsFile)
-	connections := connectionservice.New(paths.ConnectionsFile, settings, noopClientRuntime{})
+	connections := connectionservice.New(paths.ConnectionsFile, settings, noopClientRuntime{}, addressedEndpoints{})
 	configuration := New(paths, settings, connections)
 
 	t.Run("portable export and import", func(t *testing.T) {
@@ -265,3 +265,9 @@ func (noopClientRuntime) HasClient(int) bool                    { return false }
 func (noopClientRuntime) Remove(int)                            {}
 func (noopClientRuntime) Test(model.ConnectionProfile) error    { return nil }
 func (noopClientRuntime) CloseAll()                             {}
+
+// addressedEndpoints stands in for the driver-backed policy: every profile in
+// this test names a family that is dialled by address.
+type addressedEndpoints struct{}
+
+func (addressedEndpoints) RequiresEndpoints(model.MQKind) bool { return true }

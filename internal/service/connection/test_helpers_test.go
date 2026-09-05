@@ -50,7 +50,7 @@ func newTestService(t *testing.T, settings Settings) *Service {
 	if settings == nil {
 		settings = fakeSettings{connectTimeout: 3 * time.Second, autoConnect: true}
 	}
-	return New(filepath.Join(t.TempDir(), "connections.json"), settings, noopRuntime{})
+	return New(filepath.Join(t.TempDir(), "connections.json"), settings, noopRuntime{}, addressedEndpoints{})
 }
 
 // noopRuntime stands in where a test only exercises profile persistence. The
@@ -63,6 +63,12 @@ func (noopRuntime) HasClient(int) bool                    { return false }
 func (noopRuntime) Remove(int)                            {}
 func (noopRuntime) Test(model.ConnectionProfile) error    { return nil }
 func (noopRuntime) CloseAll()                             {}
+
+// addressedEndpoints is the policy every family had before one could
+// decline an address, so a test using it reads exactly as it did.
+type addressedEndpoints struct{}
+
+func (addressedEndpoints) RequiresEndpoints(model.MQKind) bool { return true }
 
 // profileOf builds a profile from the arguments the old positional signature
 // took, so these tests read as they did before AddConnection stopped spelling

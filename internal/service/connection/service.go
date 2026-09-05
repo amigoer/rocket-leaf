@@ -22,6 +22,7 @@ type Service struct {
 	dataFilePath    string
 	settings        Settings
 	runtime         ClientRuntime
+	endpoints       EndpointPolicy
 	reconnectReload bool
 
 	listenersMu sync.RWMutex
@@ -30,9 +31,9 @@ type Service struct {
 
 // New creates a connection service backed by dataFilePath.
 //
-// The runtime is injected rather than constructed here so this package stays
-// free of any driver import.
-func New(dataFilePath string, settings Settings, runtime ClientRuntime) *Service {
+// The runtime and the endpoint policy are injected rather than constructed
+// here so this package stays free of any driver import.
+func New(dataFilePath string, settings Settings, runtime ClientRuntime, endpoints EndpointPolicy) *Service {
 	if strings.TrimSpace(dataFilePath) == "" {
 		dataFilePath = "connections.json"
 	}
@@ -42,6 +43,7 @@ func New(dataFilePath string, settings Settings, runtime ClientRuntime) *Service
 		dataFilePath: dataFilePath,
 		settings:     settings,
 		runtime:      runtime,
+		endpoints:    endpoints,
 	}
 	if err := service.loadConnectionsFromFile(); err != nil {
 		log.Printf("[ConnectionService] failed to load connection config: %v", err)

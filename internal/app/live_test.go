@@ -90,7 +90,8 @@ func liveStack(t *testing.T) (*connection.Service, *destination.Service, *driver
 	registry := driver.NewRegistry()
 	t.Cleanup(registry.CloseAll)
 
-	connections := connection.New(paths.ConnectionsFile, settingsService, newRegistryRuntime(registry))
+	connections := connection.New(
+		paths.ConnectionsFile, settingsService, newRegistryRuntime(registry), newDescriptorEndpoints())
 	return connections, destination.New(newConnSource(registry), settingsService), registry
 }
 
