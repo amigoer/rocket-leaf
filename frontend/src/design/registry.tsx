@@ -56,6 +56,7 @@ import { ProducerRabbitMQ } from "./boards/producer/ProducerRabbitMQ";
 import { ProducerRedis } from "./boards/producer/ProducerRedis";
 import { ProducerNats } from "./boards/producer/ProducerNats";
 import { ProducerActiveMQ } from "./boards/producer/ProducerActiveMQ";
+import { ProducerNsq } from "./boards/producer/ProducerNsq";
 import { BrokerActiveMQ } from "./boards/cluster/BrokerActiveMQ";
 import { OverviewActiveMQ } from "./boards/overview/OverviewActiveMQ";
 import { ClientsActiveMQ } from "./boards/consumers/ClientsActiveMQ";
@@ -217,6 +218,12 @@ export function renderBoard(
        scheduling annotation has to be a Long, so a delay set here would be
        accepted, ignored, and reported as having worked. */
     if (protocol === "activemq") return <ProducerActiveMQ />;
+    /* NSQ's own too: the shared console collects tags, keys and a delay level,
+       and an NSQ message is bytes - no key, no header table, no property map
+       anywhere in the protocol. What it needs instead is the field no other
+       console has: which nsqd takes the message, because the daemon that took
+       it is the one holding it. */
+    if (protocol === "nsq") return <ProducerNsq />;
     return <Producer protocol={protocol} nav={nav} />;
   }
   /* Alerts is one board for every family: the rules are numeric comparisons

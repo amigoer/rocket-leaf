@@ -117,6 +117,9 @@ func capabilities() []model.Capability {
 		model.CapSubscriptionCreate,
 		model.CapSubscriptionDelete,
 		model.CapSubscriptionLag,
+
+		model.CapPublish,
+		model.CapDelayedDelivery,
 	}
 }
 

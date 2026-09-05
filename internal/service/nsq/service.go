@@ -186,3 +186,38 @@ func (s *Service) SetChannelPaused(
 	defer cancel()
 	return api.SetChannelPaused(ctx, topic, channel, paused)
 }
+
+// Publish sends one body, or the same body several times, through one nsqd.
+//
+// Beside the canonical send rather than through it: MessageService.Send
+// collects a topic, tags, keys and a delay level, and an NSQ message is bytes
+// - there is no key, no header table and no property map to put a tag in. What
+// it does have that the canonical shape cannot carry is which daemon takes the
+// message, which decides who can consume it.
+func (s *Service) Publish(
+	ctx context.Context, connID int, request nsqdriver.PublishRequest,
+) (*nsqdriver.PublishResult, error) {
+	if _, err := port[driver.MessagePublisher](s, connID, model.CapPublish); err != nil {
+		return nil, err
+	}
+	api, err := s.nsqConn(connID)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.Publish(ctx, request)
+}
+
+// Nodes lists the daemons a send can be addressed to.
+//
+// Read off the open connection rather than from the cluster board, because it
+// is the profile's own list: a send goes to an address this connection holds,
+// not to whatever nsqlookupd happens to know about.
+func (s *Service) Nodes(_ context.Context, connID int) ([]string, error) {
+	api, err := s.nsqConn(connID)
+	if err != nil {
+		return nil, err
+	}
+	return api.Nodes(), nil
+}

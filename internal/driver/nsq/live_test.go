@@ -842,3 +842,187 @@ func TestLiveUpdateSubscriptionIsRefused(t *testing.T) {
 		t.Error("an nsq channel has nothing to reconfigure and the update reported success")
 	}
 }
+
+// rawChannelDepth reads one channel's depth off one daemon, without going
+// through the driver.
+func rawChannelDepth(t *testing.T, address, topic, channel string) int64 {
+	t.Helper()
+	response, err := http.Get(address + "/stats?format=json&topic=" + url.QueryEscape(topic))
+	if err != nil {
+		t.Fatalf("stats on %s: %v", address, err)
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	var stats struct {
+		Topics []struct {
+			Channels []struct {
+				Name     string `json:"channel_name"`
+				Depth    int64  `json:"depth"`
+				Deferred int    `json:"deferred_count"`
+			} `json:"channels"`
+		} `json:"topics"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&stats); err != nil {
+		t.Fatalf("decoding stats on %s: %v", address, err)
+	}
+	for _, entry := range stats.Topics {
+		for _, found := range entry.Channels {
+			if found.Name == channel {
+				return found.Depth
+			}
+		}
+	}
+	return -1
+}
+
+/*
+ * A publish goes to one daemon and stays there, which is the fact the send
+ * console's node field exists for. A driver that fanned a send out across the
+ * cluster would multiply every message by the number of nsqd; one that always
+ * used the first would make the field a lie.
+ */
+func TestLivePublishGoesToTheDaemonItNames(t *testing.T) {
+	conn := liveConn(t)
+	const topic = "MQS.TEST.publish"
+
+	testTopic(t, conn, topic)
+	if err := conn.CreateSubscription(liveContext(t), model.SubscriptionSpec{
+		Ref: model.SubscriptionRef{Namespace: topic, Name: "one"},
+	}); err != nil {
+		t.Fatalf("creating a channel: %v", err)
+	}
+
+	result, err := conn.Publish(liveContext(t), PublishRequest{
+		Topic: topic, Body: "second daemon", Count: 3, Node: hostPort(liveNSQD2),
+	})
+	if err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if result.Sent != 3 || result.Node != hostPort(liveNSQD2) {
+		t.Fatalf("sent %d to %q, want 3 to %q", result.Sent, result.Node, hostPort(liveNSQD2))
+	}
+
+	if depth := rawChannelDepth(t, liveNSQD2, topic, "one"); depth != 3 {
+		t.Errorf("the named daemon holds %d, want 3", depth)
+	}
+	if depth := rawChannelDepth(t, liveNSQD1, topic, "one"); depth != 0 {
+		t.Errorf("the other daemon holds %d; a publish reaches one nsqd", depth)
+	}
+
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Topic: topic, Body: "x", Node: "127.0.0.1:9999",
+	}); err == nil {
+		t.Error("a publish through a daemon outside the connection reported success")
+	}
+}
+
+/*
+ * A delayed batch is the one shape that has to go one message at a time.
+ *
+ * /mpub takes a defer parameter and ignores it - confirmed against 1.3.0,
+ * where an mpub with defer=1000 answers OK and the messages are in the channel
+ * immediately. A driver that used /mpub for a repeat with a delay would report
+ * a scheduled send and deliver it now.
+ */
+func TestLivePublishHonoursADelayOnEveryCopy(t *testing.T) {
+	conn := liveConn(t)
+	const topic = "MQS.TEST.deferred"
+
+	testTopic(t, conn, topic)
+	if err := conn.CreateSubscription(liveContext(t), model.SubscriptionSpec{
+		Ref: model.SubscriptionRef{Namespace: topic, Name: "one"},
+	}); err != nil {
+		t.Fatalf("creating a channel: %v", err)
+	}
+
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Topic: topic, Body: "later", Count: 4, Delay: 30 * time.Minute, Node: hostPort(liveNSQD1),
+	}); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+
+	detail, err := conn.SubscriptionDetail(liveContext(t), model.SubscriptionRef{
+		Namespace: topic, Name: "one",
+	})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if detail.Attribute(AttrDeferred) != "4" {
+		t.Errorf("deferred = %q, want all 4 held back", detail.Attribute(AttrDeferred))
+	}
+	// Deferred messages are counted apart from the backlog, so a channel with
+	// four waiting on a delivery time reports a depth of nothing.
+	if detail.Backlog != 0 {
+		t.Errorf("backlog = %d; a deferred message is not yet deliverable", detail.Backlog)
+	}
+
+	// nsqd's own ceiling, and the driver passes the value through rather than
+	// guessing at a deployment's --max-req-timeout.
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Topic: topic, Body: "far too late", Delay: 2 * time.Hour,
+	}); err == nil {
+		t.Error("a delay past nsqd's ceiling was accepted")
+	}
+}
+
+// A body with a newline in it cannot go through /mpub, which uses newline as
+// its separator: a repeat of one would arrive as several messages each time.
+func TestLivePublishKeepsAMultilineBodyWhole(t *testing.T) {
+	conn := liveConn(t)
+	const topic = "MQS.TEST.multiline"
+
+	testTopic(t, conn, topic)
+	if err := conn.CreateSubscription(liveContext(t), model.SubscriptionSpec{
+		Ref: model.SubscriptionRef{Namespace: topic, Name: "one"},
+	}); err != nil {
+		t.Fatalf("creating a channel: %v", err)
+	}
+
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Topic: topic, Body: "{\n  \"id\": 1\n}", Count: 3, Node: hostPort(liveNSQD1),
+	}); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if depth := rawChannelDepth(t, liveNSQD1, topic, "one"); depth != 3 {
+		t.Errorf("the channel holds %d, want the 3 sent rather than their lines", depth)
+	}
+}
+
+/*
+ * The canonical port, and the two arguments it carries that NSQ cannot.
+ *
+ * Refusing rather than ignoring is the whole point: a tag put in the field and
+ * silently dropped would be reported as sent, and the consumer would never see
+ * a value the sender believes it carried.
+ */
+func TestLiveSendMessageRefusesWhatNSQCannotCarry(t *testing.T) {
+	conn := liveConn(t)
+	const topic = "MQS.TEST.canonical"
+
+	testTopic(t, conn, topic)
+
+	if _, err := conn.SendMessage(liveContext(t), topic, "orders", "", "body", 0); err == nil {
+		t.Error("a tag was accepted, and an nsq message has nowhere to put one")
+	}
+	if _, err := conn.SendMessage(liveContext(t), topic, "", "key-1", "body", 0); err == nil {
+		t.Error("a key was accepted, and an nsq message has nowhere to put one")
+	}
+
+	id, err := conn.SendMessage(liveContext(t), topic, "", "", "body", 0)
+	if err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	// Empty rather than a placeholder: nsqd answers a publish with the word OK
+	// and hands back nothing that could look the message up again.
+	if id != "" {
+		t.Errorf("id = %q; nsqd returns no message id at all", id)
+	}
+
+	// delayLevel is seconds here, which is the reading the console labels.
+	if _, err := conn.SendMessage(liveContext(t), topic, "", "", "body", 60); err != nil {
+		t.Errorf("send with a delay: %v", err)
+	}
+	if _, err := conn.SendMessage(liveContext(t), topic, "", "", "", 0); err == nil {
+		t.Error("an empty body was accepted, and nsqd answers MSG_EMPTY")
+	}
+}

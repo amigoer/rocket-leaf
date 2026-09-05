@@ -19,9 +19,9 @@ import * as $models from "./models.js";
 /**
  * CreateChannel declares a channel on every nsqd carrying its topic.
  * 
- * It starts empty whatever the topic already holds: nsqd copies a message into
- * the channels that exist when it arrives, so there is nothing for a new one
- * to catch up on and no position to start it from.
+ * There is no position to start it from. What it gets is whatever nsqd is
+ * still holding: nothing, on a topic that already has a channel, and the
+ * topic's own queue on one that had none to copy into.
  */
 export function CreateChannel(connID: number, input: $models.NSQChannelInput): $CancellablePromise<void> {
     return $Call.ByID(960771588, connID, input);
@@ -51,6 +51,24 @@ export function EmptyChannel(connID: number, input: $models.NSQChannelInput): $C
  */
 export function EmptyTopic(connID: number, name: string): $CancellablePromise<void> {
     return $Call.ByID(2690610417, connID, name);
+}
+
+/**
+ * Nodes lists the daemons the send console can address.
+ */
+export function Nodes(connID: number): $CancellablePromise<string[]> {
+    return $Call.ByID(3925263922, connID).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
+/**
+ * Publish sends through one nsqd and reports which one took the messages.
+ */
+export function Publish(connID: number, input: $models.NSQPublishInput): $CancellablePromise<$models.NSQPublishResult | null> {
+    return $Call.ByID(3159053456, connID, input).then(($result: any) => {
+        return $$createType2($result);
+    });
 }
 
 /**
@@ -86,3 +104,8 @@ export function SetChannelPaused(connID: number, input: $models.NSQChannelInput,
 export function SetTopicPaused(connID: number, name: string, paused: boolean): $CancellablePromise<void> {
     return $Call.ByID(876836892, connID, name, paused);
 }
+
+// Private type creation functions
+const $$createType0 = $Create.Array($Create.Any);
+const $$createType1 = $models.NSQPublishResult.createFrom;
+const $$createType2 = $Create.Nullable($$createType1);

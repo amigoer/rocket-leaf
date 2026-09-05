@@ -1,4 +1,8 @@
 import { NSQService } from "@bindings/bridge";
+import type { NSQPublishInput, NSQPublishResult } from "@bindings/bridge/models";
+import { present, required } from "./client";
+
+export type { NSQPublishInput };
 
 /**
  * The NSQ-only half of the surface.
@@ -87,3 +91,17 @@ export const setChannelPaused = (
   channel: string,
   paused: boolean,
 ): Promise<void> => NSQService.SetChannelPaused(connID, { topic, channel }, paused);
+
+/**
+ * Send one body, or the same body several times, through one nsqd.
+ *
+ * Which daemon matters more than it looks: the message is held by the nsqd
+ * that took it, and a consumer connected to a different one sees it only if it
+ * also finds this daemon through nsqlookupd.
+ */
+export const publish = (connID: number, input: NSQPublishInput): Promise<NSQPublishResult> =>
+  NSQService.Publish(connID, input).then(required);
+
+/** The daemons the send console can address, as the profile names them. */
+export const nodes = (connID: number): Promise<string[]> =>
+  NSQService.Nodes(connID).then(present);

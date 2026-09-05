@@ -2,7 +2,9 @@ package bridge
 
 import (
 	"context"
+	"time"
 
+	nsqdriver "github.com/amigoer/mq-studio/internal/driver/nsq"
 	nsqservice "github.com/amigoer/mq-studio/internal/service/nsq"
 )
 
@@ -80,4 +82,49 @@ func (s *NSQService) EmptyChannel(connID int, input NSQChannelInput) error {
 func (s *NSQService) SetChannelPaused(connID int, input NSQChannelInput, paused bool) error {
 	return s.service.SetChannelPaused(
 		context.Background(), connID, input.Topic, input.Channel, paused)
+}
+
+// NSQPublishInput is a send as the NSQ console collects it.
+//
+// Deliberately not MessageService.Send's shape. That one takes a topic, tags,
+// keys and a delay level - RocketMQ's vocabulary, of which an NSQ message has
+// only the topic and the delay. What it cannot carry is the one field that
+// matters here: which nsqd takes the message, because the daemon that took it
+// is the one holding it.
+type NSQPublishInput struct {
+	Topic string `json:"topic"`
+	Body  string `json:"body"`
+	// Count sends the same body more than once. One when left at zero.
+	Count int `json:"count"`
+	// DelaySec holds the message back from the channels. nsqd caps it at its
+	// --max-req-timeout, one hour by default.
+	DelaySec int `json:"delaySec"`
+	// Node is host:port. Empty means the first nsqd in the connection.
+	Node string `json:"node"`
+}
+
+// NSQPublishResult is what the send did, and where it went.
+type NSQPublishResult struct {
+	Sent int    `json:"sent"`
+	Node string `json:"node"`
+}
+
+// Publish sends through one nsqd and reports which one took the messages.
+func (s *NSQService) Publish(connID int, input NSQPublishInput) (*NSQPublishResult, error) {
+	result, err := s.service.Publish(context.Background(), connID, nsqdriver.PublishRequest{
+		Topic: input.Topic,
+		Body:  input.Body,
+		Count: input.Count,
+		Delay: time.Duration(input.DelaySec) * time.Second,
+		Node:  input.Node,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &NSQPublishResult{Sent: result.Sent, Node: result.Node}, nil
+}
+
+// Nodes lists the daemons the send console can address.
+func (s *NSQService) Nodes(connID int) ([]string, error) {
+	return s.service.Nodes(context.Background(), connID)
 }

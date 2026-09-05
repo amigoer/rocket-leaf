@@ -81,6 +81,8 @@ export {
     NATSPublishInput,
     NATSSubscribeInput,
     NSQChannelInput,
+    NSQPublishInput,
+    NSQPublishResult,
     NamespaceInput,
     OffsetResetInput,
     PendingQueryInput,

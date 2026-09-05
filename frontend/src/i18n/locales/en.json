@@ -4314,6 +4314,33 @@
         "deleteFailed": "Could not delete the channel",
         "stalled": "{{count}} messages are waiting because this channel is paused. Its consumers are connected and asking for work; nsqd is sending none until the pause is lifted.",
         "note": "A channel is this family's consumer group: every channel under a topic receives a copy of every message, and its depth is the backlog. There is no offset behind that depth, so nothing here moves a read position — a backlog is consumed or emptied, and there is no third way. In flight and deferred sit outside it."
+      },
+      "producer": {
+        "subtitle": "One body, to one nsqd",
+        "title": "Send",
+        "topic": "Topic",
+        "topicHint": "Publishing to a topic that does not exist creates it, on the daemon that took the message and nowhere else — so a name typed wrong leaves a topic behind rather than failing.",
+        "topicRequired": "Choose a topic to publish to.",
+        "body": "Body",
+        "bodyHint": "An NSQ message is bytes. There is no key, no header table and no property map anywhere in the protocol, so anything a consumer needs to know goes in here.",
+        "bodyRequired": "nsqd refuses an empty body.",
+        "section": {
+          "delivery": "Delivery"
+        },
+        "node": "Through",
+        "firstNode": "The first nsqd",
+        "nodeHint": "The daemon that takes the message is the one holding it. A consumer attached to another sees it only if it also finds this one through nsqlookupd.",
+        "delay": "Delay (seconds)",
+        "delayHint": "Held back from the channels for this long. nsqd caps it at its --max-req-timeout, {{max}} seconds by default, and refuses anything longer — the limit is not readable over the API, so this is the default rather than your daemon's.",
+        "delayRange": "A delay is between 0 and nsqd's --max-req-timeout, 3600 seconds by default.",
+        "count": "Repeat",
+        "countHint": "Sends the same body this many times, up to {{max}}, as one batch.",
+        "countRange": "Send between 1 and 1000 messages at a time.",
+        "oneAtATime": "These {{count}} go one request at a time rather than as a batch: /mpub separates messages with a newline and ignores a delay outright.",
+        "send": "Send",
+        "sent": "Sent {{count}} messages",
+        "sentTo": "Sent {{count}} to {{node}}",
+        "failed": "Could not send"
       }
     }
   }
