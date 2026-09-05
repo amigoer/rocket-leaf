@@ -430,3 +430,133 @@ func TestLiveUpdateDestinationIsRefused(t *testing.T) {
 		t.Error("an nsq topic has nothing to reconfigure and the update reported success")
 	}
 }
+
+/*
+ * The purge that nearly did nothing.
+ *
+ * /topic/empty touches only the topic's own queue, and on a topic with any
+ * channel at all that queue is already empty - nsqd copied every message into
+ * the channels as it arrived. A purge built on that one call answers 200 and
+ * leaves the depth on screen exactly where it was, which is the shape of a
+ * control that does nothing when clicked.
+ */
+func TestLivePurgeEmptiesTheChannelsAsWellAsTheTopic(t *testing.T) {
+	conn := liveConn(t)
+	const topic = "MQS.TEST.purge"
+
+	testTopic(t, conn, topic)
+	rawPost(t, liveNSQD1, "/channel/create", url.Values{"topic": {topic}, "channel": {"one"}}, nil)
+	rawPost(t, liveNSQD1, "/channel/create", url.Values{"topic": {topic}, "channel": {"two"}}, nil)
+	rawPost(t, liveNSQD1, "/mpub", url.Values{"topic": {topic}}, strings.NewReader("a\nb\nc"))
+	rawPost(t, liveNSQD2, "/mpub", url.Values{"topic": {topic}}, strings.NewReader("d\ne"))
+
+	before, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: topic})
+	if err != nil {
+		t.Fatalf("detail before: %v", err)
+	}
+	// Eight from five published, and the arithmetic is worth stating because
+	// it is the whole model: the first daemon has two channels, so its three
+	// messages are held twice; the second was given the topic before either
+	// channel existed and has none, so its two sit in the topic itself.
+	if before.Depth != 8 {
+		t.Fatalf("depth before = %d, want 3 messages held by two channels plus 2 held by a topic",
+			before.Depth)
+	}
+	if before.Attribute(AttrChannelDepth) != "6" || before.Attribute(AttrTopicDepth) != "2" {
+		t.Fatalf("split = topic %q, channels %q; want 2 and 6",
+			before.Attribute(AttrTopicDepth), before.Attribute(AttrChannelDepth))
+	}
+
+	if err := conn.PurgeQueue(liveContext(t), model.DestinationRef{Name: topic}); err != nil {
+		t.Fatalf("purge: %v", err)
+	}
+
+	after, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: topic})
+	if err != nil {
+		t.Fatalf("detail after: %v", err)
+	}
+	if after.Depth != 0 {
+		t.Errorf("depth after = %d, so the purge left the channels holding messages", after.Depth)
+	}
+
+	if err := conn.PurgeQueue(liveContext(t), model.DestinationRef{
+		Name: "MQS.TEST.nothing.is.here",
+	}); err == nil {
+		t.Error("purging a topic no daemon carries reported success")
+	}
+}
+
+// Pausing is not a purge and not a delete: publishing carries on and the
+// messages pile up in the topic itself rather than in its channels. A board
+// that only added up channel depths would show a paused topic as idle.
+func TestLivePauseHoldsMessagesInTheTopic(t *testing.T) {
+	conn := liveConn(t)
+	const topic = "MQS.TEST.pause"
+
+	testTopic(t, conn, topic)
+	rawPost(t, liveNSQD1, "/channel/create", url.Values{"topic": {topic}, "channel": {"one"}}, nil)
+
+	if err := conn.SetTopicPaused(liveContext(t), topic, true); err != nil {
+		t.Fatalf("pause: %v", err)
+	}
+	rawPost(t, liveNSQD1, "/mpub", url.Values{"topic": {topic}}, strings.NewReader("a\nb"))
+
+	paused, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: topic})
+	if err != nil {
+		t.Fatalf("detail while paused: %v", err)
+	}
+	if paused.Attribute(AttrPaused) != "true" {
+		t.Errorf("paused = %q, want true", paused.Attribute(AttrPaused))
+	}
+	if paused.Attribute(AttrTopicDepth) != "2" {
+		t.Errorf("topicDepth = %q, want the 2 the pause is holding", paused.Attribute(AttrTopicDepth))
+	}
+	if paused.Attribute(AttrChannelDepth) != "0" {
+		t.Errorf("channelDepth = %q, want 0 while nothing is being copied out",
+			paused.Attribute(AttrChannelDepth))
+	}
+
+	if err := conn.SetTopicPaused(liveContext(t), topic, false); err != nil {
+		t.Fatalf("unpause: %v", err)
+	}
+	// Resuming is what moves them, and nsqd does it on its own message pump
+	// rather than inside the call, so this is a wait rather than a read.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		resumed, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: topic})
+		if err != nil {
+			t.Fatalf("detail after resuming: %v", err)
+		}
+		if resumed.Attribute(AttrPaused) == "false" && resumed.Attribute(AttrChannelDepth) == "2" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("after resuming, topicDepth = %q and channelDepth = %q",
+				resumed.Attribute(AttrTopicDepth), resumed.Attribute(AttrChannelDepth))
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if err := conn.SetTopicPaused(liveContext(t), "MQS.TEST.nothing.is.here", true); err == nil {
+		t.Error("pausing a topic no daemon carries reported success")
+	}
+}
+
+// The three QueueActions methods NSQ has no way to perform. They exist because
+// the interface is one; nothing in the UI reaches them, and they must not
+// quietly do something instead.
+func TestLiveTheQueueActionsNSQLacksAreRefused(t *testing.T) {
+	conn := liveConn(t)
+
+	if _, err := conn.MoveMessages(liveContext(t), model.MoveRequest{
+		From: "MQS.TEST.a", ToRoutingKey: "MQS.TEST.b",
+	}); err == nil {
+		t.Error("a move reported success, and nothing drains one nsq topic into another")
+	}
+	if _, err := conn.DropMessages(liveContext(t), model.DestinationRef{Name: "MQS.TEST.a"}, 5); err == nil {
+		t.Error("a bounded drop reported success, and nsqd empties a queue whole")
+	}
+	if err := conn.RebalanceQueues(liveContext(t)); err == nil {
+		t.Error("a rebalance reported success, and a topic lives on the daemon that made it")
+	}
+}

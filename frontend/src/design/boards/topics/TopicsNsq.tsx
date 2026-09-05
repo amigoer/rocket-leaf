@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Page, PageBody, PageHeader, RefreshButton } from "@/design/shell";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -10,11 +12,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KV, Panel, PanelHeader, SectionLabel } from "@/components";
+import { KV, Panel, PanelHeader, SectionLabel, useConfirm } from "@/components";
 import { BoardState } from "@/design/boards/BoardState";
 import { useNsqDestinations } from "@/hooks/nsq/useNsqDestinations";
 import { holdingUndelivered, topic as readTopic, type NsqTopic } from "@/mq/nsq/destinations";
 import { formatBytes, formatCount } from "@/lib/format";
+import { formatErrorMessage } from "@/lib/utils";
+import { useConnectionScope } from "@/mq/ConnectionScope";
+import * as nsqApi from "@/api/nsq";
+import { TopicDialogNsq } from "./TopicDialogNsq";
 
 const MONO11 = { fontSize: "11px" } as const;
 
@@ -47,7 +53,10 @@ function count(value: number | null): string {
 export function TopicsNsq() {
   const { t } = useTranslation();
   const state = useNsqDestinations();
+  const { id: connID } = useConnectionScope();
+  const confirm = useConfirm();
   const [search, setSearch] = useState("");
+  const [creating, setCreating] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
 
   const topics = useMemo(() => (state.data ?? []).map(readTopic), [state.data]);
@@ -60,6 +69,84 @@ export function TopicsNsq() {
   const detail = useMemo(
     () => shown.find((entry) => entry.name === selected) ?? shown[0] ?? null,
     [shown, selected],
+  );
+
+  const create = useCallback(
+    async (name: string) => {
+      await nsqApi.createTopic(connID, name);
+      toast.success(t("board.nsq.topics.created", { name }));
+      await state.refresh();
+    },
+    [connID, state, t],
+  );
+
+  const empty = useCallback(
+    async (entry: NsqTopic) => {
+      const ok = await confirm({
+        title: t("board.nsq.topics.emptyTitle", { name: entry.name }),
+        // The depth, because it is the number about to be discarded, and it
+        // counts one copy per channel rather than one per message published.
+        description: t("board.nsq.topics.emptyDesc", { count: entry.depth ?? 0 }),
+        confirmLabel: t("board.nsq.topics.emptyAction"),
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await nsqApi.emptyTopic(connID, entry.name);
+        toast.success(t("board.nsq.topics.emptied", { name: entry.name }));
+        await state.refresh();
+      } catch (emptyError) {
+        toast.error(t("board.nsq.topics.emptyFailed"), {
+          description: formatErrorMessage(emptyError),
+        });
+      }
+    },
+    [confirm, connID, state, t],
+  );
+
+  const remove = useCallback(
+    async (entry: NsqTopic) => {
+      const ok = await confirm({
+        title: t("board.nsq.topics.deleteTitle", { name: entry.name }),
+        description: t("board.nsq.topics.deleteDesc"),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await nsqApi.removeTopic(connID, entry.name);
+        toast.success(t("board.nsq.topics.deleted", { name: entry.name }));
+        setSelected(null);
+        await state.refresh();
+      } catch (deleteError) {
+        toast.error(t("board.nsq.topics.deleteFailed"), {
+          description: formatErrorMessage(deleteError),
+        });
+      }
+    },
+    [confirm, connID, state, t],
+  );
+
+  // No confirmation: pausing takes nothing away and is undone by the same
+  // button. What it does is worth saying afterwards, because publishing
+  // carries on and the messages pile up in the topic.
+  const pause = useCallback(
+    async (entry: NsqTopic) => {
+      try {
+        await nsqApi.setTopicPaused(connID, entry.name, !entry.paused);
+        toast.success(
+          t(entry.paused ? "board.nsq.topics.resumed" : "board.nsq.topics.paused", {
+            name: entry.name,
+          }),
+        );
+        await state.refresh();
+      } catch (pauseError) {
+        toast.error(t("board.nsq.topics.pauseFailed"), {
+          description: formatErrorMessage(pauseError),
+        });
+      }
+    },
+    [connID, state, t],
   );
 
   return (
@@ -75,6 +162,9 @@ export function TopicsNsq() {
               placeholder={t("board.nsq.topics.search")}
               onChange={(event) => setSearch(event.target.value)}
             />
+            <Button size="sm" onClick={() => setCreating(true)}>
+              {t("board.nsq.topics.create")}
+            </Button>
             <RefreshButton
               refreshing={state.refreshing}
               online={state.online}
@@ -83,6 +173,7 @@ export function TopicsNsq() {
           </div>
         }
       />
+      <TopicDialogNsq open={creating} onOpenChange={setCreating} onCreate={create} />
       <BoardState state={state}>
         <PageBody>
           <div style={{ display: "flex", gap: "12px", minHeight: 0, flex: 1 }}>
@@ -158,7 +249,14 @@ export function TopicsNsq() {
               </Table>
             </Panel>
 
-            {detail != null && <TopicDetail entry={detail} />}
+            {detail != null && (
+              <TopicDetail
+                entry={detail}
+                onEmpty={() => void empty(detail)}
+                onRemove={() => void remove(detail)}
+                onTogglePause={() => void pause(detail)}
+              />
+            )}
           </div>
           <p
             style={{
@@ -176,7 +274,17 @@ export function TopicsNsq() {
   );
 }
 
-function TopicDetail({ entry }: { entry: NsqTopic }) {
+function TopicDetail({
+  entry,
+  onEmpty,
+  onRemove,
+  onTogglePause,
+}: {
+  entry: NsqTopic;
+  onEmpty: () => void;
+  onRemove: () => void;
+  onTogglePause: () => void;
+}) {
   const { t } = useTranslation();
   return (
     <Panel style={{ width: "300px", flex: "none", overflow: "auto" }}>
@@ -214,6 +322,18 @@ function TopicDetail({ entry }: { entry: NsqTopic }) {
             [t("board.nsq.topics.channels"), entry.channels.join(", ") || DASH],
           ]}
         />
+
+        <div style={{ display: "flex", gap: "6px", marginTop: "12px" }}>
+          <Button size="sm" variant="outline" onClick={onTogglePause}>
+            {t(entry.paused ? "board.nsq.topics.resumeAction" : "board.nsq.topics.pauseAction")}
+          </Button>
+          <Button size="sm" variant="destructive" onClick={onEmpty}>
+            {t("board.nsq.topics.emptyAction")}
+          </Button>
+          <Button size="sm" variant="destructive" onClick={onRemove}>
+            {t("common.delete")}
+          </Button>
+        </div>
 
         {/* Said where the number is, because this is where a reader meets a
             depth that no consumer can be blamed for. */}

@@ -4245,7 +4245,31 @@
         },
         "heldPaused": "{{count}} messages are sitting in the topic because it is paused. Nothing is copied into a channel while a topic is paused, and publishing still works — so this number grows until the pause is lifted.",
         "heldNoChannel": "{{count}} messages are sitting in the topic because nothing has subscribed to it. nsqd copies a message into every channel as it arrives, and a topic with no channel has nowhere to copy to.",
-        "note": "One row per topic, however many nsqd carry it. Depth can exceed the message count: nsqd copies each message into every channel, so a topic with two channels holds two copies of everything. Neither figure is a rate — nsqd counts since it started and reports no rate at all."
+        "note": "One row per topic, however many nsqd carry it. Depth can exceed the message count: nsqd copies each message into every channel, so a topic with two channels holds two copies of everything. Neither figure is a rate — nsqd counts since it started and reports no rate at all.",
+        "create": "New topic",
+        "createTitle": "New topic",
+        "nameHint": "Letters, digits, dot, dash and underscore, up to 64 characters. It is created on every nsqd in this connection, so a producer reaching any of them finds it already there.",
+        "nameEphemeral": "An ephemeral topic keeps nothing on disk and is deleted the moment its last client disconnects. Drop the #ephemeral suffix for a topic that outlives its consumers.",
+        "nameProblem": {
+          "empty": "A topic needs a name.",
+          "tooLong": "nsqd refuses a name longer than 64 characters, and the #ephemeral suffix counts towards that.",
+          "charset": "nsqd accepts letters, digits, dot, dash and underscore only, with an optional #ephemeral suffix."
+        },
+        "created": "Created {{name}} on every nsqd",
+        "pauseAction": "Pause",
+        "resumeAction": "Resume",
+        "paused": "Paused {{name}}",
+        "resumed": "Resumed {{name}}",
+        "pauseFailed": "Could not change the pause state",
+        "emptyAction": "Empty",
+        "emptyTitle": "Empty {{name}}?",
+        "emptyDesc": "{{count}} messages are discarded, from the topic and from every channel under it. There is no undo.",
+        "emptied": "Emptied {{name}}",
+        "emptyFailed": "Could not empty the topic",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "The topic, its channels and everything they hold go, on every nsqd and in the discovery tier. There is no undo.",
+        "deleted": "Deleted {{name}}",
+        "deleteFailed": "Could not delete the topic"
       }
     }
   }

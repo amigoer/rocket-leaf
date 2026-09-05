@@ -11,6 +11,7 @@ import * as KafkaService from "./kafkaservice.js";
 import * as MQTTService from "./mqttservice.js";
 import * as MessageService from "./messageservice.js";
 import * as NATSService from "./natsservice.js";
+import * as NSQService from "./nsqservice.js";
 import * as PulsarService from "./pulsarservice.js";
 import * as RabbitMQService from "./rabbitmqservice.js";
 import * as RedisStreamService from "./redisstreamservice.js";
@@ -32,6 +33,7 @@ export {
     MQTTService,
     MessageService,
     NATSService,
+    NSQService,
     PulsarService,
     RabbitMQService,
     RedisStreamService,

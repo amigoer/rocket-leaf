@@ -71,36 +71,8 @@ func (c *Conn) RemoveDestination(ctx context.Context, ref model.DestinationRef) 
 	if err := c.forgetAtLookupd(ctx, "/topic/delete", query); err != nil {
 		return err
 	}
-
-	// A daemon that is not carrying the topic answers TOPIC_NOT_FOUND, which
-	// is the ordinary case on a partly-placed topic rather than a failure. The
-	// delete fails only when no daemon had it at all, so a name typed wrong is
-	// still reported instead of silently succeeding.
-	deleted := make([]bool, len(c.nodes))
-	group, groupCtx := errgroup.WithContext(ctx)
-	for index, n := range c.nodes {
-		group.Go(func() error {
-			err := c.client.post(groupCtx, n.address, "/topic/delete", query, nil, nil)
-			switch {
-			case err == nil:
-				deleted[index] = true
-				return nil
-			case notFound(err):
-				return nil
-			default:
-				return fmt.Errorf("%s: %w", hostPort(n.address), err)
-			}
-		})
-	}
-	if err := group.Wait(); err != nil {
-		return err
-	}
-	for _, done := range deleted {
-		if done {
-			return nil
-		}
-	}
-	return fmt.Errorf("no nsqd in this connection was carrying the topic %q", ref.Name)
+	return c.onEveryCarrier(ctx, "/topic/delete", query,
+		fmt.Sprintf("no nsqd in this connection was carrying the topic %q", ref.Name))
 }
 
 // forgetAtLookupd runs a delete against every configured nsqlookupd.

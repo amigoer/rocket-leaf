@@ -4245,7 +4245,31 @@
         },
         "heldPaused": "有 {{count}} 条消息滞留在主题里，因为它被暂停了。主题暂停期间不会往任何通道复制，但发送仍然可用——所以这个数字会一直涨到暂停解除。",
         "heldNoChannel": "有 {{count}} 条消息滞留在主题里，因为还没有任何订阅。nsqd 在消息到达时把它复制进每个通道，没有通道就无处可复制。",
-        "note": "无论多少个 nsqd 承载，一个主题只占一行。堆积量可能超过消息总数：nsqd 会把每条消息复制进每个通道，两个通道就意味着两份。这些都不是速率——nsqd 只统计自启动以来的累计数，本身不上报任何速率。"
+        "note": "无论多少个 nsqd 承载，一个主题只占一行。堆积量可能超过消息总数：nsqd 会把每条消息复制进每个通道，两个通道就意味着两份。这些都不是速率——nsqd 只统计自启动以来的累计数，本身不上报任何速率。",
+        "create": "新建主题",
+        "createTitle": "新建主题",
+        "nameHint": "可用字母、数字、点、短横线和下划线，最长 64 个字符。它会在本连接的每个 nsqd 上创建，这样生产者连到哪一个都能直接找到。",
+        "nameEphemeral": "临时主题不落盘，最后一个客户端断开就会被删除。想要比消费者活得久的主题，请去掉 #ephemeral 后缀。",
+        "nameProblem": {
+          "empty": "主题需要一个名称。",
+          "tooLong": "nsqd 不接受超过 64 个字符的名称，#ephemeral 后缀也算在里面。",
+          "charset": "nsqd 只接受字母、数字、点、短横线和下划线，末尾可以带一个 #ephemeral。"
+        },
+        "created": "已在每个 nsqd 上创建 {{name}}",
+        "pauseAction": "暂停",
+        "resumeAction": "恢复",
+        "paused": "已暂停 {{name}}",
+        "resumed": "已恢复 {{name}}",
+        "pauseFailed": "无法切换暂停状态",
+        "emptyAction": "清空",
+        "emptyTitle": "清空 {{name}}？",
+        "emptyDesc": "将丢弃 {{count}} 条消息，主题本身和它下面的每个通道都会清空。此操作不可撤销。",
+        "emptied": "已清空 {{name}}",
+        "emptyFailed": "无法清空主题",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "主题、它的通道以及它们持有的全部消息都会删除，涉及每个 nsqd 和服务发现层。此操作不可撤销。",
+        "deleted": "已删除 {{name}}",
+        "deleteFailed": "无法删除主题"
       }
     }
   }
