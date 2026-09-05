@@ -226,6 +226,13 @@ After adding a family, update all of these:
   count families.
 - `.github/ISSUE_TEMPLATE/` — the broker dropdown in the bug and feature forms,
   in both languages, and the family's removal from the driver request form.
+- `frontend/src/lib/alertRules.ts` and `frontend/src/lib/alertDerive.ts` — the
+  rules a family can raise, and the dispatch that picks them. A driver added
+  without both falls back to RocketMQ's rules, which read figures it does not
+  report: an alerts page that looks armed and can never fire.
+- `frontend/src/i18n/degradedReasons.test.ts` — the hand-copied list of every
+  degraded reason **and caveat** a driver declares. Nothing ties a Go string to
+  a JSON key, so this second copy is the only thing that goes red on a rename.
 - `.github/labels.json` — a `driver:<family>` entry, then `npm run labels:sync`.
 - `tests/e2e/<family>/compose.yaml`, the `e2e:<family>:*` scripts in
   `package.json`, and the shard in `.github/workflows/ci.yml`.

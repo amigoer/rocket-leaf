@@ -11,6 +11,29 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- ActiveMQ is the eighth driver, and one connection type covers both products:
+  Classic 5.x / 6.x and Artemis 2.x are told apart when the connection opens,
+  by which MBean domain answers. They share nothing underneath — different
+  Jolokia path, different ObjectName keys, different attribute names, and
+  browse results whose keys do not overlap — and none of that reaches a page.
+
+  Queues and topics on one board, with their depth, counters and settings;
+  durable subscriptions on either product, created and removed; browsing that
+  takes nothing off the destination, because it is a management operation on
+  both; sending with JMS headers, properties and a priority; dead letters found
+  by walking the declarations backwards, and retried back to the destinations
+  they failed on; the broker with its store, journal and effective settings,
+  and the brokers it bridges to; client connections with the protocol each
+  speaks, and disconnecting one. Where the broker's AMQP acceptor is reachable,
+  a topic can also be watched live — the one thing the management plane cannot
+  do, because JMX has no push.
+
+  Two absences are the broker's rather than the app's. There is no delayed
+  delivery: both products have it, and both send operations take a string map
+  while the scheduling annotation must be a Long, so a delay would be accepted
+  and silently ignored. And a Classic browse stops at 400 messages however deep
+  the destination is, which the page reports rather than hiding.
+
 - A RocketMQ namespace can be switched from the sidebar. It sits above the
   pages because it scopes all of them — a namespace is a prefix the client puts
   on every topic and group it names, so changing it re-points the whole tab —

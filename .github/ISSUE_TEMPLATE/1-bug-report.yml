@@ -54,6 +54,7 @@ body:
         - Redis Stream
         - NATS
         - MQTT
+        - ActiveMQ
     validations:
       required: true
 

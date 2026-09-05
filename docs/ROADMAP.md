@@ -105,7 +105,40 @@ This is the delivery plan. The contract it delivers against is
   many deliveries are unacknowledged and nothing about which. And accounts are read-only: no
   NATS server has a request that creates one, in configuration mode or in operator mode.
 
-- **Designed, not yet implemented** — the eight families below.
+- **Shipped** — ActiveMQ Classic 5.x / 6.x and ActiveMQ Artemis 2.x, over Jolokia, the
+  JMX-over-HTTP agent both brokers ship under their web console. One MQKind covers two products
+  because they are one family to a user, and they share nothing a driver reads: different agent
+  path, different MBean domain, different ObjectName keys, different attribute names, and browse
+  results whose map keys do not overlap at all. Which one answered is settled when the connection
+  opens, read off the MBean domain that responded to a search.
+
+  The management plane is also the data plane here, which is what makes this driver unusual.
+  Browsing and sending are JMX operations on both products, and browsing consumes nothing - so the
+  message board carries no requeue caveat the way RabbitMQ's does, and every page works against a
+  broker with every wire acceptor switched off. Queues and topics with their depth, counters and
+  settings; durable subscriptions on either product, created and removed; sending with JMS headers,
+  properties and a priority; dead letters found by walking the declarations backwards and retried
+  back to the destinations they failed on - the first retry any family here has had; the broker
+  with its store, journal and effective settings, and the brokers it bridges to; and client
+  connections with the protocol each speaks.
+
+  AMQP 1.0 is an optional tier, probed at connect time, for the one thing JMX cannot do: follow a
+  destination as messages arrive, because the management plane is request/response and has no push.
+  Topics only, and that is a safety rule - a JMS consumer consumes, so attaching one to a queue
+  would take its messages. A broker with the acceptor off keeps every other page and says which of
+  the three states it is in.
+
+  Four things it deliberately does not have. There is no delayed delivery, and both products have
+  it: the annotations must be a Long and both send operations take Map<String,String>, so a delay
+  set through Jolokia is accepted, ignored, and would be reported as having worked. There are no
+  offsets and no partitions, because JMS has neither - a message is acknowledged and gone, and
+  nothing splits a destination in a way a consumer addresses. There is no access page: both
+  configure authentication in XML read at startup, and JMX offers no operation that creates a user.
+  And Classic's browse stops at maxBrowsePageSize, 400 by default, however deep the destination is;
+  the limit is not readable over JMX, so the page reports the cap as a caveat rather than
+  pretending the queue is 400 deep.
+
+- **Designed, not yet implemented** — the seven families below.
 
 ## Delivery order
 
@@ -118,8 +151,9 @@ This is the delivery plan. The contract it delivers against is
 | 7 | **Pulsar** | Done. Topics, namespaces and the tenants above them, subscriptions and cursors, browse and tail, a send console, dead letters and role grants all work end to end, and no page pretends to a tag, a disk figure or a user directory this family does not have |
 | 8 | **MQTT** | Done. The first family with no admin plane of its own: what it can do is probed at connect time in three tiers — the protocol, the $SYS tree, and the broker's own REST API — and a tier that does not answer says why rather than going quiet |
 | 9 | **NATS** | Done. Additive as predicted - no canonical page changed shape - but the first family whose driver reads the profile's auth mechanism rather than only its secrets, which is what found a dial-time bug that reset that mechanism on every family but RocketMQ |
-| 10 | **ActiveMQ / Artemis**, then **NSQ** | Still additive; ActiveMQ tests whether JMS semantics fit the canonical pages |
-| 11 | **Amazon SQS**, **Google Cloud Pub/Sub**, **Azure Service Bus**, **Amazon Kinesis**, then **IBM MQ** and **Solace PubSub+** | The connection form can express "no address, only a region and a credential" |
+| 10 | **ActiveMQ / Artemis** | Done. JMS semantics fit the canonical pages everywhere except where those pages assume a log: no offsets, no partitions, no trim. What they gained is a dead-letter page that is finally full, and the first retry in the app |
+| 11 | **NSQ** | Topics and channels, with no message history and therefore no browse |
+| 12 | **Amazon SQS**, **Google Cloud Pub/Sub**, **Azure Service Bus**, **Amazon Kinesis**, then **IBM MQ** and **Solace PubSub+** | The connection form can express "no address, only a region and a credential" |
 
 Two ordering decisions worth keeping in view.
 
@@ -157,7 +191,7 @@ and `Access`.
 | **RabbitMQ** | HTTP management plugin, plus AMQP 0-9-1 for messages | All six, plus Exchanges/Bindings, Connections, Dead letters, Virtual hosts, Policies, Definitions, Replication | No offsets or partitions; no named consumer groups; no stable message id; browsing requeues what it read and carries a caveat; shovel, federation and the stream protocol are plugins and degrade with a reason when absent |
 | **Kafka** | The Kafka protocol itself, through franz-go and kadm | All six, plus log directories and SCRAM users | Confirmed: browse is an offset-range fetch rather than random access, and a key search is a scan. ACLs degrade with a reason on a cluster with no authorizer. No rate of any kind is reported, and no disk percentage exists; there is no broker-side dead-letter queue |
 | **Pulsar** | Admin REST API + the binary protocol | All six | Done. The tenant and namespace ended up as both: a scope selector on every page, and a page of their own, because a topic is addressed as tenant/namespace/name and the selector needs somewhere to get its options from |
-| **ActiveMQ / Artemis** | Jolokia REST over JMX | All six | Classic 5.x and Artemis expose different management trees; the driver probes which one answered |
+| **ActiveMQ / Artemis** | Jolokia REST over JMX, plus AMQP 1.0 for following a topic | All six, plus Dead letters, Connections and a live topic view | Done. The two products' trees share no ObjectName, no attribute name and no message-map key, and which one answered is read off the MBean domain. Browsing and sending are management operations, so both take nothing off a destination and need no wire client - the optional AMQP tier exists only because JMX cannot push. Confirmed: no offsets, no partitions and no trim, because JMS has none; no delayed delivery, because both send operations take Map<String,String> and the scheduling annotation must be a Long; no access page, because both configure authentication in XML; and Classic's browse stops at maxBrowsePageSize, which is not readable over JMX and is reported as a caveat |
 | **Redis Stream** | The Redis protocol itself, through go-redis | All six, plus Pending entries, Clients and ACL users | Confirmed: no per-destination access control - the key patterns are on the user. The prediction that there would be no cluster topology was wrong: `CLUSTER NODES` answers it, and the driver reads every master and replica. A stream has no partitions, nothing about it is editable, and there is no dead-letter queue - what replaces it is the pending entries list, which is delivery records rather than messages. No message rate and no disk figure are reported anywhere |
 | **NATS** | JetStream API, the server monitoring endpoints and the $SYS account | Destinations, Subscriptions, Messages, Publish, Subjects, Cluster, Connections, Accounts, Alerts | Done. Four tiers, each probed on connect: without JetStream the endpoint drops to publish and subscribe, and the cluster pages need either the monitoring endpoint or the system account - the monitoring endpoint answers for one server, $SYS for all of them |
 | **NSQ** | nsqd and nsqlookupd HTTP APIs | Destinations, Subscriptions, Publish, Cluster | No message history, so no browse |
