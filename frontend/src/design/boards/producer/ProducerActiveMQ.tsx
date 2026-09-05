@@ -110,9 +110,16 @@ export function ProducerActiveMQ() {
             <FieldGroup>
               <Field>
                 <FieldLabel>{t("board.activemq.producer.destination")}</FieldLabel>
+                {/*
+                  Unselected until the user picks, unlike the message board's
+                  equivalent - that one browses and a default costs nothing,
+                  this one sends. The placeholder is what keeps an empty
+                  control reading as a choice rather than as a broken field.
+                */}
                 <SelectField
                   value={draft.destination}
                   options={options}
+                  placeholder={t("board.activemq.producer.destinationPlaceholder")}
                   onValueChange={(next) => set("destination", next)}
                 />
                 {product === "artemis" && (

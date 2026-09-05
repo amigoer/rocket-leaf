@@ -47,6 +47,7 @@ const PROTOCOL_BY_KIND: Partial<Record<MQKind, ProtocolId>> = {
   [MQKind.KindRedisStream]: "redis",
   [MQKind.KindMQTT]: "mqtt",
   [MQKind.KindNATS]: "nats",
+  [MQKind.KindActiveMQ]: "activemq",
 };
 
 export function protocolOfKind(kind: MQKind): ProtocolId | null {

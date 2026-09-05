@@ -67,12 +67,14 @@ export function BrokerActiveMQ() {
     detail != null && !detail.bridge ? detail.address : null,
   );
 
+  // ConfigDocument is the map itself, not a wrapper around one.
   const settings = useMemo(() => {
     const document = configState.data;
-    if (document?.settings == null) return [];
-    return Object.entries(document.settings).sort(([left], [right]) =>
-      left.localeCompare(right),
-    );
+    if (document == null) return [];
+    return Object.entries(document)
+      .filter(([, value]) => value != null && value !== "")
+      .map(([key, value]) => [key, value as string] as const)
+      .sort(([left], [right]) => left.localeCompare(right));
   }, [configState.data]);
 
   return (

@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { deriveActiveMQAlerts } from "./alerts";
+import zh from "@/i18n/locales/zh.json";
+import en from "@/i18n/locales/en.json";
 import { DEFAULT_ALERT_RULES } from "@/lib/alertRules";
 import { NO_FACTS, type AlertFacts } from "@/lib/alertDerive";
 import type { Destination, Node, Subscription } from "@/api/models";
 
 const THRESHOLDS = { lag: 100, disk: 80 };
+
+/** Only the slice of a locale bundle this test reads. */
+type Bundle = { alerts: { detail: Record<string, string> } };
 
 function queue(name: string, depth: number, consumers: number, dead = false): Destination {
   return {
@@ -27,6 +32,23 @@ function queue(name: string, depth: number, consumers: number, dead = false): De
 
 function facts(partial: Partial<AlertFacts>): AlertFacts {
   return { ...NO_FACTS, ...partial };
+}
+
+/** A broker over both watermarks, so one sweep produces both node rules. */
+function busyBroker(): Node {
+  return {
+    id: 0,
+    name: "0.0.0.0",
+    address: "http://127.0.0.1:8161",
+    cluster: "",
+    version: "2.44.0",
+    status: "online",
+    rateIn: -1,
+    rateOut: -1,
+    diskUsage: 91,
+    lastSeen: "",
+    attributes: { product: "artemis", memoryPercent: "94" },
+  } as unknown as Node;
 }
 
 describe("activemq alerts", () => {
@@ -128,6 +150,54 @@ describe("activemq alerts", () => {
       THRESHOLDS,
     );
     expect(alerts).toEqual([]);
+  });
+
+  /*
+   * Every alert has to carry the parameters its sentence interpolates.
+   *
+   * The detail strings are shared across families and keyed by rule alone, so
+   * a family that names a parameter its own way gets "{{lag}}" printed at a
+   * reader. That is exactly what shipped here - the rules passed `count` where
+   * the sentence wanted `lag`, and `percent` where it wanted `usage` and
+   * `threshold` - and nothing caught it, because the tests above assert the
+   * rule key and never the words.
+   */
+  it("supplies every parameter its sentence interpolates", () => {
+    const alerts = [
+      ...deriveActiveMQAlerts(
+        facts({ destinations: [queue("ORDERS", 40, 0), queue("DLQ", 12, 0, true)] }),
+        DEFAULT_ALERT_RULES,
+        THRESHOLDS,
+      ),
+      ...deriveActiveMQAlerts(
+        facts({ destinations: [queue("BULK", 5000, 2)] }),
+        DEFAULT_ALERT_RULES,
+        THRESHOLDS,
+      ),
+      ...deriveActiveMQAlerts(facts({ nodes: [busyBroker()] }), DEFAULT_ALERT_RULES, THRESHOLDS),
+    ];
+    expect(alerts.length).toBeGreaterThan(4);
+
+    const bundles: Record<string, string>[] = [
+      (zh as unknown as Bundle).alerts.detail,
+      (en as unknown as Bundle).alerts.detail,
+    ];
+
+    const unfilled: string[] = [];
+    for (const details of bundles) {
+      for (const alert of alerts) {
+        const sentence = details[alert.ruleKey];
+        if (sentence == null) {
+          unfilled.push(`no sentence for ${alert.ruleKey}`);
+          continue;
+        }
+        const filled = sentence.replace(/\{\{(\w+)\}\}/g, (whole, name: string) =>
+          name in alert.params ? String(alert.params[name]) : whole,
+        );
+        if (filled.includes("{{")) unfilled.push(`${alert.ruleKey}: ${filled}`);
+      }
+    }
+    expect(unfilled).toEqual([]);
   });
 
   it("raises a store past the threshold, and calls a nearly full one critical", () => {

@@ -213,7 +213,7 @@ func (c *Conn) artemisNode(read map[string]json.RawMessage) *model.Node {
 	putString(attributes, AttrJournalType, read["JournalType"])
 	putBool(attributes, AttrSecurity, read["SecurityEnabled"])
 	attributes["destinationCount"] = strconv.Itoa(intOr(read["AddressCount"], 0))
-	if acceptors := stringsOf(read["Acceptors"]); len(acceptors) > 0 {
+	if acceptors := acceptorNames(read["Acceptors"]); len(acceptors) > 0 {
 		attributes[AttrAcceptors] = strings.Join(acceptors, ",")
 	}
 
@@ -390,4 +390,30 @@ func atoiOr(value string, fallback int) int {
 		return fallback
 	}
 	return parsed
+}
+
+// acceptorNames pulls the names out of Artemis's acceptor listing.
+//
+// Not a list of strings, which is what it looks like from its name: each entry
+// is [name, factory class, {params}], so reading it as strings yields nothing
+// and the board shows an empty column on a broker with five acceptors.
+func acceptorNames(raw json.RawMessage) []string {
+	if raw == nil {
+		return nil
+	}
+	var entries [][]json.RawMessage
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		return nil
+	}
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if len(entry) == 0 {
+			continue
+		}
+		var name string
+		if err := json.Unmarshal(entry[0], &name); err == nil && name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
 }

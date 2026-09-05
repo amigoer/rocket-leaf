@@ -67,3 +67,28 @@ func TestTypedPropertyMapsAreFlattenedIntoOne(t *testing.T) {
 		}
 	}
 }
+
+// Artemis's acceptor listing looks like a list of names and is not: each entry
+// is [name, factory class, {params}]. Read as strings it yields nothing, and
+// the broker board shows an empty column on a broker with five acceptors -
+// which is what shipped until somebody opened the page and looked.
+func TestAcceptorNamesAreReadOutOfTheirTuples(t *testing.T) {
+	raw := json.RawMessage(`[
+		["amqp","org.apache.activemq.artemis.core.remoting.impl.netty.NettyAcceptorFactory",{"port":"5672"}],
+		["artemis","org.apache.activemq.artemis.core.remoting.impl.netty.NettyAcceptorFactory",{"port":"61616"}]
+	]`)
+	got := acceptorNames(raw)
+	if len(got) != 2 || got[0] != "amqp" || got[1] != "artemis" {
+		t.Errorf("acceptorNames = %v, want [amqp artemis]", got)
+	}
+
+	for name, value := range map[string]string{
+		"absent":        `null`,
+		"not a list":    `"amqp"`,
+		"empty entries": `[[],[]]`,
+	} {
+		if got := acceptorNames(json.RawMessage(value)); len(got) != 0 {
+			t.Errorf("%s produced %v", name, got)
+		}
+	}
+}

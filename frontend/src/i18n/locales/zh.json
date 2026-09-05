@@ -4082,7 +4082,8 @@
         "section": {
           "headers": "消息头",
           "delivery": "投递"
-        }
+        },
+        "destinationPlaceholder": "选择一个目的地"
       },
       "cluster": {
         "count": "1 个 broker · {{bridges}} 条桥接",

@@ -4082,7 +4082,8 @@
         "section": {
           "headers": "Headers",
           "delivery": "Delivery"
-        }
+        },
+        "destinationPlaceholder": "Choose a destination"
       },
       "cluster": {
         "count": "1 broker · {{bridges}} bridged",

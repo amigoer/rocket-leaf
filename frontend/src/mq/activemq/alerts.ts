@@ -10,19 +10,35 @@
  * Every rule here is an existing key rather than a new one, because everything
  * this family can raise is something another family already asks: a queue
  * nobody is draining, a backlog past a threshold, a store filling up, a
- * consumer the broker has marked slow, a dead-letter queue growing.
+ * dead-letter queue growing.
  *
- * One rule is deliberately absent that a reader might expect. groupOffline -
- * a subscription with nothing attached - is a fault on Kafka and Pulsar and is
- * the normal resting state here: a durable subscription exists precisely so
- * the broker can hold messages for a client that is not connected. Raising it
- * would fire on every healthy deployment.
+ * Two rules are deliberately absent that a reader might expect.
+ *
+ * groupOffline - a subscription with nothing attached - is a fault on Kafka
+ * and Pulsar and is the normal resting state here: a durable subscription
+ * exists precisely so the broker can hold messages for a client that is not
+ * connected, so the rule would fire on every healthy deployment.
+ *
+ * slowConsumer is absent for a subtler reason. Classic does flag a subscriber
+ * that is falling behind, and the rule key exists - but the sentence behind it
+ * reads "the server has disconnected N clients since it started", which is
+ * NATS's meaning and not this one. Raising it would print something untrue.
+ * The flag is on the subscriptions board instead, where it can be worded for
+ * what it is.
  */
 import type { AlertFacts, AlertThresholds, DerivedAlert } from "@/lib/alertDerive";
 import type { AlertRulePrefs } from "@/lib/alertRules";
 import { destination } from "./destinations";
 import { node } from "./cluster";
-import { subscription } from "./subscriptions";
+
+/**
+ * Where a broker starts blocking producers rather than slowing them.
+ *
+ * A constant rather than a setting: the disk threshold is the operator's
+ * judgement about headroom, and this is the point at which the broker itself
+ * stops accepting - which is not a preference.
+ */
+const MEMORY_WATERMARK = 90;
 
 export function deriveActiveMQAlerts(
   facts: AlertFacts,
@@ -43,7 +59,10 @@ export function deriveActiveMQAlerts(
           key: `dlq-${entry.name}`,
           ruleKey: "dlqGrowth",
           severity: "warn",
-          params: { topic: entry.name, count: entry.depth ?? 0 },
+          // group and count are what alerts.detail.dlqGrowth interpolates.
+          // The "group" here is the destination, because that is what gave up
+          // on the message rather than a consumer group - this family has none.
+          params: { group: entry.name, count: entry.depth ?? 0 },
         });
       }
       continue;
@@ -60,7 +79,7 @@ export function deriveActiveMQAlerts(
         key: `queue-no-consumer-${entry.name}`,
         ruleKey: "queueNoConsumer",
         severity: "warn",
-        params: { queue: entry.name, count: depth },
+        params: { queue: entry.name, lag: depth },
       });
     } else if (rules.queueBacklog && lagThreshold > 0 && depth >= lagThreshold) {
       // Else rather than as well: a queue nobody is draining is already the
@@ -70,22 +89,7 @@ export function deriveActiveMQAlerts(
         key: `queue-backlog-${entry.name}`,
         ruleKey: "queueBacklog",
         severity: "warn",
-        params: { queue: entry.name, count: depth },
-      });
-    }
-  }
-
-  for (const row of facts.consumerGroups) {
-    const entry = subscription(row);
-    // Classic marks a consumer that is falling behind what is dispatched to
-    // it, which is the one subscription state here that is a problem rather
-    // than a resting state.
-    if (rules.slowConsumer && entry.slow === true) {
-      out.push({
-        key: `slow-${entry.name}`,
-        ruleKey: "slowConsumer",
-        severity: "warn",
-        params: { client: entry.subscriptionName ?? entry.name, count: entry.backlog ?? 0 },
+        params: { queue: entry.name, lag: depth, threshold: lagThreshold },
       });
     }
   }
@@ -101,17 +105,28 @@ export function deriveActiveMQAlerts(
         key: `disk-${broker.name}`,
         ruleKey: "diskUsage",
         severity: (broker.diskUsage ?? 0) >= 95 ? "crit" : "warn",
-        params: { broker: broker.name, percent: broker.diskUsage ?? 0 },
+        // usage and threshold are what alerts.detail.diskUsage interpolates.
+        params: {
+          broker: broker.name,
+          usage: broker.diskUsage ?? 0,
+          threshold: diskThreshold,
+        },
       });
     }
     // Memory is the watermark that actually stops a broker on this family:
     // past it, producers are blocked rather than slowed.
-    if (rules.memoryUsage && (broker.memoryPercent ?? 0) >= 90) {
+    if (rules.memoryUsage && (broker.memoryPercent ?? 0) >= MEMORY_WATERMARK) {
       out.push({
         key: `memory-${broker.name}`,
         ruleKey: "memoryUsage",
         severity: (broker.memoryPercent ?? 0) >= 98 ? "crit" : "warn",
-        params: { broker: broker.name, percent: broker.memoryPercent ?? 0 },
+        params: {
+          broker: broker.name,
+          usage: broker.memoryPercent ?? 0,
+          // The memory rule has a fixed watermark rather than a setting: past
+          // it a broker blocks producers, which is not a preference.
+          threshold: MEMORY_WATERMARK,
+        },
       });
     }
   }
