@@ -186,7 +186,7 @@ jobs:
           MQ_STUDIO_E2E_FAMILIES: none
         run: |
           set -euo pipefail
-          go test -json -count=1 ./... | tee results-unit.json | jq -j 'select(.Action == "output") | .Output'
+          go test -json -count=1 -coverprofile=coverage-unit.out ./... | tee results-unit.json | jq -j 'select(.Action == "output") | .Output'
 
       - name: Upload the unit results
         if: always()
@@ -195,6 +195,19 @@ jobs:
           name: results-unit
           path: results-unit.json
           retention-days: 7
+
+      # Reporting only. fail_ci_if_error stays off on purpose: a Codecov
+      # outage, or a fork's pull request which gets no secrets, must not turn
+      # a run red whose tests all passed.
+      - name: Upload the unit coverage
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage-unit.out
+          flags: unit
+          disable_search: true
+          fail_ci_if_error: false
 
       - name: Check for generated-binding drift
         run: npm run check:bindings
@@ -323,13 +336,23 @@ jobs:
       # MQ_STUDIO_E2E_FAMILIES is what makes the shard a shard: the families it
       # does not name skip, and the ones it does still fail rather than skip
       # when their environment is absent.
+      #
+      # -coverpkg is scoped rather than ./... because internal/bridge and
+      # internal/tray are the only packages that reach wails, and these jobs
+      # deliberately install no GTK headers - ./... would not compile here.
+      # What the scope buys is the driver line an internal/app test walks
+      # through: without it a driver is credited only by its own package's
+      # tests, and the cross-checks would cover nothing.
       - name: Run the ${{ matrix.family }} suite
         env:
           MQ_STUDIO_E2E: '1'
           MQ_STUDIO_E2E_FAMILIES: ${{ matrix.family }}
         run: |
           set -euo pipefail
-          go test -json -count=1 ${{ matrix.packages }} \
+          go test -json -count=1 \
+            -coverprofile="coverage-${{ matrix.family }}.out" \
+            -coverpkg=./internal/app/...,./internal/driver/... \
+            ${{ matrix.packages }} \
             | tee "results-${{ matrix.family }}.json" \
             | jq -j 'select(.Action == "output") | .Output'
 
@@ -340,6 +363,20 @@ jobs:
           name: results-${{ matrix.family }}
           path: results-${{ matrix.family }}.json
           retention-days: 7
+
+      # One flag per family, so Codecov can say which broker a line was
+      # covered against rather than only that something covered it. Codecov
+      # merges the uploads for a commit, so a line the rocketmq shard misses
+      # and the kafka shard hits lands covered.
+      - name: Upload the ${{ matrix.family }} coverage
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage-${{ matrix.family }}.out
+          flags: e2e-${{ matrix.family }}
+          disable_search: true
+          fail_ci_if_error: false
 
   # The reason the split above is allowed to exist. Sharding lets a test go
   # unrun without anything turning red; this asserts over every shard's output

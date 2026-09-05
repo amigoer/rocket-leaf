@@ -9,6 +9,7 @@
   <a href="https://mq-studio.amigoer.com/"><img src="https://img.shields.io/badge/website-mq--studio.amigoer.com-EC3013?style=flat-square&labelColor=1A1A1E" alt="官网"></a>
   <a href="https://github.com/amigoer/mq-studio/releases/latest"><img src="https://img.shields.io/github/v/release/amigoer/mq-studio?style=flat-square&label=release&labelColor=1A1A1E&color=3F3F46" alt="最新版本"></a>
   <a href="https://github.com/amigoer/mq-studio/releases"><img src="https://img.shields.io/github/downloads/amigoer/mq-studio/total?style=flat-square&label=downloads&labelColor=1A1A1E&color=3F3F46" alt="下载量"></a>
+  <a href="https://app.codecov.io/gh/amigoer/mq-studio"><img src="https://img.shields.io/codecov/c/github/amigoer/mq-studio?style=flat-square&label=coverage&labelColor=1A1A1E&color=3F3F46" alt="覆盖率"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-3F3F46?style=flat-square&labelColor=1A1A1E" alt="Apache-2.0 许可证"></a>
 </p>
 

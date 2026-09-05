@@ -1,0 +1,25 @@
+# Coverage is reported here, not enforced. CI already gates on gofmt, vet, the
+# unit suite, eight live broker shards and the inventory check in
+# scripts/ci-coverage.mjs; a percentage threshold on top of that would only add
+# a red check that says nothing about whether the change is correct.
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+
+comment:
+  require_changes: true
+
+# None of these carry Go coverage. The frontend and the website have their own
+# toolchains, and everything under tests/ is compose files and seed scripts.
+ignore:
+  - "frontend/**"
+  - "website/**"
+  - "tests/**"
+  - "scripts/**"
+  - "build/**"
+  - "docs/**"
