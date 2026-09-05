@@ -9,6 +9,17 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-09-06
+
+ActiveMQ is the eighth driver, and the first family here that is two products
+rather than one. Classic 5.x / 6.x and Artemis 2.x share a name and nothing
+else underneath, and which of them answered when the connection opened decides
+every call made after it.
+
+Alongside it, a RocketMQ namespace can be picked from the sidebar rather than
+carried on every name by hand, and a driver setting changed while a connection
+was open now redials instead of going on with the old one in silence.
+
 ### Added
 
 - ActiveMQ is the eighth driver, and one connection type covers both products:
