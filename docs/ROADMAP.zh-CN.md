@@ -158,15 +158,3 @@ MQ Studio 正在成为一个覆盖所有消息队列的桌面客户端。每种�
   WebKitGTK 构建，或用 Go 集成测试对 `tests/e2e/rocketmq` 环境覆盖相同流程。
 - 更新下载进度的专门界面
 - 更完整的 RocketMQ 5.x Proxy 与 ACL 管理能力
-
-## 版本历史
-
-### v0.1.0
-
-随 Wails 3 重写，版本号回到 1.0 以下：早先的 1.x 线基于另一套架构，已不再发布。
-
-- 从 Electron + 本地 Go 守护进程迁回 Wails 3
-- 用进程内 Wails 绑定替换本地回环 HTTP 传输
-- 保持 RocketMQ 功能、本地设置与加密格式兼容
-- 提供 macOS、Windows 与 Linux 安装包
-- 保留 bridge 层的敏感字段脱敏
