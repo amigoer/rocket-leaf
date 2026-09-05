@@ -289,3 +289,17 @@ func (s *Service) Subscriptions(ctx context.Context, connID int) ([]*model.LiveS
 	defer cancel()
 	return api.LiveSubscriptions(ctx)
 }
+
+// Nodes is the broker and the brokers it bridges to.
+func (s *Service) Nodes(ctx context.Context, connID int) ([]*model.Node, error) {
+	api, err := port[driver.ClusterAdmin](s, connID, model.CapClusterTopology)
+	if err != nil {
+		if notConnected(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.ListNodes(ctx)
+}
