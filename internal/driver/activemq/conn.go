@@ -141,6 +141,9 @@ func capabilities() []model.Capability {
 		model.CapSubscriptionCreate,
 		model.CapSubscriptionDelete,
 		model.CapSubscriptionLag,
+
+		model.CapMessageQuery,
+		model.CapMessageByID,
 	}
 }
 
@@ -171,11 +174,26 @@ func open(ctx context.Context, profile model.ConnectionProfile) (*Conn, error) {
 }
 
 // declare turns the tiers into the capability set the pages gate on.
+//
+// Nothing here is degraded by the product: both trees answer every capability
+// this driver claims, which is what made one MQKind the right call. What
+// varies is a caveat - Classic cuts a browse short and Artemis does not - and
+// the optional AMQP tier, whose capabilities are added when it is live rather
+// than declared and then degraded.
 func (c *Conn) declare() model.Capabilities {
 	declared := model.Capabilities{
 		Supported: capabilities(),
 		Degraded:  map[model.Capability]string{},
 		Caveats:   map[model.Capability]string{},
+	}
+
+	// Classic's browse stops at maxBrowsePageSize however deep the
+	// destination is, and the limit is not readable over JMX - reading
+	// MaxBrowsePageSize off the destination answers 404 - so this cannot be
+	// conditional on the deployment's value. Artemis pages properly and gets
+	// no caveat, which is the difference worth telling a reader about.
+	if c.tiers.product == classic {
+		declared.Caveats[model.CapMessageQuery] = browseCapped
 	}
 	return declared
 }

@@ -74,6 +74,7 @@ import { MqttWorkbench } from "./boards/mqtt/MqttWorkbench";
 import { NatsWorkbench } from "./boards/nats/NatsWorkbench";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
+import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
 import { NotDesigned } from "./boards/misc/NotDesigned";
 
 /**
@@ -154,6 +155,7 @@ const BOARDS: Partial<
     pulsar: MessagesPulsar,
     redis: MessagesRedis,
     nats: MessagesNats,
+    activemq: MessagesActiveMQ,
   },
   dlq: {
     rocketmq: DlqRocketMQ,

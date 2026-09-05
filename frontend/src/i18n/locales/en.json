@@ -4010,6 +4010,32 @@
           "identity": "Identity and rules"
         },
         "note": "A subscription with nothing attached is not a fault — the broker is holding messages for a client that has gone away, which is what durable means."
+      },
+      "messages": {
+        "count": "{{count}} messages",
+        "browse": "Browse",
+        "id": "Message id",
+        "body": "Body",
+        "time": "Sent",
+        "priority": "Priority",
+        "persistent": "Persistent",
+        "redelivered": "Redelivered",
+        "correlationId": "Correlation id",
+        "replyTo": "Reply to",
+        "jmsType": "JMS type",
+        "groupId": "Group",
+        "protocol": "Arrived over",
+        "copy": "Copy body",
+        "copied": "Body copied",
+        "truncated": "(not included)",
+        "largeBody": "A large message's body is stored outside the journal and is not part of a browse result. What is shown elsewhere on this page is the message's headers, which are.",
+        "noProperties": "The producer set no properties.",
+        "capped": "This destination is deeper than one browse returns. Classic stops at 400 messages per browse whatever the depth, and the limit is not readable over JMX — what is listed is what the broker sent.",
+        "section": {
+          "headers": "JMS headers",
+          "properties": "Properties",
+          "body": "Body"
+        }
       }
     }
   }

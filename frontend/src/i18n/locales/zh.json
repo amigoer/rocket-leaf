@@ -4010,6 +4010,32 @@
           "identity": "身份与规则"
         },
         "note": "没有连接的订阅不是故障——broker 正在为一个已离开的客户端保留消息，这正是「持久」的含义。"
+      },
+      "messages": {
+        "count": "{{count}} 条消息",
+        "browse": "浏览",
+        "id": "消息 ID",
+        "body": "内容",
+        "time": "发送时间",
+        "priority": "优先级",
+        "persistent": "持久化",
+        "redelivered": "重投递",
+        "correlationId": "关联 ID",
+        "replyTo": "回复到",
+        "jmsType": "JMS 类型",
+        "groupId": "分组",
+        "protocol": "接入协议",
+        "copy": "复制内容",
+        "copied": "内容已复制",
+        "truncated": "（未包含）",
+        "largeBody": "大消息的内容存放在 journal 之外，不随浏览结果返回。本页其余部分显示的是消息头，那部分是返回了的。",
+        "noProperties": "生产者没有设置任何属性。",
+        "capped": "这个目的地的深度超过一次浏览能返回的量。无论多深，Classic 每次浏览最多返回 400 条，而这个上限无法通过 JMX 读取——列出的是 broker 实际返回的内容。",
+        "section": {
+          "headers": "JMS 消息头",
+          "properties": "属性",
+          "body": "内容"
+        }
       }
     }
   }

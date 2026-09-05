@@ -3,6 +3,7 @@ package activemq
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -737,5 +738,153 @@ func TestLiveSubscriptionBacklogGrowsWhileNothingIsConnected(t *testing.T) {
 	}
 	if after.Backlog != before+4 {
 		t.Errorf("backlog = %d, want %d", after.Backlog, before+4)
+	}
+}
+
+// Browsing, and the thing that makes this family unusual: it is a management
+// operation, so reading a destination takes nothing off it.
+//
+// RabbitMQ's browse goes through basic.get and alters the queue even when what
+// it read is put back, which is why its message page carries a caveat. This
+// asserts ActiveMQ's does not, by browsing twice and checking the depth.
+func TestLiveBrowseTakesNothingOffTheDestination(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		require func(*testing.T)
+		profile model.ConnectionProfile
+	}{
+		{"artemis", requireArtemis, artemisProfile("")},
+		{"classic", requireClassic, classicProfile("")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.require(t)
+			ctx := liveContext(t)
+			conn, err := open(ctx, tc.profile)
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+
+			queue := "MQS.TEST.browse." + tc.name
+			if err := conn.CreateDestination(ctx, model.DestinationSpec{
+				Ref: model.DestinationRef{Name: queue},
+			}); err != nil {
+				t.Fatalf("create: %v", err)
+			}
+			defer func() { _ = conn.RemoveDestination(ctx, model.DestinationRef{Name: queue}) }()
+
+			for i := range 3 {
+				if err := sendTestMessage(ctx, conn, queue, fmt.Sprintf("browse-%d", i)); err != nil {
+					t.Fatalf("send: %v", err)
+				}
+			}
+
+			first, err := conn.QueryMessages(ctx, model.MessageQueryParams{Topic: queue})
+			if err != nil {
+				t.Fatalf("browse: %v", err)
+			}
+			if len(first) != 3 {
+				t.Fatalf("browse returned %d, want 3", len(first))
+			}
+			second, err := conn.QueryMessages(ctx, model.MessageQueryParams{Topic: queue})
+			if err != nil {
+				t.Fatalf("second browse: %v", err)
+			}
+			if len(second) != 3 {
+				t.Errorf("second browse returned %d, want 3 - browsing consumed something", len(second))
+			}
+			if depth := depthOf(t, ctx, conn, queue); depth != 3 {
+				t.Errorf("depth after two browses = %d, want 3", depth)
+			}
+
+			// The bodies survive the two products' unrelated key sets. Classic
+			// answers with Text and Artemis with text, and a driver reading
+			// the wrong one returns three empty messages and no error.
+			for _, message := range first {
+				if !strings.HasPrefix(message.Body, "browse-") {
+					t.Errorf("body = %q, want the text that was sent", message.Body)
+				}
+				if message.MessageID == "" {
+					t.Error("a message came back with no id")
+				}
+				if message.StoreTimestamp <= 0 {
+					t.Error("a message came back with no timestamp")
+				}
+			}
+		})
+	}
+}
+
+// The cap, on the broker rather than in a fixture. Classic stops at
+// maxBrowsePageSize - 400 by default - however deep the destination is, and
+// the attribute is not readable, so this is the only place the number can be
+// confirmed. The seed puts 500 on the orders queue for exactly this.
+func TestLiveClassicBrowseStopsAtItsPageSize(t *testing.T) {
+	requireClassic(t)
+	ctx := liveContext(t)
+	conn, err := open(ctx, classicProfile(""))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	orders, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: "MQS.SEED.orders"})
+	if err != nil {
+		t.Skipf("the seed has not run: %v", err)
+	}
+	if orders.Depth <= classicBrowseCap {
+		t.Skipf("the seeded queue holds %d, which is not past the cap", orders.Depth)
+	}
+
+	messages, err := conn.QueryMessages(ctx, model.MessageQueryParams{
+		Topic:      "MQS.SEED.orders",
+		MaxResults: 1000,
+	})
+	if err != nil {
+		t.Fatalf("browse: %v", err)
+	}
+	if len(messages) != classicBrowseCap {
+		t.Errorf("browse of a %d-deep queue returned %d, want the %d cap",
+			orders.Depth, len(messages), classicBrowseCap)
+	}
+
+	// And the connection says so, rather than leaving a reader to conclude the
+	// queue is 400 deep.
+	if _, ok := conn.Capabilities().Caveat(model.CapMessageQuery); !ok {
+		t.Error("classic declares no caveat on browsing")
+	}
+}
+
+// Artemis pages, so it has no cap and must not claim one.
+func TestLiveArtemisBrowseHasNoCaveat(t *testing.T) {
+	requireArtemis(t)
+	ctx := liveContext(t)
+	conn, err := open(ctx, artemisProfile(""))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	if reason, ok := conn.Capabilities().Caveat(model.CapMessageQuery); ok {
+		t.Errorf("artemis declares a browse caveat %q and pages properly", reason)
+	}
+}
+
+// An Artemis topic holds nothing of its own - its messages are in the
+// subscription queues under it - so browsing one has to say that rather than
+// answering with an empty page that looks like an idle topic.
+func TestLiveBrowsingAnArtemisTopicSaysWhereTheMessagesAre(t *testing.T) {
+	requireArtemis(t)
+	ctx := liveContext(t)
+	conn, err := open(ctx, artemisProfile(""))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	if _, err := conn.QueryMessages(ctx, model.MessageQueryParams{
+		Topic: "MQS.SEED.events",
+	}); err == nil {
+		t.Error("browsing a multicast address answered instead of saying where to look")
 	}
 }
