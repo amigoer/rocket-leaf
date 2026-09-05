@@ -205,6 +205,7 @@
       "subscriptionBlocked": "Subscription blocked by unacknowledged messages",
       "streamNoLeader": "Stream with no leader",
       "streamUnderReplicated": "Stream replica behind or offline",
+      "deliveryPaused": "Delivery paused",
       "slowConsumer": "Clients dropped for falling behind"
     },
     "tabs": {
@@ -258,6 +259,7 @@
       "subscriptionBlocked": "{{subscription}} · {{unacked}} unacknowledged; the broker has stopped delivering",
       "streamNoLeader": "{{stream}} · {{replicas}} replica(s), none leading — the stream takes no publishes and answers no reads",
       "streamUnderReplicated": "{{stream}} · not all {{replicas}} replicas are current",
+      "deliveryPaused": "{{target}} · {{lag}} waiting; publishing carries on and nothing is delivered while it is paused",
       "slowConsumer": "{{broker}} · {{count}} client(s) disconnected since the server started; what they missed is gone"
     },
     "duration": {
@@ -4406,6 +4408,29 @@
         },
         "notReady": "This consumer has told nsqd it will accept nothing. It is connected and holding its channel, and the backlog will not move until it asks for messages again — usually a handler that has stopped returning.",
         "note": "Consumers only. A client appears in the stats of the channel it subscribed to and nowhere else, so a connection that has not subscribed yet is invisible and a producer is invisible always. One consumer process appears once per nsqd it found: those are separate connections holding separate messages."
+      },
+      "overview": {
+        "subtitle": "{{nodes}} nsqd on {{version}}",
+        "topics": "Topics",
+        "channels": "Channels",
+        "backlog": "Backlog",
+        "backlogHint": "Published and not yet finished",
+        "undrained": "Nobody draining",
+        "undrainedHint": "Backlog on channels with no consumer attached",
+        "held": "Held by topics",
+        "heldHint": "Reached no channel: paused, or nothing has ever subscribed",
+        "paused": "Paused",
+        "pausedHint": "Topics and channels still accepting publishes and delivering nothing",
+        "consumers": "Consumers",
+        "nodes": "nsqd",
+        "nodesHint": "{{count}} nsqlookupd beside them",
+        "busiest": "Where the backlog is",
+        "channel": "Channel",
+        "inFlight": "In flight",
+        "pausedBadge": "Paused",
+        "idleBadge": "No consumers",
+        "nothingWaiting": "Nothing is waiting on any channel.",
+        "note": "No rate anywhere, and no throughput chart: nsqd counts messages since it started and reports no rate at all. What the tiles separate instead is where the messages are — a backlog with consumers attached is a slow consumer, one with none is a consumer that is not running, and anything held by a topic reached no channel at all."
       }
     }
   }

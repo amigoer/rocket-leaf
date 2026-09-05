@@ -336,3 +336,61 @@ func TestADirectorylessConnectionExplainsItself(t *testing.T) {
 		t.Error("a connection naming an nsqlookupd does not claim a discovery tier")
 	}
 }
+
+/*
+ * The sidebar contract, from the Go side.
+ *
+ * The list below is the one frontend/src/mq/navigation.nsq.test.ts holds, and
+ * that test asserts which pages those capabilities make reachable. This one
+ * asserts the driver still declares exactly them.
+ *
+ * Neither half is worth much alone. A capability dropped here takes a finished
+ * page out of the sidebar and nothing else notices; a page added there with no
+ * capability behind it is drawn and fails when opened. Together they cannot
+ * drift without one of them going red.
+ *
+ * The failure messages say what to do rather than what is different, because
+ * the fix is never in this file alone.
+ */
+func TestCapabilitiesMatchTheSidebarContract(t *testing.T) {
+	sidebar := []string{
+		"destination.list",
+		"destination.create",
+		"destination.delete",
+		"destination.purge",
+		"subscription.list",
+		"subscription.create",
+		"subscription.delete",
+		"subscription.lag",
+		"message.publish",
+		"message.delayedDelivery",
+		"cluster.topology",
+		"cluster.metrics",
+		"cluster.nodeConfig",
+		"client.inspect",
+		"cluster.directory",
+	}
+
+	declared := make(map[string]bool, len(capabilities()))
+	for _, capability := range capabilities() {
+		declared[string(capability)] = true
+	}
+	expected := make(map[string]bool, len(sidebar))
+	for _, capability := range sidebar {
+		expected[capability] = true
+	}
+
+	for _, capability := range sidebar {
+		if !declared[capability] {
+			t.Errorf("the sidebar expects %s and the driver no longer declares it; "+
+				"restore it or drop the page, and update navigation.nsq.test.ts in the same commit",
+				capability)
+		}
+	}
+	for capability := range declared {
+		if !expected[capability] {
+			t.Errorf("the driver declares %s and the sidebar contract does not list it; "+
+				"add it to navigation.nsq.test.ts in the same commit", capability)
+		}
+	}
+}

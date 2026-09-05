@@ -86,6 +86,7 @@ import { TopicsNsq } from "./boards/topics/TopicsNsq";
 import { ChannelsNsq } from "./boards/consumers/ChannelsNsq";
 import { ClientsNsq } from "./boards/consumers/ClientsNsq";
 import { ClusterNsq } from "./boards/cluster/ClusterNsq";
+import { OverviewNsq } from "./boards/overview/OverviewNsq";
 import { NotDesigned } from "./boards/misc/NotDesigned";
 
 /**
@@ -132,6 +133,7 @@ const BOARDS: Partial<
     mqtt: OverviewMqtt,
     nats: OverviewNats,
     activemq: OverviewActiveMQ,
+    nsq: OverviewNsq,
   },
   topics: {
     rocketmq: TopicsRocketMQ,

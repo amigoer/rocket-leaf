@@ -205,6 +205,7 @@
       "subscriptionBlocked": "订阅因未确认消息过多被阻塞",
       "streamNoLeader": "流没有 leader",
       "streamUnderReplicated": "流的副本落后或离线",
+      "deliveryPaused": "投递已暂停",
       "slowConsumer": "有客户端因为跟不上被踢掉"
     },
     "tabs": {
@@ -258,6 +259,7 @@
       "subscriptionBlocked": "{{subscription}} · {{unacked}} 条未确认，Broker 已停止投递",
       "streamNoLeader": "{{stream}} · {{replicas}} 个副本，没有一个是 leader——这个流既写不进也读不出",
       "streamUnderReplicated": "{{stream}} · {{replicas}} 个副本里有跟不上的",
+      "deliveryPaused": "{{target}} · {{lag}} 条在等待；暂停期间发送照常，但一条也不会投递",
       "slowConsumer": "{{broker}} · 服务器启动以来断开了 {{count}} 个客户端；它们错过的消息没有了"
     },
     "duration": {
@@ -4406,6 +4408,29 @@
         },
         "notReady": "该消费者已告诉 nsqd 它不再接收任何消息。连接还在、通道也还占着，但在它重新请求消息之前堆积不会下降——通常是处理函数卡住了。",
         "note": "这里只列消费者。客户端只会出现在它所订阅通道的统计里，所以尚未订阅的连接看不到，生产者则永远看不到。一个消费者进程连了几个 nsqd 就会出现几行：那是各自持有不同消息的独立连接。"
+      },
+      "overview": {
+        "subtitle": "{{nodes}} 个 nsqd，版本 {{version}}",
+        "topics": "主题",
+        "channels": "通道",
+        "backlog": "堆积",
+        "backlogHint": "已发布但尚未完成",
+        "undrained": "无人消费",
+        "undrainedHint": "没有消费者连着的通道上的堆积",
+        "held": "滞留在主题",
+        "heldHint": "没进入任何通道：要么暂停了，要么从来没有订阅",
+        "paused": "已暂停",
+        "pausedHint": "仍在接收发送、但一条也不投递的主题和通道",
+        "consumers": "消费者",
+        "nodes": "nsqd",
+        "nodesHint": "另有 {{count}} 个 nsqlookupd",
+        "busiest": "堆积在哪里",
+        "channel": "通道",
+        "inFlight": "投递中",
+        "pausedBadge": "已暂停",
+        "idleBadge": "无消费者",
+        "nothingWaiting": "所有通道都没有积压。",
+        "note": "这里没有任何速率，也没有吞吐曲线：nsqd 只统计自启动以来的累计消息数，本身不上报速率。指标卡区分的是消息滞留在哪里——有消费者连着的堆积是消费慢，没有消费者的堆积是消费者没在跑，而滞留在主题里的则根本没进入任何通道。"
       }
     }
   }
