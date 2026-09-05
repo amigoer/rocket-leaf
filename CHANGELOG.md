@@ -22,6 +22,34 @@ was open now redials instead of going on with the old one in silence.
 
 ### Added
 
+- NSQ is the ninth driver, and the first with no admin protocol at all:
+  everything an operator can ask is an HTTP call on the same daemons that carry
+  the messages, so it needs no wire client. A connection is a set of nsqd
+  addresses rather than one endpoint, because a topic lives on the daemon it
+  was created on and every figure the app shows is a sum across the set.
+
+  Topics with the depth they hold, split between the topic's own queue and its
+  channels'; channels, which are this family's consumer groups, with their
+  backlog, in-flight, deferred and requeued counts; creating, emptying, pausing
+  and deleting either, on every daemon at once; publishing to one named daemon,
+  repeated or held back for a delivery time; the cluster's nsqd beside the
+  nsqlookupd that tell consumers where to find them, with a warning when the
+  two disagree about an address; and the connected consumers, with the ready
+  count that says which of them has stopped asking for work.
+
+  There is no message board and no dead letters, and both follow from one fact:
+  nsqd hands a message to a consumer and stops holding it. There is no stored
+  log behind a depth, no id anything indexes, and a message requeued past its
+  limit is dropped rather than moved aside. There is no offset either, so a
+  channel's backlog is consumed or emptied and moved no other way.
+
+  Two things the daemons do that the app had to be told about. A delete has to
+  reach nsqlookupd as well: the daemons forget a deleted topic and the
+  directory does not, so a delete that stopped at nsqd leaves the name where a
+  consumer looking it up still finds it. And emptying a topic has to empty its
+  channels: nsqd copies each message into every channel as it arrives, so
+  emptying the topic alone answers 200 and moves nothing anyone can see.
+
 - ActiveMQ is the eighth driver, and one connection type covers both products:
   Classic 5.x / 6.x and Artemis 2.x are told apart when the connection opens,
   by which MBean domain answers. They share nothing underneath — different

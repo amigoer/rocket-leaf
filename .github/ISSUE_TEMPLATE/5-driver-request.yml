@@ -27,7 +27,6 @@ body:
     attributes:
       label: Which broker
       options:
-        - NSQ
         - Amazon SQS
         - Google Pub/Sub
         - Azure Service Bus
@@ -48,7 +47,7 @@ body:
     id: deployment
     attributes:
       label: Version and how you run it
-      placeholder: NSQ 1.3, nsqd with three nodes behind nsqlookupd
+      placeholder: Amazon SQS in eu-west-1, standard and FIFO queues with a redrive policy
     validations:
       required: true
 

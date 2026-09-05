@@ -105,7 +105,8 @@
     { "name": "driver:redis-stream", "color": "BFDADC", "description": "Redis Stream" },
     { "name": "driver:nats", "color": "BFDADC", "description": "NATS" },
     { "name": "driver:mqtt", "color": "BFDADC", "description": "MQTT" },
-    { "name": "driver:activemq", "color": "BFDADC", "description": "ActiveMQ Classic and Artemis" }
+    { "name": "driver:activemq", "color": "BFDADC", "description": "ActiveMQ Classic and Artemis" },
+    { "name": "driver:nsq", "color": "BFDADC", "description": "NSQ" }
   ],
 
   "workflow": [

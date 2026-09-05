@@ -185,6 +185,7 @@ capability，画出来的页面看着不像「诚实」，而像「坏了」。
 - `README.md` 与 `README.zh-CN.md` —— hero 的 `alt` 文案、「目前可用的驱动」那句话、
   驱动支持表格，以及开发计划表格。
 - `docs/ROADMAP.md` 与 `docs/ROADMAP.zh-CN.md`。
+- `docs/ARCHITECTURE.md` —— 仓库结构树里的驱动包和 e2e 环境。
 - `docs/images/hero-{light,dark}{,.zh-CN}.svg` —— 里面的 `<desc>`、驱动数量徽标，
   以及每个家族一条的示意泳道。四个文件，而且是要重新排版，不是改几个字。
 - `website/src/i18n/en.ts` 与 `zh.ts` —— `meta.description`、`banner.text`、
@@ -204,6 +205,13 @@ capability，画出来的页面看着不像「诚实」，而像「坏了」。
 - `.github/labels.json` —— 加一条 `driver:<family>`，然后跑 `npm run labels:sync`。
 - `tests/e2e/<family>/compose.yaml`、`package.json` 里的 `e2e:<family>:*` 脚本，
   以及 `.github/workflows/ci.yml` 里的分片。
+- `frontend/src/mq/navigation.<family>.test.ts`，以及 Go 侧那个抄了同一份 capability
+  清单的测试。这是同一份契约的两半：驱动里少声明一个 capability，会让一个已经做完的页面
+  从侧边栏消失而没人察觉；侧边栏里多一个背后没有 capability 的页面，会画出来、点开就失败。
+  只有一半都不够用。
+- `frontend/src/design/boards/<family>Boards.test.tsx` —— 每块 board 都要走一遍加载中、
+  失败、已连接但为空、以及有数据这四种状态，用与驱动实际返回结构一致的桩数据。
+  i18n 扫描只会在未连接的状态下渲染每块 board 一次，而那恰恰是唯一不碰数据的状态。
 
 不要靠眼睛数家族。哪些驱动能答哪个页面，由 capability 声明说了算：
 

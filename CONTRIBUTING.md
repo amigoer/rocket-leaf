@@ -213,6 +213,8 @@ After adding a family, update all of these:
 - `README.md` and `README.zh-CN.md` — the hero `alt` text, the sentence listing
   the drivers available today, the driver support table, and the roadmap table.
 - `docs/ROADMAP.md` and `docs/ROADMAP.zh-CN.md`.
+- `docs/ARCHITECTURE.md` — the driver package and the e2e environment, in the
+  repository tree.
 - `docs/images/hero-{light,dark}{,.zh-CN}.svg` — the `<desc>`, the driver count
   badge, and one drawn lane per family. Four files, and the art needs
   re-spacing rather than a text edit.
@@ -236,6 +238,15 @@ After adding a family, update all of these:
 - `.github/labels.json` — a `driver:<family>` entry, then `npm run labels:sync`.
 - `tests/e2e/<family>/compose.yaml`, the `e2e:<family>:*` scripts in
   `package.json`, and the shard in `.github/workflows/ci.yml`.
+- `frontend/src/mq/navigation.<family>.test.ts`, and the Go test beside it that
+  pins the same capability list. Two halves of one contract: a capability
+  dropped in the driver takes a finished page out of the sidebar and nothing
+  else notices, and a page added to the nav with no capability behind it is
+  drawn and fails when opened. Neither half is worth much alone.
+- `frontend/src/design/boards/<family>Boards.test.tsx` — every board through
+  loading, failed, connected-but-empty and populated, against stubs shaped like
+  what the driver actually sends. The i18n sweep renders each board once with
+  nothing connected, which is the one state that does not touch the data.
 
 Do not count the families by eye. The capability declarations settle which
 drivers answer which page:
