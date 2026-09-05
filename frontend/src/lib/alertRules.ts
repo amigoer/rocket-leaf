@@ -110,6 +110,25 @@ const RULES_BY_KIND: Partial<Record<MQKind, readonly AlertRuleKey[]>> = {
     "groupLag",
     "memoryUsage",
   ],
+  /*
+   * Nothing new, and one deliberate absence. Everything this family can raise
+   * is a question another family already asks - a queue nobody is draining, a
+   * store filling up, a consumer the broker has marked slow.
+   *
+   * groupOffline is the one left out. A subscription with nothing attached is
+   * a fault on Kafka and Pulsar and is the normal resting state here: a
+   * durable subscription exists precisely so the broker can hold messages for
+   * a client that is not connected, so the rule would fire on every healthy
+   * deployment.
+   */
+  [MQKind.KindActiveMQ]: [
+    "queueNoConsumer",
+    "queueBacklog",
+    "slowConsumer",
+    "diskUsage",
+    "memoryUsage",
+    "dlqGrowth",
+  ],
   [MQKind.KindRabbitMQ]: [
     "brokerOffline",
     "resourceAlarm",

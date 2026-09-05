@@ -4144,6 +4144,29 @@
         "section": {
           "identity": "连接"
         }
+      },
+      "overview": {
+        "subtitle": "{{product}} {{version}}",
+        "product": {
+          "classic": "ActiveMQ Classic",
+          "artemis": "ActiveMQ Artemis"
+        },
+        "queues": "队列",
+        "topics": "主题",
+        "held": "持有消息",
+        "undrained": "无人消费",
+        "undrainedHint": "堆在没有消费者的队列上",
+        "subscriptions": "订阅",
+        "detached": "未连接",
+        "detachedHint": "持久订阅，当前无人接",
+        "version": "版本",
+        "uptime": "运行时长",
+        "connections": "连接",
+        "consumers": "消费者",
+        "disk": "磁盘",
+        "memory": "内存",
+        "persistent": "持久化",
+        "note": "此页不显示速率。两个产品都只保留累计的入队和出队计数，本身不报速率；拿两次采样相减，那是本应用的算术，不是 broker 的数字。"
       }
     }
   }

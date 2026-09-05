@@ -4144,6 +4144,29 @@
         "section": {
           "identity": "Connection"
         }
+      },
+      "overview": {
+        "subtitle": "{{product}} {{version}}",
+        "product": {
+          "classic": "ActiveMQ Classic",
+          "artemis": "ActiveMQ Artemis"
+        },
+        "queues": "Queues",
+        "topics": "Topics",
+        "held": "Messages held",
+        "undrained": "Undrained",
+        "undrainedHint": "on queues with no consumer",
+        "subscriptions": "Subscriptions",
+        "detached": "Detached",
+        "detachedHint": "durable, nothing attached",
+        "version": "Version",
+        "uptime": "Uptime",
+        "connections": "Connections",
+        "consumers": "Consumers",
+        "disk": "Disk",
+        "memory": "Memory",
+        "persistent": "Persistent",
+        "note": "No rate is shown. Both products keep cumulative enqueue and dequeue counters and report no rate at all, and dividing two samples of a counter would be this app's arithmetic printed as the broker's figure."
       }
     }
   }

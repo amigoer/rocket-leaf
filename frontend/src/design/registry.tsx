@@ -57,6 +57,7 @@ import { ProducerRedis } from "./boards/producer/ProducerRedis";
 import { ProducerNats } from "./boards/producer/ProducerNats";
 import { ProducerActiveMQ } from "./boards/producer/ProducerActiveMQ";
 import { BrokerActiveMQ } from "./boards/cluster/BrokerActiveMQ";
+import { OverviewActiveMQ } from "./boards/overview/OverviewActiveMQ";
 import { ClientsActiveMQ } from "./boards/consumers/ClientsActiveMQ";
 import { Alerts } from "./boards/alerts/Alerts";
 import { Acl } from "./boards/acl/Acl";
@@ -124,6 +125,7 @@ const BOARDS: Partial<
     redis: OverviewRedis,
     mqtt: OverviewMqtt,
     nats: OverviewNats,
+    activemq: OverviewActiveMQ,
   },
   topics: {
     rocketmq: TopicsRocketMQ,
