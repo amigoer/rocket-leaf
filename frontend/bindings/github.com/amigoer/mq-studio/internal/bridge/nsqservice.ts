@@ -12,6 +12,21 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
+/**
+ * CreateChannel declares a channel on every nsqd carrying its topic.
+ * 
+ * It starts empty whatever the topic already holds: nsqd copies a message into
+ * the channels that exist when it arrives, so there is nothing for a new one
+ * to catch up on and no position to start it from.
+ */
+export function CreateChannel(connID: number, input: $models.NSQChannelInput): $CancellablePromise<void> {
+    return $Call.ByID(960771588, connID, input);
+}
+
 /**
  * CreateTopic declares a topic on every nsqd in the connection.
  * 
@@ -24,10 +39,26 @@ export function CreateTopic(connID: number, name: string): $CancellablePromise<v
 }
 
 /**
+ * EmptyChannel discards one channel's backlog and leaves the rest of the topic
+ * alone, which is what separates it from emptying the topic.
+ */
+export function EmptyChannel(connID: number, input: $models.NSQChannelInput): $CancellablePromise<void> {
+    return $Call.ByID(3517095425, connID, input);
+}
+
+/**
  * EmptyTopic discards what the topic and every channel under it are holding.
  */
 export function EmptyTopic(connID: number, name: string): $CancellablePromise<void> {
     return $Call.ByID(2690610417, connID, name);
+}
+
+/**
+ * RemoveChannel deletes a channel and its backlog, in the discovery tier as
+ * well as on every nsqd. There is no undo.
+ */
+export function RemoveChannel(connID: number, input: $models.NSQChannelInput): $CancellablePromise<void> {
+    return $Call.ByID(57321732, connID, input);
 }
 
 /**
@@ -36,6 +67,14 @@ export function EmptyTopic(connID: number, name: string): $CancellablePromise<vo
  */
 export function RemoveTopic(connID: number, name: string): $CancellablePromise<void> {
     return $Call.ByID(2147916580, connID, name);
+}
+
+/**
+ * SetChannelPaused stops or resumes delivery to one channel's consumers. The
+ * other channels under the topic keep running.
+ */
+export function SetChannelPaused(connID: number, input: $models.NSQChannelInput, paused: boolean): $CancellablePromise<void> {
+    return $Call.ByID(170130160, connID, input, paused);
 }
 
 /**

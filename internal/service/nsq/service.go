@@ -133,3 +133,56 @@ func (s *Service) SetTopicPaused(ctx context.Context, connID int, name string, p
 	defer cancel()
 	return api.SetTopicPaused(ctx, name, paused)
 }
+
+// CreateChannel declares a channel on every nsqd carrying its topic.
+//
+// Beside the canonical create rather than through it: ConsumerService.Create
+// collects a RocketMQ consumer group - a broker address, a retry queue count,
+// a consume-from-where - and an NSQ channel has a topic and a name.
+func (s *Service) CreateChannel(ctx context.Context, connID int, topic, channel string) error {
+	api, err := port[driver.SubscriptionAdmin](s, connID, model.CapSubscriptionCreate)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.CreateSubscription(ctx, model.SubscriptionSpec{
+		Ref: model.SubscriptionRef{Namespace: topic, Name: channel},
+	})
+}
+
+// RemoveChannel deletes a channel and its backlog. There is no undo.
+func (s *Service) RemoveChannel(ctx context.Context, connID int, topic, channel string) error {
+	api, err := port[driver.SubscriptionAdmin](s, connID, model.CapSubscriptionDelete)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.RemoveSubscription(ctx, model.SubscriptionRef{Namespace: topic, Name: channel})
+}
+
+// EmptyChannel discards one channel's backlog, leaving the topic and the other
+// channels under it alone.
+func (s *Service) EmptyChannel(ctx context.Context, connID int, topic, channel string) error {
+	api, err := s.nsqConn(connID)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.EmptyChannel(ctx, topic, channel)
+}
+
+// SetChannelPaused stops or resumes delivery to one channel's consumers.
+func (s *Service) SetChannelPaused(
+	ctx context.Context, connID int, topic, channel string, paused bool,
+) error {
+	api, err := s.nsqConn(connID)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.SetChannelPaused(ctx, topic, channel, paused)
+}

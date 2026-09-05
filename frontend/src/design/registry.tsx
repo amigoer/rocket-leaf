@@ -82,6 +82,7 @@ import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ"
 import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
 import { DlqActiveMQ } from "./boards/dlq/DlqActiveMQ";
 import { TopicsNsq } from "./boards/topics/TopicsNsq";
+import { ChannelsNsq } from "./boards/consumers/ChannelsNsq";
 import { NotDesigned } from "./boards/misc/NotDesigned";
 
 /**
@@ -154,6 +155,7 @@ const BOARDS: Partial<
     redis: ConsumersRedis,
     nats: ConsumersNats,
     activemq: SubscriptionsActiveMQ,
+    nsq: ChannelsNsq,
   },
   subscribe: { mqtt: MqttWorkbench, nats: NatsWorkbench, activemq: ActiveMQWorkbench },
   clients: { mqtt: ClientsMqtt, redis: ClientsRedis, nats: ClientsNats, activemq: ClientsActiveMQ },

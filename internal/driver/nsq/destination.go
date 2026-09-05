@@ -12,33 +12,6 @@ import (
 	"github.com/amigoer/mq-studio/internal/model"
 )
 
-// Attribute keys this driver puts on a Destination.
-//
-// A contract between this package and frontend/src/mq/nsq, not part of the
-// shared vocabulary. The two depth keys are the ones worth knowing about:
-// they are the split behind the canonical Depth, and a board that showed only
-// the total would leave a reader unable to tell a topic nothing has consumed
-// from one that is paused.
-const (
-	AttrPaused       = "paused"
-	AttrTopicDepth   = "topicDepth"
-	AttrChannelDepth = "channelDepth"
-	AttrBackendDepth = "backendDepth"
-	AttrMessageCount = "messageCount"
-	AttrMessageBytes = "messageBytes"
-	AttrInFlight     = "inFlight"
-	AttrDeferred     = "deferred"
-	AttrRequeued     = "requeued"
-	AttrTimedOut     = "timedOut"
-	AttrEphemeral    = "ephemeral"
-	AttrNodes        = "nodes"
-	AttrChannels     = "channels"
-)
-
-// ephemeralSuffix marks a topic or channel that exists only while something is
-// connected to it. nsqd deletes it when the last client goes.
-const ephemeralSuffix = "#ephemeral"
-
 /*
  * ListDestinations reads /stats from every nsqd and folds the answers into one
  * topic per name.

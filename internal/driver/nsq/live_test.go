@@ -560,3 +560,285 @@ func TestLiveTheQueueActionsNSQLacksAreRefused(t *testing.T) {
 		t.Error("a rebalance reported success, and a topic lives on the daemon that made it")
 	}
 }
+
+func findChannel(subscriptions []*model.Subscription, topic, name string) *model.Subscription {
+	for _, entry := range subscriptions {
+		if entry.Ref.Namespace == topic && entry.Ref.Name == name {
+			return entry
+		}
+	}
+	return nil
+}
+
+/*
+ * A channel is identified by its topic as well as its own name, and the
+ * listing has to keep them apart. Two topics with a channel called the same
+ * thing have separate backlogs and separate consumers, and folding them into
+ * one row would report a backlog that belongs to neither.
+ */
+func TestLiveListSubscriptionsKeepsTheTopicInTheIdentity(t *testing.T) {
+	conn := liveConn(t)
+	const first = "MQS.TEST.chan.one"
+	const second = "MQS.TEST.chan.two"
+
+	testTopic(t, conn, first)
+	testTopic(t, conn, second)
+	for _, topic := range []string{first, second} {
+		if err := conn.CreateSubscription(liveContext(t), model.SubscriptionSpec{
+			Ref: model.SubscriptionRef{Namespace: topic, Name: "shared"},
+		}); err != nil {
+			t.Fatalf("creating a channel on %s: %v", topic, err)
+		}
+	}
+	rawPost(t, liveNSQD1, "/mpub", url.Values{"topic": {first}}, strings.NewReader("a\nb\nc"))
+
+	subscriptions, err := conn.ListSubscriptions(liveContext(t))
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+
+	one := findChannel(subscriptions, first, "shared")
+	two := findChannel(subscriptions, second, "shared")
+	if one == nil || two == nil {
+		t.Fatal("the same channel name under two topics did not produce two rows")
+	}
+	if one.Backlog != 3 {
+		t.Errorf("backlog on %s = %d, want the 3 published", first, one.Backlog)
+	}
+	if two.Backlog != 0 {
+		t.Errorf("backlog on %s = %d, want none - nothing was published to it", second, two.Backlog)
+	}
+	if one.Destinations != 1 {
+		t.Errorf("destinations = %d; a channel belongs to exactly one topic", one.Destinations)
+	}
+	if one.RateOut != model.UnknownMetric {
+		t.Errorf("rateOut = %d, and nsqd reports no rate", one.RateOut)
+	}
+
+	detail, err := conn.SubscriptionDetail(liveContext(t), model.SubscriptionRef{
+		Namespace: first, Name: "shared",
+	})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if detail.Backlog != one.Backlog {
+		t.Errorf("detail backlog = %d, listing = %d", detail.Backlog, one.Backlog)
+	}
+}
+
+/*
+ * What a channel created after the fact inherits, which is not what the
+ * obvious reading of NSQ says.
+ *
+ * A channel receives what arrives after it exists - so a second channel added
+ * to a busy topic starts at nothing, and there is no position to rewind it to.
+ * But a topic with no channel at all holds its messages in its own queue
+ * rather than discarding them, and the first channel created drains that queue
+ * into itself. Both halves are pinned here because a page that promised either
+ * one alone would be wrong half the time.
+ */
+func TestLiveWhatALateChannelInherits(t *testing.T) {
+	conn := liveConn(t)
+
+	t.Run("the first channel drains what the topic was holding", func(t *testing.T) {
+		const topic = "MQS.TEST.firstchannel"
+		testTopic(t, conn, topic)
+		rawPost(t, liveNSQD1, "/mpub", url.Values{"topic": {topic}}, strings.NewReader("a\nb\nc"))
+
+		if err := conn.CreateSubscription(liveContext(t), model.SubscriptionSpec{
+			Ref: model.SubscriptionRef{Namespace: topic, Name: "first"},
+		}); err != nil {
+			t.Fatalf("create: %v", err)
+		}
+		if backlog := awaitBacklog(t, conn, topic, "first", 3); backlog != 3 {
+			t.Errorf("backlog = %d; the topic was holding 3 with nowhere to put them", backlog)
+		}
+	})
+
+	t.Run("a second channel starts at nothing", func(t *testing.T) {
+		const topic = "MQS.TEST.secondchannel"
+		testTopic(t, conn, topic)
+		if err := conn.CreateSubscription(liveContext(t), model.SubscriptionSpec{
+			Ref: model.SubscriptionRef{Namespace: topic, Name: "early"},
+		}); err != nil {
+			t.Fatalf("creating the first channel: %v", err)
+		}
+		rawPost(t, liveNSQD1, "/mpub", url.Values{"topic": {topic}}, strings.NewReader("a\nb\nc"))
+
+		if err := conn.CreateSubscription(liveContext(t), model.SubscriptionSpec{
+			Ref: model.SubscriptionRef{Namespace: topic, Name: "late"},
+		}); err != nil {
+			t.Fatalf("creating the second channel: %v", err)
+		}
+		detail, err := conn.SubscriptionDetail(liveContext(t), model.SubscriptionRef{
+			Namespace: topic, Name: "late",
+		})
+		if err != nil {
+			t.Fatalf("detail: %v", err)
+		}
+		if detail.Backlog != 0 {
+			t.Errorf("backlog = %d; the copies were already made into the first channel",
+				detail.Backlog)
+		}
+	})
+}
+
+// awaitBacklog waits for a channel to reach a backlog, because nsqd moves
+// messages out of a topic on its own message pump rather than inside the call
+// that created the channel.
+func awaitBacklog(t *testing.T, conn *Conn, topic, channel string, wanted int64) int64 {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		detail, err := conn.SubscriptionDetail(liveContext(t), model.SubscriptionRef{
+			Namespace: topic, Name: channel,
+		})
+		if err != nil {
+			t.Fatalf("detail: %v", err)
+		}
+		if detail.Backlog == wanted || time.Now().After(deadline) {
+			return detail.Backlog
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// Pausing a channel stops its consumers and leaves the topic's other channels
+// running, which is what makes it a different control from pausing the topic.
+func TestLivePauseOneChannelLeavesTheOthersRunning(t *testing.T) {
+	conn := liveConn(t)
+	const topic = "MQS.TEST.halfpaused"
+
+	testTopic(t, conn, topic)
+	for _, name := range []string{"held", "running"} {
+		if err := conn.CreateSubscription(liveContext(t), model.SubscriptionSpec{
+			Ref: model.SubscriptionRef{Namespace: topic, Name: name},
+		}); err != nil {
+			t.Fatalf("creating %s: %v", name, err)
+		}
+	}
+
+	if err := conn.SetChannelPaused(liveContext(t), topic, "held", true); err != nil {
+		t.Fatalf("pause: %v", err)
+	}
+	rawPost(t, liveNSQD1, "/mpub", url.Values{"topic": {topic}}, strings.NewReader("a\nb"))
+
+	subscriptions, err := conn.ListSubscriptions(liveContext(t))
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	held := findChannel(subscriptions, topic, "held")
+	running := findChannel(subscriptions, topic, "running")
+	if held == nil || running == nil {
+		t.Fatal("one of the two channels is missing from the listing")
+	}
+	if held.Attribute(AttrPaused) != "true" || running.Attribute(AttrPaused) != "false" {
+		t.Errorf("paused = %q and %q, want only the first",
+			held.Attribute(AttrPaused), running.Attribute(AttrPaused))
+	}
+	// A paused channel with no consumer still shows warning rather than
+	// offline: the pause is the reason nothing is moving, and it outranks
+	// having nobody attached.
+	if held.Status != model.SubscriptionWarning {
+		t.Errorf("status = %q, want warning while the channel is paused", held.Status)
+	}
+	if running.Status != model.SubscriptionOffline {
+		t.Errorf("status = %q, want offline with no consumer attached", running.Status)
+	}
+	// Both still receive their copy: pausing stops delivery to consumers, not
+	// the copy into the channel.
+	if held.Backlog != 2 || running.Backlog != 2 {
+		t.Errorf("backlogs = %d and %d, want 2 each", held.Backlog, running.Backlog)
+	}
+
+	if err := conn.EmptyChannel(liveContext(t), topic, "held"); err != nil {
+		t.Fatalf("empty: %v", err)
+	}
+	subscriptions, err = conn.ListSubscriptions(liveContext(t))
+	if err != nil {
+		t.Fatalf("list after emptying: %v", err)
+	}
+	if emptied := findChannel(subscriptions, topic, "held"); emptied.Backlog != 0 {
+		t.Errorf("backlog after emptying = %d, want 0", emptied.Backlog)
+	}
+	if kept := findChannel(subscriptions, topic, "running"); kept.Backlog != 2 {
+		t.Errorf("emptying one channel took %d from the other", 2-kept.Backlog)
+	}
+}
+
+// A channel delete has to reach the discovery tier for the same reason a topic
+// delete does: a channel nsqlookupd still lists is one that every nsqd later
+// carrying the topic recreates for itself.
+func TestLiveRemoveSubscriptionReachesTheDirectory(t *testing.T) {
+	conn := liveConn(t)
+	const topic = "MQS.TEST.chandelete"
+
+	testTopic(t, conn, topic)
+	if err := conn.CreateSubscription(liveContext(t), model.SubscriptionSpec{
+		Ref: model.SubscriptionRef{Namespace: topic, Name: "doomed"},
+	}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if err := conn.RemoveSubscription(liveContext(t), model.SubscriptionRef{
+		Namespace: topic, Name: "doomed",
+	}); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+
+	for _, address := range []string{liveLookupd1, liveLookupd2} {
+		if contains(rawLookupdChannels(t, address, topic), "doomed") {
+			t.Errorf("%s still lists the deleted channel", address)
+		}
+	}
+	// A daemon asked for a topic it has forgotten the channel of recreates it
+	// from the directory, so a delete that left the registration behind comes
+	// back the moment anything touches the topic.
+	if err := conn.CreateDestination(liveContext(t), model.DestinationSpec{
+		Ref: model.DestinationRef{Name: topic},
+	}); err != nil {
+		t.Fatalf("recreating the topic: %v", err)
+	}
+	subscriptions, err := conn.ListSubscriptions(liveContext(t))
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if findChannel(subscriptions, topic, "doomed") != nil {
+		t.Error("the deleted channel came back, so its registration outlived it")
+	}
+
+	if err := conn.RemoveSubscription(liveContext(t), model.SubscriptionRef{
+		Namespace: topic, Name: "doomed",
+	}); err == nil {
+		t.Error("deleting a channel no daemon carries reported success")
+	}
+}
+
+// rawLookupdChannels is the discovery tier's own channel registry for a topic,
+// which is a separate list from any nsqd's.
+func rawLookupdChannels(t *testing.T, address, topic string) []string {
+	t.Helper()
+	response, err := http.Get(address + "/channels?topic=" + url.QueryEscape(topic))
+	if err != nil {
+		t.Fatalf("channels on %s: %v", address, err)
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	var payload struct {
+		Channels []string `json:"channels"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decoding channels on %s: %v", address, err)
+	}
+	return payload.Channels
+}
+
+// The method exists because SubscriptionAdmin is one interface. Nothing in the
+// UI reaches it, and it must not quietly do something instead.
+func TestLiveUpdateSubscriptionIsRefused(t *testing.T) {
+	conn := liveConn(t)
+	if err := conn.UpdateSubscription(liveContext(t), model.SubscriptionSpec{
+		Ref: model.SubscriptionRef{Namespace: "MQS.TEST.a", Name: "b"},
+	}); err == nil {
+		t.Error("an nsq channel has nothing to reconfigure and the update reported success")
+	}
+}

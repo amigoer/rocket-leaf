@@ -1816,6 +1816,36 @@ export class NATSSubscribeInput {
 }
 
 /**
+ * NSQChannelInput names a channel, which takes two fields because a channel
+ * belongs to a topic: "analytics" under two topics is two channels with
+ * nothing in common.
+ */
+export class NSQChannelInput {
+    "topic": string;
+    "channel": string;
+
+    /** Creates a new NSQChannelInput instance. */
+    constructor($$source: Partial<NSQChannelInput> = {}) {
+        if (!("topic" in $$source)) {
+            this["topic"] = "";
+        }
+        if (!("channel" in $$source)) {
+            this["channel"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new NSQChannelInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): NSQChannelInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new NSQChannelInput($$parsedSource as Partial<NSQChannelInput>);
+    }
+}
+
+/**
  * NamespaceInput creates or updates a virtual host.
  */
 export class NamespaceInput {

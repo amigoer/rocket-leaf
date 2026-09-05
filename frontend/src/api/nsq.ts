@@ -50,3 +50,40 @@ export const emptyTopic = (connID: number, name: string): Promise<void> =>
  */
 export const setTopicPaused = (connID: number, name: string, paused: boolean): Promise<void> =>
   NSQService.SetTopicPaused(connID, name, paused);
+
+/**
+ * Declare a channel on every nsqd carrying its topic.
+ *
+ * There is no position to start it from. What it gets is whatever nsqd is
+ * still holding: nothing, on a topic that already has a channel, because the
+ * copies were made as the messages arrived; and the topic's own queue, on one
+ * that had no channel to copy into.
+ */
+export const createChannel = (connID: number, topic: string, channel: string): Promise<void> =>
+  NSQService.CreateChannel(connID, { topic, channel });
+
+/** Delete a channel and its backlog, in the discovery tier as well as on nsqd. */
+export const removeChannel = (connID: number, topic: string, channel: string): Promise<void> =>
+  NSQService.RemoveChannel(connID, { topic, channel });
+
+/**
+ * Discard one channel's backlog.
+ *
+ * Not the same as emptying the topic, which reaches every channel under it:
+ * this leaves the others holding their own copies.
+ */
+export const emptyChannel = (connID: number, topic: string, channel: string): Promise<void> =>
+  NSQService.EmptyChannel(connID, { topic, channel });
+
+/**
+ * Stop or resume delivery to one channel's consumers.
+ *
+ * Its consumers stay connected and receive nothing; the other channels under
+ * the topic keep running, which is what separates this from pausing the topic.
+ */
+export const setChannelPaused = (
+  connID: number,
+  topic: string,
+  channel: string,
+  paused: boolean,
+): Promise<void> => NSQService.SetChannelPaused(connID, { topic, channel }, paused);

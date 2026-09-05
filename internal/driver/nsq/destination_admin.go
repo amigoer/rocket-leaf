@@ -49,15 +49,24 @@ func (c *Conn) UpdateDestination(_ context.Context, _ model.DestinationSpec) err
  * RemoveDestination deletes a topic and everything under it.
  *
  * Two tiers, and both are required for the delete to hold. nsqd forgets the
- * topic; nsqlookupd does not, because a producer's registration is separate
- * from the topic's existence - so a delete that only reached nsqd leaves the
- * name in nsqlookupd's /topics, where nsqadmin still lists it and a consumer
- * looking it up still finds it. Confirmed against 1.3.0: after deleting on
- * nsqd alone, /topics still names the topic and /lookup answers with an empty
- * producer list rather than a 404.
+ * topic; nsqlookupd does not, because a registration is separate from the
+ * topic's existence - so a delete that only reached nsqd leaves the name in
+ * nsqlookupd's /topics, where nsqadmin still lists it and a consumer looking
+ * it up still finds it. Confirmed against 1.3.0: after deleting on nsqd alone,
+ * /topics still names the topic and /lookup answers with an empty producer
+ * list rather than a 404.
  *
- * The discovery tier goes first, so nothing can re-register between the two
- * calls.
+ * nsqd goes first, and the order is not arbitrary. nsqd registers with the
+ * discovery tier asynchronously, so a delete that cleared the tier first can
+ * be undone by a registration still in flight from the create - which is a
+ * delete that silently leaves the object behind, and which this test suite
+ * caught. Deleting at nsqd first queues the unregister behind any pending
+ * register on the same connection, and the directory sweep afterwards removes
+ * whatever the unregister did not.
+ *
+ * The sweep runs even when no daemon was carrying the topic. A registration
+ * whose nsqd is long gone is exactly the state that needs cleaning, and
+ * returning early would make it undeletable.
  */
 func (c *Conn) RemoveDestination(ctx context.Context, ref model.DestinationRef) error {
 	if err := c.live(); err != nil {
@@ -68,11 +77,12 @@ func (c *Conn) RemoveDestination(ctx context.Context, ref model.DestinationRef) 
 	}
 
 	query := url.Values{"topic": {ref.Name}}
+	removed := c.onEveryCarrier(ctx, "/topic/delete", query,
+		fmt.Sprintf("no nsqd in this connection was carrying the topic %q", ref.Name))
 	if err := c.forgetAtLookupd(ctx, "/topic/delete", query); err != nil {
 		return err
 	}
-	return c.onEveryCarrier(ctx, "/topic/delete", query,
-		fmt.Sprintf("no nsqd in this connection was carrying the topic %q", ref.Name))
+	return removed
 }
 
 // forgetAtLookupd runs a delete against every configured nsqlookupd.
