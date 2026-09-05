@@ -3,7 +3,6 @@ package activemq
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/amigoer/mq-studio/internal/model"
 )
@@ -73,22 +72,25 @@ func (c *Conn) RemoveDestination(ctx context.Context, ref model.DestinationRef) 
 		return err
 	}
 
-	// Classic keeps queues and topics in separate trees and has an operation
-	// for each, with no way to ask which one a name is. Removing the queue
-	// first and falling back is not a guess: a name that is not a queue
-	// answers with the broker's own "no such destination", and the topic call
-	// is then the only thing left it can be.
-	_, queueErr := c.jolokia.call(ctx, execOperation(c.names.brokerMBean(),
-		"removeQueue(java.lang.String)", ref.Name))
-	if queueErr == nil {
-		return nil
+	// Classic keeps queues and topics in separate trees with an operation
+	// each, and the kind has to be looked up rather than guessed at by trying
+	// one and falling back.
+	//
+	// The obvious shape - call removeQueue, and let a name that is not a queue
+	// fail into removeTopic - does not work: removeQueue answers 200 for a
+	// topic's name, and for a name that exists nowhere at all. A delete built
+	// on it removes nothing and reports success, which is what shipped until
+	// somebody deleted a topic in the app and watched the row stay.
+	detail, err := c.DestinationDetail(ctx, ref)
+	if err != nil {
+		return err
 	}
-	_, topicErr := c.jolokia.call(ctx, execOperation(c.names.brokerMBean(),
-		"removeTopic(java.lang.String)", ref.Name))
-	if topicErr == nil {
-		return nil
+	operation := "removeQueue(java.lang.String)"
+	if detail.Attributes[AttrKind] == string(topicKind) {
+		operation = "removeTopic(java.lang.String)"
 	}
-	return fmt.Errorf("no queue or topic named %q could be removed: %w", ref.Name, queueErr)
+	_, err = c.jolokia.call(ctx, execOperation(c.names.brokerMBean(), operation, ref.Name))
+	return err
 }
 
 // kindOf reads the destination kind a caller asked for, defaulting to a queue.

@@ -1430,3 +1430,73 @@ func TestLiveFollowIsDegradedWithoutTheAMQPTier(t *testing.T) {
 		t.Errorf("reason = %q, %v; want %q", reason, degraded, amqpAbsent)
 	}
 }
+
+// Deleting a topic has to delete the topic.
+//
+// Classic keeps queues and topics in separate trees with an operation each,
+// and the obvious shape - call removeQueue, fall back to removeTopic when it
+// fails - does not work: removeQueue answers 200 for a topic's name and for a
+// name that exists nowhere at all. A driver built on that removes nothing and
+// reports success, which is what shipped until somebody deleted a topic in the
+// app and watched the row stay.
+func TestLiveRemovingATopicActuallyRemovesIt(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		require func(*testing.T)
+		profile model.ConnectionProfile
+	}{
+		{"artemis", requireArtemis, artemisProfile("")},
+		{"classic", requireClassic, classicProfile("")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.require(t)
+			ctx := liveContext(t)
+			conn, err := open(ctx, tc.profile)
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+
+			topic := "MQS.TEST.removetopic." + tc.name
+			if err := conn.CreateDestination(ctx, model.DestinationSpec{
+				Ref:        model.DestinationRef{Name: topic},
+				Attributes: map[string]string{AttrKind: string(topicKind)},
+			}); err != nil {
+				t.Fatalf("create: %v", err)
+			}
+			defer func() { _ = conn.RemoveDestination(ctx, model.DestinationRef{Name: topic}) }()
+
+			if err := conn.RemoveDestination(ctx, model.DestinationRef{Name: topic}); err != nil {
+				t.Fatalf("remove: %v", err)
+			}
+
+			found, err := conn.ListDestinations(ctx, model.DestinationFilter{IncludeInternal: true})
+			if err != nil {
+				t.Fatalf("list: %v", err)
+			}
+			for _, destination := range found {
+				if destination.Ref.Name == topic {
+					t.Error("the topic is still listed after a delete that reported success")
+				}
+			}
+		})
+	}
+}
+
+// And a name that is nowhere reports it rather than succeeding, for the same
+// reason: Classic's removeQueue answers 200 for one.
+func TestLiveRemovingSomethingThatIsNotThereIsReported(t *testing.T) {
+	requireClassic(t)
+	ctx := liveContext(t)
+	conn, err := open(ctx, classicProfile(""))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	if err := conn.RemoveDestination(ctx, model.DestinationRef{
+		Name: "MQS.TEST.definitely.not.there",
+	}); err == nil {
+		t.Error("removing a destination that does not exist reported success")
+	}
+}
