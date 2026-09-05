@@ -4082,6 +4082,68 @@
           "headers": "Headers",
           "delivery": "Delivery"
         }
+      },
+      "cluster": {
+        "count": "1 broker · {{bridges}} bridged",
+        "name": "Broker",
+        "version": "Version",
+        "uptime": "Uptime",
+        "messages": "Messages held",
+        "enqueued": "Enqueued",
+        "dequeued": "Dequeued",
+        "consumers": "Consumers",
+        "producers": "Producers",
+        "connections": "Connections",
+        "disk": "Disk",
+        "store": "Store",
+        "temp": "Temp store",
+        "memory": "Memory",
+        "memoryLimit": "Memory limit",
+        "journalType": "Journal",
+        "nodeId": "Node id",
+        "persistent": "Persistent",
+        "dataDirectory": "Data directory",
+        "clustered": "Clustered",
+        "haPolicy": "HA policy",
+        "security": "Security",
+        "acceptors": "Acceptors",
+        "bridgeBadge": "Bridge",
+        "backupBadge": "Backup",
+        "bridgeNote": "A broker this one forwards to. The link is configured here and the broker at the other end answers on its own console, which this connection cannot reach — so its state is genuinely unknown rather than assumed.",
+        "noSettings": "No settings were reported.",
+        "note": "One broker, and the links it declares. A JMS broker is a unit — destinations live on the one that owns them — so clustering here is a bridge between brokers rather than nodes sharing a namespace. No rate is shown anywhere: both products keep cumulative counters and nothing else.",
+        "section": {
+          "identity": "Identity",
+          "load": "Load",
+          "storage": "Storage",
+          "availability": "Availability",
+          "settings": "Effective settings"
+        }
+      },
+      "clients": {
+        "count": "{{count}} connections",
+        "search": "Filter by peer, user or client id",
+        "peer": "Peer",
+        "protocol": "Protocol",
+        "user": "User",
+        "state": "State",
+        "sessions": "Sessions",
+        "running": "Running",
+        "blocked": "Blocked",
+        "slow": "Falling behind",
+        "connectionId": "Connection id",
+        "clientId": "Client id",
+        "connector": "Connector",
+        "created": "Connected at",
+        "close": "Disconnect",
+        "closeTitle": "Disconnect {{peer}}?",
+        "closeDesc": "Closes the socket. A client that reconnects on its own will be back within seconds.",
+        "closed": "Disconnected {{peer}}",
+        "closeFailed": "Could not disconnect",
+        "sessionNote": "Sessions are not channels. A channel has its own prefetch and flow control and can be closed on its own; a JMS session is a unit of work inside the connection and has none of that, which is why it is a column here rather than a page.",
+        "section": {
+          "identity": "Connection"
+        }
       }
     }
   }

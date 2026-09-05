@@ -4082,6 +4082,68 @@
           "headers": "消息头",
           "delivery": "投递"
         }
+      },
+      "cluster": {
+        "count": "1 个 broker · {{bridges}} 条桥接",
+        "name": "Broker",
+        "version": "版本",
+        "uptime": "运行时长",
+        "messages": "持有消息",
+        "enqueued": "入队",
+        "dequeued": "出队",
+        "consumers": "消费者",
+        "producers": "生产者",
+        "connections": "连接",
+        "disk": "磁盘",
+        "store": "存储",
+        "temp": "临时存储",
+        "memory": "内存",
+        "memoryLimit": "内存上限",
+        "journalType": "Journal",
+        "nodeId": "节点 ID",
+        "persistent": "持久化",
+        "dataDirectory": "数据目录",
+        "clustered": "已组集群",
+        "haPolicy": "高可用策略",
+        "security": "安全认证",
+        "acceptors": "接入点",
+        "bridgeBadge": "桥接",
+        "backupBadge": "备节点",
+        "bridgeNote": "本 broker 转发的目标。这条链路在本端配置，而对端 broker 只在它自己的控制台上应答，本连接无法触达——所以它的状态是真的未知，而不是被假定的。",
+        "noSettings": "没有返回任何设置。",
+        "note": "一个 broker，以及它声明的链路。JMS 的 broker 是一个整体——目的地属于拥有它的那一个——所以这里的集群是 broker 之间的桥接，而不是共享命名空间的节点。任何位置都不显示速率：两个产品都只有累计计数器。",
+        "section": {
+          "identity": "身份",
+          "load": "负载",
+          "storage": "存储",
+          "availability": "可用性",
+          "settings": "生效配置"
+        }
+      },
+      "clients": {
+        "count": "{{count}} 个连接",
+        "search": "按对端、用户或 client id 筛选",
+        "peer": "对端",
+        "protocol": "协议",
+        "user": "用户",
+        "state": "状态",
+        "sessions": "会话",
+        "running": "正常",
+        "blocked": "已阻塞",
+        "slow": "消费滞后",
+        "connectionId": "连接 ID",
+        "clientId": "Client ID",
+        "connector": "接入器",
+        "created": "建立时间",
+        "close": "断开",
+        "closeTitle": "断开 {{peer}}？",
+        "closeDesc": "会关闭该 socket。带自动重连的客户端几秒内就会回来。",
+        "closed": "已断开 {{peer}}",
+        "closeFailed": "断开失败",
+        "sessionNote": "会话不是 channel。channel 有自己的预取和流控，可以被单独关闭；JMS 会话只是连接内部的一个工作单元，这些都没有——所以它在这里是一列，而不是一个页面。",
+        "section": {
+          "identity": "连接"
+        }
       }
     }
   }

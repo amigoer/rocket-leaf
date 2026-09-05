@@ -148,6 +148,13 @@ func capabilities() []model.Capability {
 
 		model.CapPublish,
 		model.CapPublishRich,
+
+		model.CapClusterTopology,
+		model.CapClusterMetrics,
+		model.CapNodeConfig,
+		model.CapClusterCensus,
+		model.CapClientInspect,
+		model.CapClientClose,
 	}
 }
 

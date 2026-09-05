@@ -2,6 +2,7 @@ package activemq
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -79,4 +80,18 @@ func amqpRefusedCredentials(err error) bool {
 	return strings.Contains(message, "unauthorized") ||
 		strings.Contains(message, "sasl") ||
 		strings.Contains(message, "authentication")
+}
+
+// dialAMQPClient opens a connection on the optional tier for a caller that
+// wants to hold one - the live tests, and later the follow console.
+//
+// Separate from dialAMQP, which opens one only to find out whether it can and
+// closes it again: a probe that handed its connection back would leave a
+// session open on the broker for every connected profile whether or not
+// anything ever used it.
+func (c *Conn) dialAMQPClient(ctx context.Context) (*amqp.Conn, error) {
+	if c.tiers.amqpReason != "" {
+		return nil, errors.New(c.tiers.amqpReason)
+	}
+	return amqp.Dial(ctx, c.config.amqpURL, amqpOptions(c.config))
 }

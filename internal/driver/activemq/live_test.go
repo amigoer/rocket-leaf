@@ -1143,3 +1143,149 @@ func TestLiveSendMessageRefusesADelayItCannotHonour(t *testing.T) {
 		t.Error("a delayed send was accepted")
 	}
 }
+
+// The broker page, which on this family is a broker page more than a cluster
+// page: a JMS broker is a unit, and what the other families call a node here
+// is the one broker plus whatever it bridges to.
+func TestLiveBrokerReportsItselfAndItsFigures(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		require func(*testing.T)
+		profile model.ConnectionProfile
+		broker  string
+	}{
+		{"artemis", requireArtemis, artemisProfile(""), "0.0.0.0"},
+		{"classic", requireClassic, classicProfile(""), "localhost"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.require(t)
+			ctx := liveContext(t)
+			conn, err := open(ctx, tc.profile)
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+
+			nodes, err := conn.ListNodes(ctx)
+			if err != nil {
+				t.Fatalf("list nodes: %v", err)
+			}
+			if len(nodes) == 0 {
+				t.Fatal("the broker did not list itself")
+			}
+			node := nodes[0]
+			if node.Name != tc.broker {
+				t.Errorf("name = %q, want %q", node.Name, tc.broker)
+			}
+			if node.Version == "" {
+				t.Error("no version reported")
+			}
+			if node.RateIn != model.UnknownMetric || node.RateOut != model.UnknownMetric {
+				t.Errorf("rates = %d/%d; neither product reports one",
+					node.RateIn, node.RateOut)
+			}
+			if node.Attributes[AttrUptime] == "" {
+				t.Error("no uptime reported")
+			}
+
+			overview, err := conn.ClusterOverview(ctx)
+			if err != nil {
+				t.Fatalf("overview: %v", err)
+			}
+			if overview.TotalNodes != len(nodes) {
+				t.Errorf("overview counts %d nodes against a list of %d",
+					overview.TotalNodes, len(nodes))
+			}
+			if overview.Destinations <= 0 {
+				t.Errorf("destinations = %d on a seeded broker", overview.Destinations)
+			}
+
+			config, err := conn.NodeConfig(ctx, node.Address)
+			if err != nil {
+				t.Fatalf("node config: %v", err)
+			}
+			if len(config) < 10 {
+				t.Errorf("effective settings came back with %d entries", len(config))
+			}
+			// Scalars only: the tree also carries destination lists and
+			// connector maps, which belong on their own pages.
+			for key, value := range config {
+				if strings.HasPrefix(value, "{") || strings.HasPrefix(value, "[") {
+					t.Errorf("setting %q came through as a structure: %s", key, value)
+				}
+			}
+
+			census, err := conn.Census(ctx)
+			if err != nil {
+				t.Fatalf("census: %v", err)
+			}
+			if census.Version != node.Version {
+				t.Errorf("census version %q against node version %q", census.Version, node.Version)
+			}
+		})
+	}
+}
+
+// Connections, which the two products expose through unrelated shapes: Artemis
+// answers with JSON from one operation, Classic registers an MBean per
+// connection under the connector that accepted it - and registers each one
+// twice, once per view type, which a plain listing would show as two clients.
+func TestLiveConnectionsAreListedOncePerClient(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		require func(*testing.T)
+		profile func(string) model.ConnectionProfile
+		amqp    string
+	}{
+		{"artemis", requireArtemis, artemisProfile, liveArtemisAMQP},
+		{"classic", requireClassic, classicProfile, liveClassicAMQP},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.require(t)
+			ctx := liveContext(t)
+			conn, err := open(ctx, tc.profile(tc.amqp))
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+
+			// A real client, so the list has something in it. The AMQP tier is
+			// what this test borrows it from.
+			client, err := conn.dialAMQPClient(ctx)
+			if err != nil {
+				t.Skipf("the amqp acceptor is not answering: %v", err)
+			}
+			defer func() { _ = client.Close() }()
+
+			connections, err := conn.ListClientConnections(ctx, "")
+			if err != nil {
+				t.Fatalf("list connections: %v", err)
+			}
+			if len(connections) == 0 {
+				t.Fatal("a connection is open and none was listed")
+			}
+
+			seen := make(map[string]bool, len(connections))
+			for _, connection := range connections {
+				if seen[connection.Name] {
+					t.Errorf("connection %q listed twice", connection.Name)
+				}
+				seen[connection.Name] = true
+				if connection.PeerHost == "" {
+					t.Errorf("connection %q has no peer host", connection.Name)
+				}
+			}
+
+			// Channels are AMQP 0-9-1's and neither product has them. A JMS
+			// session is not one: it carries no prefetch of its own and is not
+			// something an operator closes.
+			channels, err := conn.ListClientChannels(ctx, "")
+			if err != nil {
+				t.Fatalf("list channels: %v", err)
+			}
+			if len(channels) != 0 {
+				t.Errorf("channels = %d; neither product has them", len(channels))
+			}
+		})
+	}
+}

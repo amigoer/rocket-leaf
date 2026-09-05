@@ -3,7 +3,11 @@ import type {
   ActiveMQMoveInput,
   ActiveMQPublishInput,
 } from "@bindings/bridge/models";
-import type { DeadLetterQueue, PublishResult } from "@bindings/model/models";
+import type {
+  ClientConnection,
+  DeadLetterQueue,
+  PublishResult,
+} from "@bindings/model/models";
 import { present, required } from "./client";
 
 export type { ActiveMQMoveInput };
@@ -106,3 +110,16 @@ export const publish = (
   connID: number,
   input: ActiveMQPublishInput,
 ): Promise<PublishResult> => ActiveMQService.Publish(connID, input).then(required);
+
+/** What is holding a socket open on the broker. */
+export const connections = (connID: number): Promise<ClientConnection[]> =>
+  ActiveMQService.Connections(connID).then(present);
+
+/**
+ * Disconnect one client, by the broker's own connection id.
+ *
+ * Not by address: one host can hold twenty connections, and closing by address
+ * would take all of them.
+ */
+export const closeConnection = (connID: number, name: string): Promise<void> =>
+  ActiveMQService.CloseConnection(connID, name);

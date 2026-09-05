@@ -11,6 +11,7 @@ package activemq
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/amigoer/mq-studio/internal/driver"
@@ -205,4 +206,38 @@ func (s *Service) Publish(ctx context.Context, connID int, request model.Publish
 	ctx, cancel := s.withTimeout(ctx)
 	defer cancel()
 	return api.Publish(ctx, request)
+}
+
+// Connections lists what is holding a socket open on the broker.
+func (s *Service) Connections(ctx context.Context, connID int) ([]*model.ClientConnection, error) {
+	api, err := port[driver.ClientInspector](s, connID, model.CapClientInspect)
+	if err != nil {
+		if notConnected(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.ListClientConnections(ctx, "")
+}
+
+// CloseConnection disconnects one client by the broker's own connection id.
+func (s *Service) CloseConnection(ctx context.Context, connID int, name string) error {
+	api, err := port[driver.ClientCloser](s, connID, model.CapClientClose)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.CloseClientConnection(ctx, name, "")
+}
+
+// notConnected reports whether the failure is simply that nothing is dialled.
+//
+// List pages answer that with an empty result rather than an error: the board
+// draws its own "not connected" state, and an error banner over it says the
+// same thing twice.
+func notConnected(err error) bool {
+	return errors.Is(err, driver.ErrNotConnected)
 }

@@ -21,6 +21,32 @@ import * as model$0 from "../model/models.js";
 import * as $models from "./models.js";
 
 /**
+ * CloseConnection disconnects one client.
+ * 
+ * By the broker's own connection id rather than by address, because an address
+ * is not unique - one host can hold twenty connections, and closing by address
+ * would take all of them.
+ */
+export function CloseConnection(connID: number, name: string): $CancellablePromise<void> {
+    return $Call.ByID(2924620057, connID, name);
+}
+
+/**
+ * Connections lists what is holding a socket open on the broker.
+ * 
+ * The protocol column is read differently on the two products and both are the
+ * broker's own answer: Artemis reports the connection's Java class, which the
+ * driver maps onto the protocol's name, and Classic reports which connector
+ * accepted the socket - which is the same fact, since a connector serves one
+ * protocol.
+ */
+export function Connections(connID: number): $CancellablePromise<(model$0.ClientConnection | null)[]> {
+    return $Call.ByID(3933986700, connID).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
+
+/**
  * CreateDestination declares a queue or a topic.
  */
 export function CreateDestination(connID: number, input: $models.ActiveMQDestinationInput): $CancellablePromise<void> {
@@ -45,7 +71,7 @@ export function CreateSubscription(connID: number, input: $models.ActiveMQSubscr
  */
 export function DeadLetterQueues(connID: number): $CancellablePromise<(model$0.DeadLetterQueue | null)[]> {
     return $Call.ByID(1379698213, connID).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType5($result);
     });
 }
 
@@ -63,7 +89,7 @@ export function MoveMessages(connID: number, input: $models.ActiveMQMoveInput): 
  */
 export function Publish(connID: number, input: $models.ActiveMQPublishInput): $CancellablePromise<model$0.PublishResult | null> {
     return $Call.ByID(303822118, connID, input).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType7($result);
     });
 }
 
@@ -105,8 +131,11 @@ export function RetryDeadLetters(connID: number, name: string): $CancellableProm
 }
 
 // Private type creation functions
-const $$createType0 = model$0.DeadLetterQueue.createFrom;
+const $$createType0 = model$0.ClientConnection.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
 const $$createType2 = $Create.Array($$createType1);
-const $$createType3 = model$0.PublishResult.createFrom;
+const $$createType3 = model$0.DeadLetterQueue.createFrom;
 const $$createType4 = $Create.Nullable($$createType3);
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = model$0.PublishResult.createFrom;
+const $$createType7 = $Create.Nullable($$createType6);

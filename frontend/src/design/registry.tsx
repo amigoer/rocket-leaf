@@ -56,6 +56,8 @@ import { ProducerRabbitMQ } from "./boards/producer/ProducerRabbitMQ";
 import { ProducerRedis } from "./boards/producer/ProducerRedis";
 import { ProducerNats } from "./boards/producer/ProducerNats";
 import { ProducerActiveMQ } from "./boards/producer/ProducerActiveMQ";
+import { BrokerActiveMQ } from "./boards/cluster/BrokerActiveMQ";
+import { ClientsActiveMQ } from "./boards/consumers/ClientsActiveMQ";
 import { Alerts } from "./boards/alerts/Alerts";
 import { Acl } from "./boards/acl/Acl";
 import { AclKafka } from "./boards/acl/AclKafka";
@@ -149,7 +151,7 @@ const BOARDS: Partial<
     activemq: SubscriptionsActiveMQ,
   },
   subscribe: { mqtt: MqttWorkbench, nats: NatsWorkbench },
-  clients: { mqtt: ClientsMqtt, redis: ClientsRedis, nats: ClientsNats },
+  clients: { mqtt: ClientsMqtt, redis: ClientsRedis, nats: ClientsNats, activemq: ClientsActiveMQ },
   messages: {
     rocketmq: MessagesRocketMQ,
     kafka: MessagesKafka,
@@ -174,6 +176,7 @@ const BOARDS: Partial<
     redis: NodeRedis,
     mqtt: NodesMqtt,
     nats: ServersNats,
+    activemq: BrokerActiveMQ,
   },
 };
 

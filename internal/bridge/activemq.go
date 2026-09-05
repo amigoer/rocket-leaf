@@ -161,3 +161,23 @@ func (s *ActiveMQService) Publish(connID int, input ActiveMQPublishInput) (*mode
 		Count:         input.Count,
 	})
 }
+
+// Connections lists what is holding a socket open on the broker.
+//
+// The protocol column is read differently on the two products and both are the
+// broker's own answer: Artemis reports the connection's Java class, which the
+// driver maps onto the protocol's name, and Classic reports which connector
+// accepted the socket - which is the same fact, since a connector serves one
+// protocol.
+func (s *ActiveMQService) Connections(connID int) ([]*model.ClientConnection, error) {
+	return s.service.Connections(context.Background(), connID)
+}
+
+// CloseConnection disconnects one client.
+//
+// By the broker's own connection id rather than by address, because an address
+// is not unique - one host can hold twenty connections, and closing by address
+// would take all of them.
+func (s *ActiveMQService) CloseConnection(connID int, name string) error {
+	return s.service.CloseConnection(context.Background(), connID, name)
+}
