@@ -1,7 +1,10 @@
 import { ActiveMQService } from "@bindings/bridge";
-import type { ActiveMQMoveInput } from "@bindings/bridge/models";
-import type { DeadLetterQueue } from "@bindings/model/models";
-import { present } from "./client";
+import type {
+  ActiveMQMoveInput,
+  ActiveMQPublishInput,
+} from "@bindings/bridge/models";
+import type { DeadLetterQueue, PublishResult } from "@bindings/model/models";
+import { present, required } from "./client";
 
 export type { ActiveMQMoveInput };
 
@@ -88,3 +91,18 @@ export const deadLetterQueues = (connID: number): Promise<DeadLetterQueue[]> =>
  */
 export const retryDeadLetters = (connID: number, name: string): Promise<number> =>
   ActiveMQService.RetryDeadLetters(connID, name);
+
+export type { ActiveMQPublishInput };
+
+/**
+ * Send one or more messages, reporting what the broker took.
+ *
+ * A management operation like everything else here, so the console works on a
+ * broker with every wire acceptor switched off. What it cannot do is send a
+ * body that is not text: both send operations take a String, and bytes would
+ * need the optional AMQP tier.
+ */
+export const publish = (
+  connID: number,
+  input: ActiveMQPublishInput,
+): Promise<PublishResult> => ActiveMQService.Publish(connID, input).then(required);

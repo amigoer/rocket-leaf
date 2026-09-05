@@ -75,6 +75,15 @@ func TestConnDeclaresNoConceptActiveMQDoesNotHave(t *testing.T) {
 				"different capability this driver does declare.",
 		},
 		{
+			model.CapDelayedDelivery,
+			"both products have it and neither management operation can express it. " +
+				"Classic reads an AMQ_SCHEDULED_DELAY property and Artemis an " +
+				"_AMQ_SCHED_DELIVERY one, both of which must be a Long - and both send " +
+				"operations take Map<String,String>, so the property is set as text and " +
+				"the message goes out immediately. Confirmed by sending one: the depth " +
+				"rises at once and Artemis's ScheduledCount stays at zero.",
+		},
+		{
 			model.CapDLQ,
 			"a dead-letter destination here is an ordinary destination that something " +
 				"else points at, not one derived from a subscription's name. It is found " +

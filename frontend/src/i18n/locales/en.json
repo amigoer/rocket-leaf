@@ -4055,6 +4055,33 @@
           "state": "State",
           "sources": "Fed by"
         }
+      },
+      "producer": {
+        "title": "Send a message",
+        "destination": "Destination",
+        "artemisQueuesOnly": "Artemis sends through a queue. A multicast address has no queue of its own to send through, so topics are not listed here.",
+        "body": "Body",
+        "textOnly": "Text only. Both products' send operations take a string, so a binary body needs the AMQP tier.",
+        "headers": "Headers",
+        "headersHint": "One key: value per line. They arrive as string properties a selector can match.",
+        "badHeader": "Not a key/value pair: {{line}}. Sent as-is it becomes a property named after the whole line.",
+        "correlationId": "Correlation id",
+        "replyTo": "Reply to",
+        "jmsType": "JMS type",
+        "persistent": "Persistent",
+        "persistentHint": "Whether the message survives a broker restart.",
+        "persistentClassic": "Classic's send operation has no delivery-mode parameter — the destination's own policy decides, so this switch would do nothing here.",
+        "priority": "Priority",
+        "count": "Copies",
+        "countHint": "Each copy is its own call, sent as one batch. Capped at 500.",
+        "send": "Send",
+        "sent": "Sent {{count}} messages",
+        "partial": "{{sent}} sent, {{refused}} refused",
+        "failed": "Could not send",
+        "section": {
+          "headers": "Headers",
+          "delivery": "Delivery"
+        }
       }
     }
   }

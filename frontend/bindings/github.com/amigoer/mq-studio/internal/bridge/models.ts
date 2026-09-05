@@ -331,6 +331,78 @@ export class ActiveMQMoveInput {
 }
 
 /**
+ * ActiveMQPublishInput is a send as the ActiveMQ console collects it.
+ * 
+ * Flatter than the canonical PublishRequest, which is AMQP's: there is no
+ * exchange, no routing key and no mandatory flag here, because a JMS send
+ * names its destination and nothing routes in between. What is left is the
+ * body, the JMS headers a producer can set, and a count.
+ */
+export class ActiveMQPublishInput {
+    "destination": string;
+    "body": string;
+
+    /**
+     * Persistent is honoured on Artemis, whose sendMessage takes it. Classic's
+     * sendTextMessage has no delivery-mode parameter and the destination's own
+     * policy decides, so the switch does nothing there - which the console
+     * says rather than pretending otherwise.
+     */
+    "persistent": boolean;
+    "priority": number;
+    "correlationId": string;
+    "replyTo": string;
+    "jmsType": string;
+    "headers": { [_ in string]?: string };
+    "count": number;
+
+    /** Creates a new ActiveMQPublishInput instance. */
+    constructor($$source: Partial<ActiveMQPublishInput> = {}) {
+        if (!("destination" in $$source)) {
+            this["destination"] = "";
+        }
+        if (!("body" in $$source)) {
+            this["body"] = "";
+        }
+        if (!("persistent" in $$source)) {
+            this["persistent"] = false;
+        }
+        if (!("priority" in $$source)) {
+            this["priority"] = 0;
+        }
+        if (!("correlationId" in $$source)) {
+            this["correlationId"] = "";
+        }
+        if (!("replyTo" in $$source)) {
+            this["replyTo"] = "";
+        }
+        if (!("jmsType" in $$source)) {
+            this["jmsType"] = "";
+        }
+        if (!("headers" in $$source)) {
+            this["headers"] = {};
+        }
+        if (!("count" in $$source)) {
+            this["count"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ActiveMQPublishInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ActiveMQPublishInput {
+        const $$createField7_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("headers" in $$parsedSource) {
+            $$parsedSource["headers"] = $$createField7_0($$parsedSource["headers"]);
+        }
+        return new ActiveMQPublishInput($$parsedSource as Partial<ActiveMQPublishInput>);
+    }
+}
+
+/**
  * ActiveMQSubscriptionInput is a durable subscription as the ActiveMQ form
  * collects it.
  * 

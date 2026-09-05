@@ -124,3 +124,40 @@ func (s *ActiveMQService) DeadLetterQueues(connID int) ([]*model.DeadLetterQueue
 func (s *ActiveMQService) RetryDeadLetters(connID int, name string) (int, error) {
 	return s.service.RetryDeadLetters(context.Background(), connID, name)
 }
+
+// ActiveMQPublishInput is a send as the ActiveMQ console collects it.
+//
+// Flatter than the canonical PublishRequest, which is AMQP's: there is no
+// exchange, no routing key and no mandatory flag here, because a JMS send
+// names its destination and nothing routes in between. What is left is the
+// body, the JMS headers a producer can set, and a count.
+type ActiveMQPublishInput struct {
+	Destination string `json:"destination"`
+	Body        string `json:"body"`
+	// Persistent is honoured on Artemis, whose sendMessage takes it. Classic's
+	// sendTextMessage has no delivery-mode parameter and the destination's own
+	// policy decides, so the switch does nothing there - which the console
+	// says rather than pretending otherwise.
+	Persistent    bool              `json:"persistent"`
+	Priority      int               `json:"priority"`
+	CorrelationID string            `json:"correlationId"`
+	ReplyTo       string            `json:"replyTo"`
+	JMSType       string            `json:"jmsType"`
+	Headers       map[string]string `json:"headers"`
+	Count         int               `json:"count"`
+}
+
+// Publish sends one or more messages and reports what the broker took.
+func (s *ActiveMQService) Publish(connID int, input ActiveMQPublishInput) (*model.PublishResult, error) {
+	return s.service.Publish(context.Background(), connID, model.PublishRequest{
+		RoutingKey:    input.Destination,
+		Body:          input.Body,
+		Persistent:    input.Persistent,
+		Priority:      input.Priority,
+		CorrelationID: input.CorrelationID,
+		ReplyTo:       input.ReplyTo,
+		Type:          input.JMSType,
+		Headers:       input.Headers,
+		Count:         input.Count,
+	})
+}

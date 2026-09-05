@@ -1005,3 +1005,141 @@ func TestLiveRetryPutsDeadLettersBackWhereTheyCameFrom(t *testing.T) {
 		t.Errorf("the origin holds %d after the retry, want 2", depth)
 	}
 }
+
+// Sending, which is a management operation here for the same reason browsing
+// is - so the send console works on a broker with every acceptor switched off.
+func TestLivePublishReachesTheDestination(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		require func(*testing.T)
+		profile model.ConnectionProfile
+	}{
+		{"artemis", requireArtemis, artemisProfile("")},
+		{"classic", requireClassic, classicProfile("")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.require(t)
+			ctx := liveContext(t)
+			conn, err := open(ctx, tc.profile)
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+
+			queue := "MQS.TEST.publish." + tc.name
+			if err := conn.CreateDestination(ctx, model.DestinationSpec{
+				Ref: model.DestinationRef{Name: queue},
+			}); err != nil {
+				t.Fatalf("create: %v", err)
+			}
+			defer func() { _ = conn.RemoveDestination(ctx, model.DestinationRef{Name: queue}) }()
+
+			result, err := conn.Publish(ctx, model.PublishRequest{
+				RoutingKey:    queue,
+				Body:          "published",
+				Persistent:    true,
+				Count:         3,
+				CorrelationID: "corr-1",
+				Headers:       map[string]string{"tenant": "acme"},
+			})
+			if err != nil {
+				t.Fatalf("publish: %v", err)
+			}
+			if result.Sent != 3 {
+				t.Errorf("sent = %d, want 3 (reason %q)", result.Sent, result.Reason)
+			}
+			if depth := depthOf(t, ctx, conn, queue); depth != 3 {
+				t.Errorf("depth = %d, want 3", depth)
+			}
+
+			// The headers have to survive the round trip, or the console is
+			// collecting fields the broker throws away.
+			messages, err := conn.QueryMessages(ctx, model.MessageQueryParams{Topic: queue})
+			if err != nil {
+				t.Fatalf("browse: %v", err)
+			}
+			if len(messages) == 0 {
+				t.Fatal("nothing came back from the browse")
+			}
+			if got := messages[0].Properties["tenant"]; got != "acme" {
+				t.Errorf("the header a producer set came back as %q", got)
+			}
+		})
+	}
+}
+
+// Delayed delivery is accepted by both management operations and honoured by
+// neither, which is why the capability is not declared. This pins that: if a
+// broker version ever starts honouring it, this test fails and the capability
+// can be added rather than discovered by a user whose delayed message went out
+// at once.
+func TestLiveDelayedDeliveryIsNotHonouredThroughJolokia(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		require func(*testing.T)
+		profile model.ConnectionProfile
+		header  string
+		value   string
+	}{
+		{"artemis", requireArtemis, artemisProfile(""), "_AMQ_SCHED_DELIVERY", ""},
+		{"classic", requireClassic, classicProfile(""), "AMQ_SCHEDULED_DELAY", "60000"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.require(t)
+			ctx := liveContext(t)
+			conn, err := open(ctx, tc.profile)
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+
+			queue := "MQS.TEST.delay." + tc.name
+			if err := conn.CreateDestination(ctx, model.DestinationSpec{
+				Ref: model.DestinationRef{Name: queue},
+			}); err != nil {
+				t.Fatalf("create: %v", err)
+			}
+			defer func() { _ = conn.RemoveDestination(ctx, model.DestinationRef{Name: queue}) }()
+
+			value := tc.value
+			if value == "" {
+				// Artemis takes an absolute delivery time rather than an offset.
+				value = fmt.Sprintf("%d", time.Now().Add(time.Minute).UnixMilli())
+			}
+			if _, err := conn.Publish(ctx, model.PublishRequest{
+				RoutingKey: queue,
+				Body:       "later",
+				Persistent: true,
+				Count:      1,
+				Headers:    map[string]string{tc.header: value},
+			}); err != nil {
+				t.Fatalf("publish: %v", err)
+			}
+
+			detail, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: queue})
+			if err != nil {
+				t.Fatalf("detail: %v", err)
+			}
+			if detail.Depth != 1 {
+				t.Errorf("depth = %d; a delay set as a string property now seems to be "+
+					"honoured, so CapDelayedDelivery may be declarable", detail.Depth)
+			}
+		})
+	}
+}
+
+// SendMessage refuses a delay rather than sending immediately and reporting
+// one, which is the failure the capability's absence exists to prevent.
+func TestLiveSendMessageRefusesADelayItCannotHonour(t *testing.T) {
+	requireArtemis(t)
+	ctx := liveContext(t)
+	conn, err := open(ctx, artemisProfile(""))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	if _, err := conn.SendMessage(ctx, "MQS.SEED.audit", "", "", "body", 30); err == nil {
+		t.Error("a delayed send was accepted")
+	}
+}

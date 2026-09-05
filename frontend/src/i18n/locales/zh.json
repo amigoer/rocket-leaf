@@ -4055,6 +4055,33 @@
           "state": "状态",
           "sources": "来源"
         }
+      },
+      "producer": {
+        "title": "发送消息",
+        "destination": "目的地",
+        "artemisQueuesOnly": "Artemis 通过队列发送。multicast 地址本身没有队列可发，所以这里不列出主题。",
+        "body": "内容",
+        "textOnly": "仅支持文本。两个产品的发送操作都只接受字符串，二进制内容需要 AMQP 层。",
+        "headers": "消息头",
+        "headersHint": "每行一条 key: value，会以字符串属性的形式带上，selector 可以匹配它们。",
+        "badHeader": "这一行不是 key/value：{{line}}。原样发出会变成一个以整行为名的属性。",
+        "correlationId": "关联 ID",
+        "replyTo": "回复到",
+        "jmsType": "JMS 类型",
+        "persistent": "持久化",
+        "persistentHint": "决定消息是否能在 broker 重启后存活。",
+        "persistentClassic": "Classic 的发送操作没有投递模式参数——由目的地自身的策略决定，所以这个开关在这里不起作用。",
+        "priority": "优先级",
+        "count": "份数",
+        "countHint": "每一份都是一次独立调用，合并成一批发出。上限 500。",
+        "send": "发送",
+        "sent": "已发送 {{count}} 条消息",
+        "partial": "成功 {{sent}} 条，被拒 {{refused}} 条",
+        "failed": "发送失败",
+        "section": {
+          "headers": "消息头",
+          "delivery": "投递"
+        }
       }
     }
   }

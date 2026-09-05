@@ -191,3 +191,18 @@ func (s *Service) RetryDeadLetters(ctx context.Context, connID int, name string)
 	defer cancel()
 	return api.RetryDeadLetters(ctx, model.DestinationRef{Name: name})
 }
+
+// publisher is the rich send, which is a canonical port rather than a
+// driver-specific one - RichPublisher's shape fits well enough here.
+type publisher = driver.RichPublisher
+
+// Publish sends one or more messages to a destination.
+func (s *Service) Publish(ctx context.Context, connID int, request model.PublishRequest) (*model.PublishResult, error) {
+	api, err := port[publisher](s, connID, model.CapPublishRich)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.Publish(ctx, request)
+}

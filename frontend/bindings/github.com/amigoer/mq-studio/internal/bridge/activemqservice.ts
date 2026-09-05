@@ -59,6 +59,15 @@ export function MoveMessages(connID: number, input: $models.ActiveMQMoveInput): 
 }
 
 /**
+ * Publish sends one or more messages and reports what the broker took.
+ */
+export function Publish(connID: number, input: $models.ActiveMQPublishInput): $CancellablePromise<model$0.PublishResult | null> {
+    return $Call.ByID(303822118, connID, input).then(($result: any) => {
+        return $$createType4($result);
+    });
+}
+
+/**
  * PurgeQueue drops everything a destination is holding. There is no undo.
  * 
  * On an Artemis topic this empties every subscription under the address rather
@@ -99,3 +108,5 @@ export function RetryDeadLetters(connID: number, name: string): $CancellableProm
 const $$createType0 = model$0.DeadLetterQueue.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
 const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = model$0.PublishResult.createFrom;
+const $$createType4 = $Create.Nullable($$createType3);

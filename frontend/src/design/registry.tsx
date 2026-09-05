@@ -55,6 +55,7 @@ import { ProducerPulsar } from "./boards/producer/ProducerPulsar";
 import { ProducerRabbitMQ } from "./boards/producer/ProducerRabbitMQ";
 import { ProducerRedis } from "./boards/producer/ProducerRedis";
 import { ProducerNats } from "./boards/producer/ProducerNats";
+import { ProducerActiveMQ } from "./boards/producer/ProducerActiveMQ";
 import { Alerts } from "./boards/alerts/Alerts";
 import { Acl } from "./boards/acl/Acl";
 import { AclKafka } from "./boards/acl/AclKafka";
@@ -200,6 +201,12 @@ export function renderBoard(
        needs instead is headers, the choice between a core send and a stored
        one, and a reply timeout. */
     if (protocol === "nats") return <ProducerNats />;
+    /* ActiveMQ's own too, for the same reason and one more: the shared console
+       collects a delay level, and a delay is the one thing this family has and
+       cannot express - both send operations take Map<String,String> and the
+       scheduling annotation has to be a Long, so a delay set here would be
+       accepted, ignored, and reported as having worked. */
+    if (protocol === "activemq") return <ProducerActiveMQ />;
     return <Producer protocol={protocol} nav={nav} />;
   }
   /* Alerts is one board for every family: the rules are numeric comparisons
