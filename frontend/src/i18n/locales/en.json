@@ -4218,6 +4218,35 @@
         "notStarted": "Choose a topic and start watching.",
         "note": "Topics only. A JMS consumer consumes, so attaching one to a queue would take its messages — the message page browses instead, which takes nothing. Nothing here is stored: a message published before this stream started was never anywhere this page could find it."
       }
+    },
+    "nsq": {
+      "topics": {
+        "count": "{{count}} topics",
+        "search": "Filter by name",
+        "name": "Topic",
+        "depth": "Depth",
+        "topicDepth": "Held by the topic",
+        "channelDepth": "Held by channels",
+        "backendDepth": "On disk",
+        "channels": "Channels",
+        "messages": "Messages",
+        "bytes": "Bytes",
+        "inFlight": "In flight",
+        "deferred": "Deferred",
+        "requeued": "Requeued",
+        "timedOut": "Timed out",
+        "nodes": "nsqd",
+        "pausedBadge": "Paused",
+        "ephemeralBadge": "Ephemeral",
+        "section": {
+          "depth": "Depth",
+          "traffic": "Traffic",
+          "placement": "Placement"
+        },
+        "heldPaused": "{{count}} messages are sitting in the topic because it is paused. Nothing is copied into a channel while a topic is paused, and publishing still works — so this number grows until the pause is lifted.",
+        "heldNoChannel": "{{count}} messages are sitting in the topic because nothing has subscribed to it. nsqd copies a message into every channel as it arrives, and a topic with no channel has nowhere to copy to.",
+        "note": "One row per topic, however many nsqd carry it. Depth can exceed the message count: nsqd copies each message into every channel, so a topic with two channels holds two copies of everything. Neither figure is a rate — nsqd counts since it started and reports no rate at all."
+      }
     }
   }
 }

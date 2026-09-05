@@ -2,6 +2,11 @@ package nsq
 
 import (
 	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -151,5 +156,277 @@ func TestLiveCloseIsIdempotent(t *testing.T) {
 	}
 	if err := conn.Ping(liveContext(t)); err == nil {
 		t.Error("a closed connection still answered a ping")
+	}
+}
+
+// rawPost drives the cluster without going through the driver, so a test can
+// arrange a state the driver is not being asked to produce.
+func rawPost(t *testing.T, address, path string, query url.Values, body io.Reader) {
+	t.Helper()
+	endpoint := address + path
+	if encoded := query.Encode(); encoded != "" {
+		endpoint += "?" + encoded
+	}
+	request, err := http.NewRequest(http.MethodPost, endpoint, body)
+	if err != nil {
+		t.Fatalf("building %s: %v", endpoint, err)
+	}
+	request.Header.Set("Accept", "application/vnd.nsq; version=1.0")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("%s: %v", endpoint, err)
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(response.Body)
+		t.Fatalf("%s answered %d: %s", endpoint, response.StatusCode, payload)
+	}
+}
+
+// rawTopicNames reads one daemon's topic list straight out of its own API.
+func rawTopicNames(t *testing.T, address string) []string {
+	t.Helper()
+	response, err := http.Get(address + "/stats?format=json")
+	if err != nil {
+		t.Fatalf("stats on %s: %v", address, err)
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	var stats struct {
+		Topics []struct {
+			Name string `json:"topic_name"`
+		} `json:"topics"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&stats); err != nil {
+		t.Fatalf("decoding stats on %s: %v", address, err)
+	}
+	names := make([]string, 0, len(stats.Topics))
+	for _, topic := range stats.Topics {
+		names = append(names, topic.Name)
+	}
+	return names
+}
+
+// rawLookupdTopics is nsqlookupd's own registry, which is a different list
+// from any nsqd's and the one a delete is most likely to leave behind.
+func rawLookupdTopics(t *testing.T, address string) []string {
+	t.Helper()
+	response, err := http.Get(address + "/topics")
+	if err != nil {
+		t.Fatalf("topics on %s: %v", address, err)
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	var payload struct {
+		Topics []string `json:"topics"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decoding topics on %s: %v", address, err)
+	}
+	return payload.Topics
+}
+
+func contains(values []string, wanted string) bool {
+	return slices.Contains(values, wanted)
+}
+
+// testTopic creates a topic on both daemons through the driver and removes it
+// when the test ends, so nothing a run leaves behind changes the next one.
+func testTopic(t *testing.T, conn *Conn, name string) {
+	t.Helper()
+	if err := conn.CreateDestination(liveContext(t), model.DestinationSpec{
+		Ref: model.DestinationRef{Name: name},
+	}); err != nil {
+		t.Fatalf("creating %s: %v", name, err)
+	}
+	t.Cleanup(func() {
+		_ = conn.RemoveDestination(context.Background(), model.DestinationRef{Name: name})
+	})
+}
+
+func find(destinations []*model.Destination, name string) *model.Destination {
+	for _, entry := range destinations {
+		if entry.Ref.Name == name {
+			return entry
+		}
+	}
+	return nil
+}
+
+/*
+ * The fold is the whole of what this driver has to get right about NSQ's
+ * topology, and only a second nsqd can catch it being wrong. A topic carried
+ * by both daemons is one row, its node list names both, and every figure on
+ * it is the sum - a driver that read the first daemon and stopped would pass
+ * every other test here.
+ */
+func TestLiveListDestinationsFoldsTheClusterIntoOneRow(t *testing.T) {
+	conn := liveConn(t)
+	const topic = "MQS.TEST.fold"
+
+	testTopic(t, conn, topic)
+	// Channels first: a channel only receives what arrives after it exists.
+	if err := conn.client.post(liveContext(t), liveNSQD1, "/channel/create",
+		url.Values{"topic": {topic}, "channel": {"one"}}, nil, nil); err != nil {
+		t.Fatalf("creating a channel: %v", err)
+	}
+	rawPost(t, liveNSQD1, "/mpub", url.Values{"topic": {topic}}, strings.NewReader("a\nb\nc"))
+	rawPost(t, liveNSQD2, "/mpub", url.Values{"topic": {topic}}, strings.NewReader("d\ne"))
+
+	destinations, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+
+	entry := find(destinations, topic)
+	if entry == nil {
+		t.Fatalf("the topic is on both daemons and not in the listing")
+	}
+	if seen := strings.Count(entry.Attribute(AttrNodes), ","); seen != 1 {
+		t.Errorf("nodes = %q, want both daemons", entry.Attribute(AttrNodes))
+	}
+	// Five published, and the channel exists on both daemons because nsqd
+	// reads the channel list off nsqlookupd when it creates a topic - so all
+	// five are held once by a channel.
+	if entry.Depth != 5 {
+		t.Errorf("depth = %d, want the 5 published across both daemons", entry.Depth)
+	}
+	if entry.Attribute(AttrMessageCount) != "5" {
+		t.Errorf("messageCount = %q, want 5", entry.Attribute(AttrMessageCount))
+	}
+	if entry.Partitions != model.UnknownMetric {
+		t.Errorf("partitions = %d, and NSQ does not split a topic", entry.Partitions)
+	}
+	if entry.RateIn != model.UnknownMetric || entry.RateOut != model.UnknownMetric {
+		t.Errorf("rates = %d/%d, and nsqd reports none", entry.RateIn, entry.RateOut)
+	}
+}
+
+// The detail read is a different call - filtered at the daemon rather than
+// folded out of the whole list - so it can disagree with the listing without
+// anything else noticing.
+func TestLiveDestinationDetailAgreesWithTheListing(t *testing.T) {
+	conn := liveConn(t)
+	const topic = "MQS.TEST.detail"
+
+	testTopic(t, conn, topic)
+	rawPost(t, liveNSQD1, "/mpub", url.Values{"topic": {topic}}, strings.NewReader("a\nb"))
+
+	destinations, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	listed := find(destinations, topic)
+	if listed == nil {
+		t.Fatal("the topic is missing from the listing")
+	}
+
+	detail, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: topic})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if detail.Depth != listed.Depth {
+		t.Errorf("detail depth = %d, listing = %d", detail.Depth, listed.Depth)
+	}
+	if detail.Attribute(AttrNodes) != listed.Attribute(AttrNodes) {
+		t.Errorf("detail nodes = %q, listing = %q",
+			detail.Attribute(AttrNodes), listed.Attribute(AttrNodes))
+	}
+
+	if _, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{
+		Name: "MQS.TEST.nothing.is.here",
+	}); err == nil {
+		t.Error("a topic no daemon carries was described rather than reported missing")
+	}
+}
+
+// A paused topic is the only state in NSQ where a topic depth is not zero:
+// nothing is copied into its channels, so the messages sit in the topic
+// itself. It is also the state a board would show as a healthy empty topic if
+// the driver only added up channel depths.
+func TestLiveListDestinationsSplitsTopicDepthFromChannelDepth(t *testing.T) {
+	conn := liveConn(t)
+	const topic = "MQS.TEST.held"
+
+	testTopic(t, conn, topic)
+	rawPost(t, liveNSQD1, "/channel/create", url.Values{"topic": {topic}, "channel": {"one"}}, nil)
+	rawPost(t, liveNSQD1, "/topic/pause", url.Values{"topic": {topic}}, nil)
+	rawPost(t, liveNSQD1, "/mpub", url.Values{"topic": {topic}}, strings.NewReader("a\nb\nc"))
+
+	detail, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: topic})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if detail.Attribute(AttrPaused) != "true" {
+		t.Errorf("paused = %q, want true", detail.Attribute(AttrPaused))
+	}
+	if detail.Attribute(AttrTopicDepth) != "3" {
+		t.Errorf("topicDepth = %q, want the 3 the pause is holding",
+			detail.Attribute(AttrTopicDepth))
+	}
+	if detail.Attribute(AttrChannelDepth) != "0" {
+		t.Errorf("channelDepth = %q, want 0 while the topic is paused",
+			detail.Attribute(AttrChannelDepth))
+	}
+	if detail.Depth != 3 {
+		t.Errorf("depth = %d, want the 3 the topic is holding", detail.Depth)
+	}
+}
+
+/*
+ * A create has to reach every daemon and a delete has to reach the discovery
+ * tier as well.
+ *
+ * The second half is the one that was nearly wrong. nsqd forgets a deleted
+ * topic and nsqlookupd does not, so a delete that stopped at nsqd leaves the
+ * name in /topics - where nsqadmin still lists it and a consumer looking it up
+ * still finds it, with an empty producer list rather than a 404.
+ */
+func TestLiveCreateAndRemoveReachEveryDaemonAndTheDirectory(t *testing.T) {
+	conn := liveConn(t)
+	const topic = "MQS.TEST.lifecycle"
+
+	if err := conn.CreateDestination(liveContext(t), model.DestinationSpec{
+		Ref: model.DestinationRef{Name: topic},
+	}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer func() {
+		_ = conn.RemoveDestination(context.Background(), model.DestinationRef{Name: topic})
+	}()
+
+	for _, address := range []string{liveNSQD1, liveNSQD2} {
+		if !contains(rawTopicNames(t, address), topic) {
+			t.Errorf("%s is not carrying the topic the create was meant to reach", address)
+		}
+	}
+
+	if err := conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: topic}); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	for _, address := range []string{liveNSQD1, liveNSQD2} {
+		if contains(rawTopicNames(t, address), topic) {
+			t.Errorf("%s is still carrying the deleted topic", address)
+		}
+	}
+	for _, address := range []string{liveLookupd1, liveLookupd2} {
+		if contains(rawLookupdTopics(t, address), topic) {
+			t.Errorf("%s still lists the deleted topic, so the delete did not reach the directory", address)
+		}
+	}
+
+	if err := conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: topic}); err == nil {
+		t.Error("deleting a topic no daemon carries reported success")
+	}
+}
+
+// The method exists because DestinationAdmin is one interface. Nothing in the
+// UI reaches it, and it must not quietly do something instead.
+func TestLiveUpdateDestinationIsRefused(t *testing.T) {
+	conn := liveConn(t)
+	if err := conn.UpdateDestination(liveContext(t), model.DestinationSpec{
+		Ref: model.DestinationRef{Name: "MQS.TEST.whatever"},
+	}); err == nil {
+		t.Error("an nsq topic has nothing to reconfigure and the update reported success")
 	}
 }

@@ -4218,6 +4218,35 @@
         "notStarted": "选一个主题，然后开始监听。",
         "note": "只支持主题。JMS 的消费者会真的消费，挂到队列上会把消息取走——消息页用的是浏览，不会取走任何东西。这里的内容不做保存：本次监听开始之前发布的消息，本页从来就无从找起。"
       }
+    },
+    "nsq": {
+      "topics": {
+        "count": "{{count}} 个主题",
+        "search": "按名称筛选",
+        "name": "主题",
+        "depth": "堆积",
+        "topicDepth": "滞留在主题",
+        "channelDepth": "滞留在通道",
+        "backendDepth": "落盘",
+        "channels": "通道",
+        "messages": "消息数",
+        "bytes": "字节数",
+        "inFlight": "投递中",
+        "deferred": "延迟待发",
+        "requeued": "重新入队",
+        "timedOut": "超时",
+        "nodes": "nsqd",
+        "pausedBadge": "已暂停",
+        "ephemeralBadge": "临时",
+        "section": {
+          "depth": "堆积",
+          "traffic": "流量",
+          "placement": "分布"
+        },
+        "heldPaused": "有 {{count}} 条消息滞留在主题里，因为它被暂停了。主题暂停期间不会往任何通道复制，但发送仍然可用——所以这个数字会一直涨到暂停解除。",
+        "heldNoChannel": "有 {{count}} 条消息滞留在主题里，因为还没有任何订阅。nsqd 在消息到达时把它复制进每个通道，没有通道就无处可复制。",
+        "note": "无论多少个 nsqd 承载，一个主题只占一行。堆积量可能超过消息总数：nsqd 会把每条消息复制进每个通道，两个通道就意味着两份。这些都不是速率——nsqd 只统计自启动以来的累计数，本身不上报任何速率。"
+      }
     }
   }
 }

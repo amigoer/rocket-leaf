@@ -81,6 +81,7 @@ import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
 import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
 import { DlqActiveMQ } from "./boards/dlq/DlqActiveMQ";
+import { TopicsNsq } from "./boards/topics/TopicsNsq";
 import { NotDesigned } from "./boards/misc/NotDesigned";
 
 /**
@@ -137,6 +138,7 @@ const BOARDS: Partial<
     mqtt: TopicsMqtt,
     nats: StreamsNats,
     activemq: DestinationsActiveMQ,
+    nsq: TopicsNsq,
   },
   exchanges: { rabbitmq: ExchangesRabbitMQ },
   vhosts: { rabbitmq: VhostsRabbitMQ, pulsar: NamespacesPulsar, nats: AccountsNats },
