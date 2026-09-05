@@ -174,10 +174,11 @@ family reports and Kafka does not, and a dead-letter page the canonical page set
 answer in each case was to cut the column rather than to fill it in.
 
 **The hosted tier changes the connection form, not just the driver.** Every family through
-phase 7 is "an address plus optional credentials". The hosted tier is "a region plus a
+phase 12 is "an address plus optional credentials". The hosted tier is "a region plus a
 credential, and no address at all" — the first connection where an empty `Endpoints` is
-still valid. Whether the schema-driven form can express that should be settled while the
-page contract is being fixed, not in phase 8.
+still valid. Phase 11 is where that gets settled, before the first hosted driver rather
+than during it: the driver's own descriptor becomes what says whether a family needs an
+address, and the form, the profile store and the probe path follow it.
 
 ## Per-driver scope
 
