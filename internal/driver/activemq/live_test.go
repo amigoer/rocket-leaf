@@ -1289,3 +1289,144 @@ func TestLiveConnectionsAreListedOncePerClient(t *testing.T) {
 		})
 	}
 }
+
+// Following a topic, which is the one thing the management plane cannot do:
+// JMX is request/response and has no push.
+func TestLiveFollowingATopicReceivesWhatIsPublished(t *testing.T) {
+	requireArtemis(t)
+	ctx := liveContext(t)
+	conn, err := open(ctx, artemisProfile(liveArtemisAMQP))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	if conn.tiers.amqpReason != "" {
+		t.Skipf("the amqp tier is not up: %s", conn.tiers.amqpReason)
+	}
+
+	topic := "MQS.TEST.follow"
+	if err := conn.CreateDestination(ctx, model.DestinationSpec{
+		Ref:        model.DestinationRef{Name: topic},
+		Attributes: map[string]string{AttrKind: string(topicKind)},
+	}); err != nil {
+		t.Fatalf("create topic: %v", err)
+	}
+	defer func() { _ = conn.RemoveDestination(ctx, model.DestinationRef{Name: topic}) }()
+
+	stream, err := conn.StartLiveSubscription(ctx, model.LiveSubscriptionSpec{
+		Filters: []model.LiveFilter{{Pattern: topic}},
+	})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	defer func() { _ = conn.StopLiveSubscription(ctx, stream.ID) }()
+
+	if !stream.Live {
+		t.Error("the stream reports itself as not live immediately after starting")
+	}
+
+	// Published through the management plane, which is the point: the send
+	// console and the follow console are two different transports and a
+	// message has to cross between them.
+	for i := range 3 {
+		if _, err := conn.Publish(ctx, model.PublishRequest{
+			RoutingKey: topic,
+			Body:       fmt.Sprintf("live-%d", i),
+			Count:      1,
+		}); err != nil {
+			// Artemis sends through a queue, and a multicast address has none
+			// - so the console refuses this and the test publishes the way a
+			// real producer would instead.
+			break
+		}
+	}
+	if _, err := conn.jolokia.call(ctx, execOperation(
+		conn.names.artemisAddress(topic), "sendMessage(java.util.Map,int,java.lang.String,boolean,java.lang.String,java.lang.String)",
+		nil, 3, "live-direct", true, liveArtemisUser, liveArtemisPass)); err != nil {
+		t.Fatalf("publish to the address: %v", err)
+	}
+
+	// Delivery is asynchronous by nature here, so this waits rather than
+	// asserting on the first poll.
+	deadline := time.Now().Add(10 * time.Second)
+	var batch *model.LiveBatch
+	for time.Now().Before(deadline) {
+		batch, err = conn.PollLiveSubscription(ctx, stream.ID, 0, 100)
+		if err != nil {
+			t.Fatalf("poll: %v", err)
+		}
+		if len(batch.Messages) > 0 {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if batch == nil || len(batch.Messages) == 0 {
+		t.Fatal("nothing arrived on a topic that was published to")
+	}
+	if got := batch.Messages[0].Body; !strings.HasPrefix(got, "live-") {
+		t.Errorf("body = %q, want the text that was published", got)
+	}
+
+	running, err := conn.LiveSubscriptions(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(running) != 1 {
+		t.Errorf("running streams = %d, want 1", len(running))
+	}
+
+	if err := conn.StopLiveSubscription(ctx, stream.ID); err != nil {
+		t.Fatalf("stop: %v", err)
+	}
+	after, err := conn.LiveSubscriptions(ctx)
+	if err != nil {
+		t.Fatalf("list after stop: %v", err)
+	}
+	if len(after) != 0 {
+		t.Errorf("a stopped stream is still listed: %d", len(after))
+	}
+}
+
+// The safety rule, and the reason this is topics only. A JMS consumer
+// consumes: attaching one to a queue would take messages off it and hand them
+// to a window somebody opened to look at.
+func TestLiveFollowingAQueueIsRefused(t *testing.T) {
+	requireArtemis(t)
+	ctx := liveContext(t)
+	conn, err := open(ctx, artemisProfile(liveArtemisAMQP))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+	if conn.tiers.amqpReason != "" {
+		t.Skipf("the amqp tier is not up: %s", conn.tiers.amqpReason)
+	}
+
+	if _, err := conn.StartLiveSubscription(ctx, model.LiveSubscriptionSpec{
+		Filters: []model.LiveFilter{{Pattern: "MQS.SEED.orders"}},
+	}); err == nil {
+		t.Error("a queue was accepted for following, which would consume it")
+	}
+}
+
+// Without the tier the capability is degraded rather than absent: the family
+// has it and this endpoint does not, which is the difference between a page
+// that explains itself and one that is simply missing.
+func TestLiveFollowIsDegradedWithoutTheAMQPTier(t *testing.T) {
+	requireArtemis(t)
+	ctx := liveContext(t)
+	conn, err := open(ctx, artemisProfile(""))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	if conn.Capabilities().Has(model.CapLiveStream) {
+		t.Error("following is offered with no amqp address configured")
+	}
+	reason, degraded := conn.Capabilities().DegradedReason(model.CapLiveStream)
+	if !degraded || reason != amqpAbsent {
+		t.Errorf("reason = %q, %v; want %q", reason, degraded, amqpAbsent)
+	}
+}

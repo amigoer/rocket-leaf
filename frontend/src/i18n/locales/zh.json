@@ -772,7 +772,8 @@
         "producer": "发送",
         "cluster": "Broker",
         "clients": "连接",
-        "alerts": "告警"
+        "alerts": "告警",
+        "subscribe": "订阅台"
       }
     }
   },
@@ -4167,6 +4168,21 @@
         "memory": "内存",
         "persistent": "持久化",
         "note": "此页不显示速率。两个产品都只保留累计的入队和出队计数，本身不报速率；拿两次采样相减，那是本应用的算术，不是 broker 的数字。"
+      },
+      "subscribe": {
+        "idle": "未在监听",
+        "watching": "正在监听 {{topics}}",
+        "start": "开始监听",
+        "stop": "停止",
+        "clear": "清空",
+        "listening": "监听中",
+        "dropped": "会话已断开",
+        "stopped": "已停止",
+        "counts": "已收 {{received}} · 丢弃 {{lost}}",
+        "arrivals": "到达的消息",
+        "waiting": "正在监听。这个主题还没有任何消息发布。",
+        "notStarted": "选一个主题，然后开始监听。",
+        "note": "只支持主题。JMS 的消费者会真的消费，挂到队列上会把消息取走——消息页用的是浏览，不会取走任何东西。这里的内容不做保存：本次监听开始之前发布的消息，本页从来就无从找起。"
       }
     }
   }

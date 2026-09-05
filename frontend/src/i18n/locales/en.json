@@ -772,7 +772,8 @@
         "producer": "Send",
         "cluster": "Broker",
         "clients": "Connections",
-        "alerts": "Alerts"
+        "alerts": "Alerts",
+        "subscribe": "Watch"
       }
     }
   },
@@ -4167,6 +4168,21 @@
         "memory": "Memory",
         "persistent": "Persistent",
         "note": "No rate is shown. Both products keep cumulative enqueue and dequeue counters and report no rate at all, and dividing two samples of a counter would be this app's arithmetic printed as the broker's figure."
+      },
+      "subscribe": {
+        "idle": "Not watching anything",
+        "watching": "Watching {{topics}}",
+        "start": "Watch",
+        "stop": "Stop",
+        "clear": "Clear",
+        "listening": "Listening",
+        "dropped": "Session dropped",
+        "stopped": "Stopped",
+        "counts": "{{received}} received · {{lost}} dropped",
+        "arrivals": "Arrivals",
+        "waiting": "Listening. Nothing has been published to this topic yet.",
+        "notStarted": "Choose a topic and start watching.",
+        "note": "Topics only. A JMS consumer consumes, so attaching one to a queue would take its messages — the message page browses instead, which takes nothing. Nothing here is stored: a message published before this stream started was never anywhere this page could find it."
       }
     }
   }

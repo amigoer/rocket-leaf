@@ -2,10 +2,13 @@ import { ActiveMQService } from "@bindings/bridge";
 import type {
   ActiveMQMoveInput,
   ActiveMQPublishInput,
+  ActiveMQSubscribeInput,
 } from "@bindings/bridge/models";
 import type {
   ClientConnection,
   DeadLetterQueue,
+  LiveBatch,
+  LiveSubscription,
   PublishResult,
 } from "@bindings/model/models";
 import { present, required } from "./client";
@@ -123,3 +126,35 @@ export const connections = (connID: number): Promise<ClientConnection[]> =>
  */
 export const closeConnection = (connID: number, name: string): Promise<void> =>
   ActiveMQService.CloseConnection(connID, name);
+
+export type { ActiveMQSubscribeInput };
+
+/**
+ * Attach a live view to one or more topics.
+ *
+ * Topics only, and the driver enforces it: a JMS consumer consumes, so
+ * attaching one to a queue would take its messages and hand them to a window
+ * somebody opened to look at.
+ */
+export const startSubscription = (
+  connID: number,
+  input: ActiveMQSubscribeInput,
+): Promise<LiveSubscription> =>
+  ActiveMQService.StartSubscription(connID, input).then(required);
+
+/** Drain what has arrived since the caller's cursor. */
+export const pollSubscription = (
+  connID: number,
+  id: string,
+  after: number,
+  limit: number,
+): Promise<LiveBatch> =>
+  ActiveMQService.PollSubscription(connID, id, after, limit).then(required);
+
+/** Detach a live view. */
+export const stopSubscription = (connID: number, id: string): Promise<void> =>
+  ActiveMQService.StopSubscription(connID, id);
+
+/** What is running, so a panel that remounts finds its own stream again. */
+export const subscriptions = (connID: number): Promise<LiveSubscription[]> =>
+  ActiveMQService.Subscriptions(connID).then(present);

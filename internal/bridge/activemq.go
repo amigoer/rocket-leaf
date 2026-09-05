@@ -181,3 +181,41 @@ func (s *ActiveMQService) Connections(connID int) ([]*model.ClientConnection, er
 func (s *ActiveMQService) CloseConnection(connID int, name string) error {
 	return s.service.CloseConnection(context.Background(), connID, name)
 }
+
+// ActiveMQSubscribeInput is a live view as the workbench asks for one.
+//
+// Topics only, and the driver enforces it rather than the form: a JMS consumer
+// consumes, so attaching one to a queue would take its messages and hand them
+// to a window somebody opened to look.
+type ActiveMQSubscribeInput struct {
+	Topics []string `json:"topics"`
+	// Buffer bounds what one stream holds between polls. Zero takes the
+	// driver's default, and whatever it drops is reported rather than lost
+	// silently - a busy topic and a quiet one look the same otherwise.
+	Buffer int `json:"buffer"`
+}
+
+// StartSubscription attaches a live view to one or more topics.
+func (s *ActiveMQService) StartSubscription(connID int, input ActiveMQSubscribeInput) (*model.LiveSubscription, error) {
+	filters := make([]model.LiveFilter, 0, len(input.Topics))
+	for _, topic := range input.Topics {
+		filters = append(filters, model.LiveFilter{Pattern: topic})
+	}
+	return s.service.StartSubscription(context.Background(), connID,
+		model.LiveSubscriptionSpec{Filters: filters, Buffer: input.Buffer})
+}
+
+// PollSubscription drains what has arrived since the caller's cursor.
+func (s *ActiveMQService) PollSubscription(connID int, id string, after int64, limit int) (*model.LiveBatch, error) {
+	return s.service.PollSubscription(context.Background(), connID, id, after, limit)
+}
+
+// StopSubscription detaches a live view.
+func (s *ActiveMQService) StopSubscription(connID int, id string) error {
+	return s.service.StopSubscription(context.Background(), connID, id)
+}
+
+// Subscriptions is what is running.
+func (s *ActiveMQService) Subscriptions(connID int) ([]*model.LiveSubscription, error) {
+	return s.service.Subscriptions(context.Background(), connID)
+}

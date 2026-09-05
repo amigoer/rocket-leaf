@@ -323,6 +323,12 @@ export const PROTOCOLS: Record<ProtocolId, Protocol> = {
              from, rather than a convention a client library follows. */
           { id: "dlq", icon: TriangleAlert, label: "shell.nav.activemq.dlq" },
           { id: "producer", icon: Send, label: "shell.nav.activemq.producer" },
+          /* Not the messages page with a filter on it. That one browses what
+             the broker is holding and takes nothing; this attaches a
+             subscriber, and what arrives is a copy of what is published while
+             it listens. Topics only - a JMS consumer consumes, so attaching
+             one to a queue would take its messages. */
+          { id: "subscribe", icon: Radio, label: "shell.nav.activemq.subscribe" },
         ],
       },
       {

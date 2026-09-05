@@ -64,6 +64,13 @@ type Conn struct {
 	tiers   tiers
 	config  clientConfig
 
+	// streams are the live subscriptions this connection is holding open.
+	// State the driver owns, unlike everything else here, because a message
+	// delivered to a non-durable topic subscriber exists only while somebody
+	// is listening - nothing else in the process can go back for it.
+	streamsMu sync.RWMutex
+	streams   map[string]*liveStream
+
 	capabilities model.Capabilities
 	closeOnce    sync.Once
 	closed       chan struct{}
@@ -120,7 +127,13 @@ func (c *Conn) Ping(ctx context.Context) error {
 // Close releases what the connection holds. The registry closes on disconnect
 // and on shutdown, so the second call has to be the one that does nothing.
 func (c *Conn) Close() error {
-	c.closeOnce.Do(func() { close(c.closed) })
+	c.closeOnce.Do(func() {
+		// The live subscriptions go first. They live on the broker until they
+		// are detached, and closing the socket underneath them leaves it
+		// tearing them down on a timeout rather than on request.
+		c.stopLiveStreams()
+		close(c.closed)
+	})
 	return nil
 }
 
@@ -155,6 +168,10 @@ func capabilities() []model.Capability {
 		model.CapClusterCensus,
 		model.CapClientInspect,
 		model.CapClientClose,
+
+		// The optional tier's, and the only one this family cannot answer
+		// through Jolokia: JMX is request/response and has no push.
+		model.CapLiveStream,
 	}
 }
 
@@ -206,7 +223,26 @@ func (c *Conn) declare() model.Capabilities {
 	if c.tiers.product == classic {
 		declared.Caveats[model.CapMessageQuery] = browseCapped
 	}
+
+	// Following a destination is the optional tier's alone. Degraded rather
+	// than dropped, because the family has it and this endpoint does not -
+	// which is the difference between a page that explains itself and a page
+	// that is simply missing.
+	if c.tiers.amqpReason != "" {
+		declared.Supported = without(declared.Supported, model.CapLiveStream)
+		declared.Degraded[model.CapLiveStream] = c.tiers.amqpReason
+	}
 	return declared
+}
+
+func without(capabilities []model.Capability, unwanted model.Capability) []model.Capability {
+	kept := make([]model.Capability, 0, len(capabilities))
+	for _, capability := range capabilities {
+		if capability != unwanted {
+			kept = append(kept, capability)
+		}
+	}
+	return kept
 }
 
 // probe finds the agent and works out which broker is behind it.

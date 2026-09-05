@@ -85,11 +85,20 @@ export function MoveMessages(connID: number, input: $models.ActiveMQMoveInput): 
 }
 
 /**
+ * PollSubscription drains what has arrived since the caller's cursor.
+ */
+export function PollSubscription(connID: number, id: string, after: number, limit: number): $CancellablePromise<model$0.LiveBatch | null> {
+    return $Call.ByID(1853098235, connID, id, after, limit).then(($result: any) => {
+        return $$createType7($result);
+    });
+}
+
+/**
  * Publish sends one or more messages and reports what the broker took.
  */
 export function Publish(connID: number, input: $models.ActiveMQPublishInput): $CancellablePromise<model$0.PublishResult | null> {
     return $Call.ByID(303822118, connID, input).then(($result: any) => {
-        return $$createType7($result);
+        return $$createType9($result);
     });
 }
 
@@ -130,6 +139,31 @@ export function RetryDeadLetters(connID: number, name: string): $CancellableProm
     return $Call.ByID(1164999678, connID, name);
 }
 
+/**
+ * StartSubscription attaches a live view to one or more topics.
+ */
+export function StartSubscription(connID: number, input: $models.ActiveMQSubscribeInput): $CancellablePromise<model$0.LiveSubscription | null> {
+    return $Call.ByID(3879333732, connID, input).then(($result: any) => {
+        return $$createType11($result);
+    });
+}
+
+/**
+ * StopSubscription detaches a live view.
+ */
+export function StopSubscription(connID: number, id: string): $CancellablePromise<void> {
+    return $Call.ByID(1173422570, connID, id);
+}
+
+/**
+ * Subscriptions is what is running.
+ */
+export function Subscriptions(connID: number): $CancellablePromise<(model$0.LiveSubscription | null)[]> {
+    return $Call.ByID(1534628163, connID).then(($result: any) => {
+        return $$createType12($result);
+    });
+}
+
 // Private type creation functions
 const $$createType0 = model$0.ClientConnection.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
@@ -137,5 +171,10 @@ const $$createType2 = $Create.Array($$createType1);
 const $$createType3 = model$0.DeadLetterQueue.createFrom;
 const $$createType4 = $Create.Nullable($$createType3);
 const $$createType5 = $Create.Array($$createType4);
-const $$createType6 = model$0.PublishResult.createFrom;
+const $$createType6 = model$0.LiveBatch.createFrom;
 const $$createType7 = $Create.Nullable($$createType6);
+const $$createType8 = model$0.PublishResult.createFrom;
+const $$createType9 = $Create.Nullable($$createType8);
+const $$createType10 = model$0.LiveSubscription.createFrom;
+const $$createType11 = $Create.Nullable($$createType10);
+const $$createType12 = $Create.Array($$createType11);

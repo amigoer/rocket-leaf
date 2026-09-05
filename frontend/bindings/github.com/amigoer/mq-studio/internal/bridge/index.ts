@@ -52,6 +52,7 @@ export {
     ActiveMQDestinationInput,
     ActiveMQMoveInput,
     ActiveMQPublishInput,
+    ActiveMQSubscribeInput,
     ActiveMQSubscriptionInput,
     AutoClaimInput,
     BindingInput,

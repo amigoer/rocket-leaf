@@ -403,6 +403,48 @@ export class ActiveMQPublishInput {
 }
 
 /**
+ * ActiveMQSubscribeInput is a live view as the workbench asks for one.
+ * 
+ * Topics only, and the driver enforces it rather than the form: a JMS consumer
+ * consumes, so attaching one to a queue would take its messages and hand them
+ * to a window somebody opened to look.
+ */
+export class ActiveMQSubscribeInput {
+    "topics": string[];
+
+    /**
+     * Buffer bounds what one stream holds between polls. Zero takes the
+     * driver's default, and whatever it drops is reported rather than lost
+     * silently - a busy topic and a quiet one look the same otherwise.
+     */
+    "buffer": number;
+
+    /** Creates a new ActiveMQSubscribeInput instance. */
+    constructor($$source: Partial<ActiveMQSubscribeInput> = {}) {
+        if (!("topics" in $$source)) {
+            this["topics"] = [];
+        }
+        if (!("buffer" in $$source)) {
+            this["buffer"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ActiveMQSubscribeInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ActiveMQSubscribeInput {
+        const $$createField0_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("topics" in $$parsedSource) {
+            $$parsedSource["topics"] = $$createField0_0($$parsedSource["topics"]);
+        }
+        return new ActiveMQSubscribeInput($$parsedSource as Partial<ActiveMQSubscribeInput>);
+    }
+}
+
+/**
  * ActiveMQSubscriptionInput is a durable subscription as the ActiveMQ form
  * collects it.
  * 

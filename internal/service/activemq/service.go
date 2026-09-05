@@ -241,3 +241,51 @@ func (s *Service) CloseConnection(ctx context.Context, connID int, name string) 
 func notConnected(err error) bool {
 	return errors.Is(err, driver.ErrNotConnected)
 }
+
+// StartSubscription attaches a live view to one or more topics.
+func (s *Service) StartSubscription(ctx context.Context, connID int, spec model.LiveSubscriptionSpec) (*model.LiveSubscription, error) {
+	api, err := port[driver.LiveSubscriber](s, connID, model.CapLiveStream)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.StartLiveSubscription(ctx, spec)
+}
+
+// PollSubscription drains what has arrived since the caller's cursor.
+func (s *Service) PollSubscription(ctx context.Context, connID int, id string, after int64, limit int) (*model.LiveBatch, error) {
+	api, err := port[driver.LiveSubscriber](s, connID, model.CapLiveStream)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.PollLiveSubscription(ctx, id, after, limit)
+}
+
+// StopSubscription detaches a live view.
+func (s *Service) StopSubscription(ctx context.Context, connID int, id string) error {
+	api, err := port[driver.LiveSubscriber](s, connID, model.CapLiveStream)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.StopLiveSubscription(ctx, id)
+}
+
+// Subscriptions is what is running, so a panel that remounts finds its own
+// stream again instead of starting a second one.
+func (s *Service) Subscriptions(ctx context.Context, connID int) ([]*model.LiveSubscription, error) {
+	api, err := port[driver.LiveSubscriber](s, connID, model.CapLiveStream)
+	if err != nil {
+		if notConnected(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.LiveSubscriptions(ctx)
+}
