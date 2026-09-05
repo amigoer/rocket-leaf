@@ -27,7 +27,7 @@ func TestValidateConnectionFields(t *testing.T) {
 // A family that declares no endpoint field is exempt from the address check
 // and from nothing else.
 func TestValidateConnectionFieldsSkipsOnlyTheAddress(t *testing.T) {
-	service := newHostedTestService(t)
+	service := newHostedTestService(t, nil)
 
 	if _, _, err := service.validateConnectionFields(hostedKind, "queues", "", 5); err != nil {
 		t.Fatalf("a hosted family should save without an address: %v", err)
@@ -47,7 +47,7 @@ func TestValidateConnectionFieldsSkipsOnlyTheAddress(t *testing.T) {
 // Every path a profile can enter by has its own address check, so a hosted
 // family has to clear all four.
 func TestHostedFamilyNeedsNoAddressOnAnyPath(t *testing.T) {
-	service := newHostedTestService(t)
+	service := newHostedTestService(t, nil)
 
 	added, err := service.AddConnection(hostedProfile("queues"))
 	if err != nil {
@@ -91,7 +91,7 @@ func TestHostedFamilyNeedsNoAddressOnAnyPath(t *testing.T) {
 // The same service must still hold every addressed family to its address, or
 // the exemption would be a hole rather than a family's own answer.
 func TestAddressedFamilyStillNeedsAnAddress(t *testing.T) {
-	service := newHostedTestService(t)
+	service := newHostedTestService(t, nil)
 
 	if _, err := service.AddConnection(profileOf("prod", "", "", 5, false, "", "", "")); err == nil {
 		t.Error("AddConnection accepted a RocketMQ profile with no address")

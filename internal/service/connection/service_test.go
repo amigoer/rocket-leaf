@@ -863,3 +863,49 @@ func TestUpdateConnectionRedialsWhenOnlyAnOptionChanged(t *testing.T) {
 		t.Fatalf("runtime dialled with namespace %q, want the edited one", resolved.Option("namespace"))
 	}
 }
+
+/*
+ * A family that names its own credentials keeps them, and keeps its mechanism,
+ * across a save and a load.
+ *
+ * accessKey and secretKey are RocketMQ's and are reserved: they skip
+ * applyCredentials' generic loop, SetACL takes over the mechanism wherever
+ * they are set, and the global pair in settings fills in any profile with no
+ * mechanism of its own. A cloud family that reused the names would inherit all
+ * three - which is why the settings here hold a global pair, the state in
+ * which it would bite.
+ */
+func TestReservedACLNamesLeaveAnotherFamilysSecretsAlone(t *testing.T) {
+	settings := fakeSettings{accessKey: "global-ak", secretKey: "global-sk"}
+	service := newHostedTestService(t, settings)
+	input := hostedProfile("queues")
+	input.Auth = model.AuthConfig{Mechanism: model.AuthPlain}
+	input.SetSecret("awsSecretAccessKey", "s3cret")
+
+	added, err := service.AddConnection(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	reopened := New(service.dataFilePath, settings, noopRuntime{}, descriptorEndpoints{})
+	stored, err := reopened.GetConnection(added.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Secret("awsAccessKeyId") != "AKIA-example" || stored.Secret("awsSecretAccessKey") != "s3cret" {
+		t.Errorf("stored awsAccessKeyId=%q awsSecretAccessKey=%q, want both",
+			stored.Secret("awsAccessKeyId"), stored.Secret("awsSecretAccessKey"))
+	}
+	if stored.Auth.Mechanism != model.AuthPlain {
+		t.Errorf("mechanism after reload = %q, want plain", stored.Auth.Mechanism)
+	}
+	if stored.Secret(model.SecretAccessKey) != "" || stored.Secret(model.SecretSecretKey) != "" {
+		t.Error("the reserved RocketMQ ACL names were written onto another family's profile")
+	}
+
+	resolved := reopened.resolveForDial(stored)
+	if resolved.Auth.Mechanism != model.AuthPlain || resolved.Secret(model.SecretAccessKey) != "" {
+		t.Errorf("dialled with %q / %q; want the profile's own mechanism and no ACL pair",
+			resolved.Auth.Mechanism, resolved.Secret(model.SecretAccessKey))
+	}
+}

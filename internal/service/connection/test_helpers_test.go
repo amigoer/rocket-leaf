@@ -96,12 +96,15 @@ func (descriptorEndpoints) RequiresEndpoints(kind model.MQKind) bool {
 	return true
 }
 
-func newHostedTestService(t *testing.T) *Service {
+func newHostedTestService(t *testing.T, settings Settings) *Service {
 	t.Helper()
 	ensureTestCrypto(t)
+	if settings == nil {
+		settings = fakeSettings{connectTimeout: 3 * time.Second}
+	}
 	return New(
 		filepath.Join(t.TempDir(), "connections.json"),
-		fakeSettings{connectTimeout: 3 * time.Second},
+		settings,
 		noopRuntime{},
 		descriptorEndpoints{},
 	)

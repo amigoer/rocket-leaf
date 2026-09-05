@@ -139,6 +139,13 @@ func cloneStringMap(source map[string]string) map[string]string {
 // They double as the legacy on-disk field names, which is what makes the
 // migration a rename rather than a re-encryption: the stored ENC: values move
 // across untouched and the user never re-enters a credential.
+//
+// Reserved for RocketMQ's ACL, and not to be reused. They skip
+// applyCredentials' generic loop and are written only through SetACL, so
+// another family storing under these names has them silently cleared; and
+// resolveACLCredentials fills them from global settings for any profile that
+// named no mechanism. A cloud driver names its own - awsAccessKeyId and the
+// like.
 const (
 	SecretAccessKey = "accessKey"
 	SecretSecretKey = "secretKey"
