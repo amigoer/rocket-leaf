@@ -45,11 +45,10 @@ const REASONS: Record<string, string[]> = {
   ],
   // internal/driver/activemq/conn.go
   //
-  // Four for one optional tier, because AMQP can be missing three ways that
-  // lead three places - the connection form, the broker's acceptor list, the
-  // broker's authentication realm - plus the one thing Artemis exposes as a
-  // queue attribute and Classic keeps in a file.
-  activemq: ["amqpAbsent", "amqpUnreachable", "amqpForbidden", "classicNoDetail"],
+  // Three for one optional tier, because AMQP can be missing three ways that
+  // lead three different places: the connection form, the broker's acceptor
+  // list, and the broker's authentication realm.
+  activemq: ["amqpAbsent", "amqpUnreachable", "amqpForbidden"],
 };
 
 /**

@@ -601,8 +601,7 @@
       "degraded": {
         "amqpAbsent": "This connection names no AMQP address, so there is no open socket to follow a destination on. Everything else works without one — browsing and sending both go through the console. Add the broker's AMQP acceptor to this connection to turn live following on.",
         "amqpUnreachable": "The AMQP address was configured and nothing answered on it. Check that the broker declares an AMQP acceptor and that it is reachable from here: on Classic it is a transportConnector in activemq.xml, on Artemis an acceptor in broker.xml.",
-        "amqpForbidden": "The broker answered on AMQP and turned these credentials away. The console and the broker authenticate against different realms, so an account that opens the console need not open a connection — give this connection its own AMQP credentials.",
-        "classicNoDetail": "ActiveMQ Classic keeps this setting in activemq.xml rather than on the destination, so JMX can read the broker's behaviour and cannot change it. Artemis exposes the same thing as a queue attribute; on Classic it means editing the configuration and restarting."
+        "amqpForbidden": "The broker answered on AMQP and turned these credentials away. The console and the broker authenticate against different realms, so an account that opens the console need not open a connection — give this connection its own AMQP credentials."
       },
       "caveat": {
         "browseCapped": "Classic returns at most maxBrowsePageSize messages per browse, 400 by default, however deep the destination is. The page shows what the broker sent — raise the limit in the destination's policy entry to see further."
@@ -3914,6 +3913,49 @@
         "truncated": "truncated",
         "emptyBody": "no payload",
         "matched": "matched {{filter}}"
+      }
+    },
+    "activemq": {
+      "destinations": {
+        "count": "{{queues}} queues · {{topics}} topics",
+        "search": "Filter by name",
+        "name": "Destination",
+        "kindColumn": "Kind",
+        "kind": {
+          "all": "All",
+          "queue": "Queues",
+          "topic": "Topics"
+        },
+        "depth": "Depth",
+        "subscribers": "Subscribers",
+        "inFlight": "In flight",
+        "enqueued": "Enqueued",
+        "dequeued": "Dequeued",
+        "bytes": "Size",
+        "scheduled": "Scheduled",
+        "expired": "Expired",
+        "producers": "Producers",
+        "dispatched": "Dispatched",
+        "memoryPercent": "Memory used",
+        "averageSize": "Average message",
+        "address": "Address",
+        "routingTypes": "Routing",
+        "queueCount": "Queues under it",
+        "deadLetterAddress": "Dead letters to",
+        "expiryAddress": "Expired to",
+        "filter": "Filter",
+        "deadLetterBadge": "DLQ",
+        "pausedBadge": "Paused",
+        "section": {
+          "state": "State",
+          "routing": "Address and routing",
+          "classic": "Classic counters"
+        },
+        "browseCapped": "Deeper than one browse returns. Classic stops at {{cap}} messages per browse however deep the destination is; the message page shows what the broker sent.",
+        "note": {
+          "classic": "ActiveMQ Classic. A queue and a topic live in separate MBean trees, and advisory topics are hidden — the broker publishes one per destination per event.",
+          "artemis": "ActiveMQ Artemis. A row is an address: anycast makes it a queue, multicast a topic, and a multicast address's queues are its durable subscriptions rather than destinations of their own."
+        }
       }
     }
   }

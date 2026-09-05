@@ -278,3 +278,198 @@ func TestLiveWrongCredentialsFailAsARefusal(t *testing.T) {
 		t.Fatal("opened with a wrong password")
 	}
 }
+
+// Destinations, against both trees.
+//
+// The two products disagree about what a destination even is - Classic
+// addresses one directly, Artemis routes through an address and stores in a
+// queue - so this is where the reduction either holds or does not.
+func TestLiveDestinationsReadTheSameShapeFromBothTrees(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		require func(*testing.T)
+		profile model.ConnectionProfile
+	}{
+		{"artemis", requireArtemis, artemisProfile("")},
+		{"classic", requireClassic, classicProfile("")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.require(t)
+			ctx := liveContext(t)
+			conn, err := open(ctx, tc.profile)
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+
+			queue := "MQS.TEST.destinations." + tc.name
+			topic := "MQS.TEST.topic." + tc.name
+			if err := conn.CreateDestination(ctx, model.DestinationSpec{
+				Ref: model.DestinationRef{Name: queue},
+			}); err != nil {
+				t.Fatalf("create queue: %v", err)
+			}
+			defer func() { _ = conn.RemoveDestination(ctx, model.DestinationRef{Name: queue}) }()
+
+			if err := conn.CreateDestination(ctx, model.DestinationSpec{
+				Ref:        model.DestinationRef{Name: topic},
+				Attributes: map[string]string{AttrKind: string(topicKind)},
+			}); err != nil {
+				t.Fatalf("create topic: %v", err)
+			}
+			defer func() { _ = conn.RemoveDestination(ctx, model.DestinationRef{Name: topic}) }()
+
+			found, err := conn.ListDestinations(ctx, model.DestinationFilter{})
+			if err != nil {
+				t.Fatalf("list: %v", err)
+			}
+
+			byName := make(map[string]*model.Destination, len(found))
+			for _, destination := range found {
+				byName[destination.Ref.Name] = destination
+			}
+
+			if got := byName[queue]; got == nil {
+				t.Errorf("the queue this test created is not in the listing")
+			} else {
+				if got.Attributes[AttrKind] != string(queueKind) {
+					t.Errorf("queue kind = %q", got.Attributes[AttrKind])
+				}
+				if got.Attributes[AttrProduct] != tc.name {
+					t.Errorf("product = %q, want %q", got.Attributes[AttrProduct], tc.name)
+				}
+				// JMS has neither, and a zero here would read as "one
+				// partition" rather than "no such thing".
+				if got.Partitions != model.UnknownMetric {
+					t.Errorf("partitions = %d, want unknown", got.Partitions)
+				}
+				if got.RateIn != model.UnknownMetric || got.RateOut != model.UnknownMetric {
+					t.Errorf("rates = %d/%d, want unknown: neither product reports one",
+						got.RateIn, got.RateOut)
+				}
+			}
+
+			if got := byName[topic]; got == nil {
+				t.Errorf("the topic this test created is not in the listing")
+			} else if got.Attributes[AttrKind] != string(topicKind) {
+				t.Errorf("topic kind = %q, want topic", got.Attributes[AttrKind])
+			}
+		})
+	}
+}
+
+// The seeded depths, which are the figures a board prints. Read against a
+// queue whose contents this test did not create, because a driver that only
+// ever measures its own three messages would not notice reading the wrong
+// attribute off the wrong MBean.
+func TestLiveDestinationDepthMatchesWhatWasSeeded(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		require func(*testing.T)
+		profile model.ConnectionProfile
+		depth   int64
+	}{
+		{"artemis", requireArtemis, artemisProfile(""), 120},
+		{"classic", requireClassic, classicProfile(""), 500},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.require(t)
+			ctx := liveContext(t)
+			conn, err := open(ctx, tc.profile)
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+
+			orders, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: "MQS.SEED.orders"})
+			if err != nil {
+				t.Skipf("the seed has not run: %v", err)
+			}
+			if orders.Depth != tc.depth {
+				t.Errorf("depth = %d, want %d (run npm run e2e:activemq:seed)", orders.Depth, tc.depth)
+			}
+		})
+	}
+}
+
+// Classic publishes an advisory topic per destination per event, which on a
+// seeded broker is dozens of topics nobody declared. Artemis keeps its own
+// under $sys and activemq.notifications. Either would bury the list.
+func TestLiveInternalDestinationsAreHiddenUnlessAskedFor(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		require func(*testing.T)
+		profile model.ConnectionProfile
+	}{
+		{"artemis", requireArtemis, artemisProfile("")},
+		{"classic", requireClassic, classicProfile("")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.require(t)
+			ctx := liveContext(t)
+			conn, err := open(ctx, tc.profile)
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+
+			visible, err := conn.ListDestinations(ctx, model.DestinationFilter{})
+			if err != nil {
+				t.Fatalf("list: %v", err)
+			}
+			for _, destination := range visible {
+				if isInternal(conn.tiers.product, destination.Ref.Name) {
+					t.Errorf("%q is internal and was listed anyway", destination.Ref.Name)
+				}
+			}
+
+			all, err := conn.ListDestinations(ctx, model.DestinationFilter{IncludeInternal: true})
+			if err != nil {
+				t.Fatalf("list including internal: %v", err)
+			}
+			if len(all) <= len(visible) {
+				t.Errorf("including internal returned %d against %d visible; this broker "+
+					"should have some", len(all), len(visible))
+			}
+		})
+	}
+}
+
+// An Artemis multicast address's queues are its durable subscriptions, not
+// destinations of their own. Listing them here would show a topic with two
+// subscribers as three rows, two of which nobody declared.
+func TestLiveArtemisSubscriptionsAreNotListedAsDestinations(t *testing.T) {
+	requireArtemis(t)
+	ctx := liveContext(t)
+	conn, err := open(ctx, artemisProfile(""))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	found, err := conn.ListDestinations(ctx, model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+
+	var events *model.Destination
+	for _, destination := range found {
+		if destination.Ref.Name == "MQS.SEED.events.analytics" {
+			t.Error("a durable subscription was listed as a destination")
+		}
+		if destination.Ref.Name == "MQS.SEED.events" {
+			events = destination
+		}
+	}
+	if events == nil {
+		t.Skip("the seed has not run")
+	}
+	if events.Attributes[AttrKind] != string(topicKind) {
+		t.Errorf("the seeded multicast address reads as %q", events.Attributes[AttrKind])
+	}
+	// Its subscribers are its subscriptions, which exist with nothing
+	// connected - that is what durable means.
+	if events.Subscribers != 2 {
+		t.Errorf("subscribers = %d, want 2", events.Subscribers)
+	}
+}

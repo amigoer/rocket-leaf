@@ -101,6 +101,15 @@ func TestConnDeclaresNoConceptActiveMQDoesNotHave(t *testing.T) {
 				"and disk on the broker, which the cluster board reports.",
 		},
 		{
+			model.CapDestinationUpdate,
+			"neither product reconfigures a destination after it exists. Classic keeps " +
+				"what would be edited in activemq.xml, as a policy entry matched by name " +
+				"rather than as a property of the destination. Artemis has updateQueue, " +
+				"and what it changes - maximum consumers, purge-on-no-consumers, group " +
+				"buckets - is Artemis vocabulary rather than anything the canonical spec " +
+				"carries, so the page would offer an empty form.",
+		},
+		{
 			model.CapAccessControl,
 			"authentication and authorisation live in a JAAS realm and a set of " +
 				"authorisation entries, both configured in XML and read at startup. JMX " +
@@ -219,7 +228,7 @@ func TestDescriptorIsSelfConsistent(t *testing.T) {
 // the wrong language - and the renderer's own key test cannot see them,
 // because it only scans literal t("...") calls in the frontend source.
 func TestDegradedReasonsAreTranslationKeys(t *testing.T) {
-	for _, reason := range []string{amqpAbsent, amqpUnreachable, amqpForbidden, classicNoDetail, browseCapped} {
+	for _, reason := range []string{amqpAbsent, amqpUnreachable, amqpForbidden, browseCapped} {
 		if reason == "" {
 			t.Error("a reason is empty")
 			continue

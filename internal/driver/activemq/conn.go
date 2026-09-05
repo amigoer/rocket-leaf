@@ -25,7 +25,6 @@ const (
 	amqpAbsent      = "mq.activemq.degraded.amqpAbsent"
 	amqpUnreachable = "mq.activemq.degraded.amqpUnreachable"
 	amqpForbidden   = "mq.activemq.degraded.amqpForbidden"
-	classicNoDetail = "mq.activemq.degraded.classicNoDetail"
 )
 
 // Caveats, which are a different thing from a degraded reason: the capability
@@ -131,7 +130,11 @@ func (c *Conn) Close() error {
 // interface behind it, so each one arrives in the commit that implements it
 // rather than as a promise the connection cannot keep.
 func capabilities() []model.Capability {
-	return nil
+	return []model.Capability{
+		model.CapDestinationList,
+		model.CapDestinationCreate,
+		model.CapDestinationDelete,
+	}
 }
 
 // open dials the console and settles which product and which tiers answered.

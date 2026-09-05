@@ -601,8 +601,7 @@
       "degraded": {
         "amqpAbsent": "这个连接没有填 AMQP 地址，因而没有可用于实时跟随的连接。其余功能不受影响——浏览和发送都走控制台。想开启实时跟随，把 broker 的 AMQP 接入地址填进这个连接。",
         "amqpUnreachable": "填了 AMQP 地址，但没有任何响应。请确认 broker 声明了 AMQP 接入点并且从这里可达：Classic 是 activemq.xml 里的 transportConnector，Artemis 是 broker.xml 里的 acceptor。",
-        "amqpForbidden": "broker 在 AMQP 上应答了，但拒绝了这组凭据。控制台和 broker 使用不同的认证域，能打开控制台的账号未必能建立连接——请为这个连接单独填写 AMQP 凭据。",
-        "classicNoDetail": "ActiveMQ Classic 把这项设置放在 activemq.xml 而不是目的地上，所以 JMX 只能读到 broker 的行为，改不了它。Artemis 把同样的东西暴露为队列属性；在 Classic 上这意味着改配置并重启。"
+        "amqpForbidden": "broker 在 AMQP 上应答了，但拒绝了这组凭据。控制台和 broker 使用不同的认证域，能打开控制台的账号未必能建立连接——请为这个连接单独填写 AMQP 凭据。"
       },
       "caveat": {
         "browseCapped": "无论目的地有多深，Classic 一次浏览最多返回 maxBrowsePageSize 条消息，默认 400 条。页面显示的是 broker 实际返回的内容——要看得更远，请在目的地的 policyEntry 里调高这个上限。"
@@ -3914,6 +3913,49 @@
         "truncated": "已截断",
         "emptyBody": "空内容",
         "matched": "匹配 {{filter}}"
+      }
+    },
+    "activemq": {
+      "destinations": {
+        "count": "{{queues}} 个队列 · {{topics}} 个主题",
+        "search": "按名称筛选",
+        "name": "目的地",
+        "kindColumn": "类型",
+        "kind": {
+          "all": "全部",
+          "queue": "队列",
+          "topic": "主题"
+        },
+        "depth": "堆积",
+        "subscribers": "订阅者",
+        "inFlight": "投递中",
+        "enqueued": "入队",
+        "dequeued": "出队",
+        "bytes": "占用",
+        "scheduled": "定时待发",
+        "expired": "已过期",
+        "producers": "生产者",
+        "dispatched": "已派发",
+        "memoryPercent": "内存占用",
+        "averageSize": "平均消息",
+        "address": "地址",
+        "routingTypes": "路由类型",
+        "queueCount": "下挂队列",
+        "deadLetterAddress": "死信去向",
+        "expiryAddress": "过期去向",
+        "filter": "过滤器",
+        "deadLetterBadge": "死信",
+        "pausedBadge": "已暂停",
+        "section": {
+          "state": "状态",
+          "routing": "地址与路由",
+          "classic": "Classic 计数器"
+        },
+        "browseCapped": "深度超过一次浏览能返回的量。无论目的地有多深，Classic 每次浏览最多返回 {{cap}} 条；消息页显示的是 broker 实际返回的内容。",
+        "note": {
+          "classic": "ActiveMQ Classic。队列与主题分属两棵 MBean 树；advisory 主题已隐藏——broker 会为每个目的地的每类事件各发布一个。",
+          "artemis": "ActiveMQ Artemis。一行是一个地址：anycast 即队列，multicast 即主题；multicast 地址下挂的队列是它的持久订阅，而不是独立的目的地。"
+        }
       }
     }
   }

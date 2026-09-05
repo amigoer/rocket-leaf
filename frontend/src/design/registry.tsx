@@ -72,6 +72,7 @@ import { ServersNats } from "./boards/cluster/ServersNats";
 
 import { MqttWorkbench } from "./boards/mqtt/MqttWorkbench";
 import { NatsWorkbench } from "./boards/nats/NatsWorkbench";
+import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { NotDesigned } from "./boards/misc/NotDesigned";
 
 /**
@@ -126,6 +127,7 @@ const BOARDS: Partial<
     redis: StreamsRedis,
     mqtt: TopicsMqtt,
     nats: StreamsNats,
+    activemq: DestinationsActiveMQ,
   },
   exchanges: { rabbitmq: ExchangesRabbitMQ },
   vhosts: { rabbitmq: VhostsRabbitMQ, pulsar: NamespacesPulsar, nats: AccountsNats },
