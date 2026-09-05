@@ -13,7 +13,13 @@ import (
 // Everything family-specific arrives inside the profile - endpoints, options,
 // secrets - so adding a broker family never widens this signature.
 func (s *Service) AddConnection(input model.ConnectionProfile) (*model.ConnectionProfile, error) {
-	name, endpoints, err := validateConnectionFields(input.Name, input.Endpoints, input.TimeoutSec)
+	// Before validation, because whether an address is required is the
+	// family's answer and the default family has to be settled to ask it.
+	kind := input.Kind
+	if kind == "" {
+		kind = model.KindRocketMQ
+	}
+	name, endpoints, err := s.validateConnectionFields(kind, input.Name, input.Endpoints, input.TimeoutSec)
 	if err != nil {
 		return nil, err
 	}
@@ -23,10 +29,6 @@ func (s *Service) AddConnection(input model.ConnectionProfile) (*model.Connectio
 		return nil, err
 	}
 	group, timeoutSec, remark := input.Group, input.TimeoutSec, input.Remark
-	kind := input.Kind
-	if kind == "" {
-		kind = model.KindRocketMQ
-	}
 
 	defer s.notifyChanged()
 	s.mu.Lock()
@@ -125,9 +127,27 @@ func dialParametersChanged(previous, current model.ConnectionProfile) bool {
 		!maps.Equal(previous.Secrets, current.Secrets)
 }
 
+// editedKind is the family the submission will be stored under.
+//
+// A form need not resubmit the kind, and a profile's family is not editable,
+// so an empty one means the stored family rather than a new connection's
+// default - which is what the address requirement has to be asked of.
+func (s *Service) editedKind(id int, submitted model.MQKind) model.MQKind {
+	if submitted != "" {
+		return submitted
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if stored, exists := s.connections[id]; exists {
+		return stored.Kind
+	}
+	return model.KindRocketMQ
+}
+
 // UpdateConnection updates and persists a connection profile.
 func (s *Service) UpdateConnection(id int, input model.ConnectionProfile) (*model.ConnectionProfile, error) {
-	name, endpoints, err := validateConnectionFields(input.Name, input.Endpoints, input.TimeoutSec)
+	name, endpoints, err := s.validateConnectionFields(
+		s.editedKind(id, input.Kind), input.Name, input.Endpoints, input.TimeoutSec)
 	if err != nil {
 		return nil, err
 	}

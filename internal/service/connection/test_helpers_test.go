@@ -70,6 +70,56 @@ type addressedEndpoints struct{}
 
 func (addressedEndpoints) RequiresEndpoints(model.MQKind) bool { return true }
 
+// hostedKind stands in for the six hosted families: reached by a region and a
+// credential, with no broker address to dial.
+const hostedKind = model.MQKind("hosted-fake")
+
+// hostedDescriptor is the form such a family declares - no endpoint field at
+// all. The policy below reads its answer off it rather than hard-coding one,
+// which is what the composition root does with a registered driver.
+var hostedDescriptor = model.DriverDescriptor{
+	Kind: hostedKind,
+	Form: []model.FormField{
+		{Key: "region", Target: model.TargetOption, Required: true},
+		{Key: "awsAccessKeyId", Target: model.TargetSecret, Required: true},
+	},
+}
+
+type descriptorEndpoints struct{}
+
+// RequiresEndpoints demands an address for a kind it does not know, as the
+// driver-backed policy does for a kind with no driver.
+func (descriptorEndpoints) RequiresEndpoints(kind model.MQKind) bool {
+	if kind == hostedKind {
+		return hostedDescriptor.RequiresEndpoints()
+	}
+	return true
+}
+
+func newHostedTestService(t *testing.T) *Service {
+	t.Helper()
+	ensureTestCrypto(t)
+	return New(
+		filepath.Join(t.TempDir(), "connections.json"),
+		fakeSettings{connectTimeout: 3 * time.Second},
+		noopRuntime{},
+		descriptorEndpoints{},
+	)
+}
+
+// hostedProfile is what a hosted family's form submits: a region and a
+// credential, and no address.
+func hostedProfile(name string) model.ConnectionProfile {
+	profile := model.ConnectionProfile{
+		Name:       name,
+		Kind:       hostedKind,
+		TimeoutSec: 5,
+		Options:    map[string]string{"region": "eu-west-1"},
+	}
+	profile.SetSecret("awsAccessKeyId", "AKIA-example")
+	return profile
+}
+
 // profileOf builds a profile from the arguments the old positional signature
 // took, so these tests read as they did before AddConnection stopped spelling
 // out one broker family's fields.

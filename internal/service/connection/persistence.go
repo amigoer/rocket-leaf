@@ -176,14 +176,14 @@ func (s *Service) saveConnectionsLocked() error {
 	return atomicfile.Write(s.dataFilePath, data)
 }
 
-func prepareReplacement(connections []*model.ConnectionProfile) ([]*model.ConnectionProfile, error) {
+func (s *Service) prepareReplacement(connections []*model.ConnectionProfile) ([]*model.ConnectionProfile, error) {
 	prepared := make([]*model.ConnectionProfile, 0, len(connections))
 	for _, connection := range connections {
 		if connection == nil {
 			continue
 		}
 		current := *connection
-		name, nameServer, err := validateConnectionFields(current.Name, current.Endpoints, current.TimeoutSec)
+		name, nameServer, err := s.validateConnectionFields(current.Kind, current.Name, current.Endpoints, current.TimeoutSec)
 		if err != nil {
 			return nil, fmt.Errorf("invalid connection %q: %w", current.Name, err)
 		}
@@ -206,7 +206,7 @@ func prepareReplacement(connections []*model.ConnectionProfile) ([]*model.Connec
 // ValidateConnections verifies that profiles can be normalized and encoded
 // without changing persisted or runtime connection state.
 func (s *Service) ValidateConnections(connections []*model.ConnectionProfile) error {
-	prepared, err := prepareReplacement(connections)
+	prepared, err := s.prepareReplacement(connections)
 	if err != nil {
 		return err
 	}
@@ -216,7 +216,7 @@ func (s *Service) ValidateConnections(connections []*model.ConnectionProfile) er
 
 // ReplaceConnections validates and atomically replaces all persisted connection profiles.
 func (s *Service) ReplaceConnections(connections []*model.ConnectionProfile) error {
-	prepared, err := prepareReplacement(connections)
+	prepared, err := s.prepareReplacement(connections)
 	if err != nil {
 		return err
 	}

@@ -3,6 +3,8 @@ package connection
 import (
 	"fmt"
 	"strings"
+
+	"github.com/amigoer/mq-studio/internal/model"
 )
 
 // hasEndpoint reports whether raw carries at least one address.
@@ -38,19 +40,37 @@ func normalizeACLConfig(enableACL bool, accessKey, secretKey string) (bool, stri
 	return true, accessKey, secretKey, nil
 }
 
+// requiresEndpoints asks the family whether it has an address at all.
+//
+// A service built without a policy keeps the rule every family had before one
+// could decline: an address is required.
+func (s *Service) requiresEndpoints(kind model.MQKind) bool {
+	if s.endpoints == nil {
+		return true
+	}
+	return s.endpoints.RequiresEndpoints(kind)
+}
+
 // validateConnectionFields checks what every family's form has in common.
 //
 // The address is named for the family on the form - NameServers, a management
 // URL, bootstrap servers - so the message when it is empty must not be. It
 // used to say NameServer, which sent a Kafka or RabbitMQ user looking for a
 // field their form does not have.
-func validateConnectionFields(name, endpoints string, timeoutSec int) (string, string, error) {
+//
+// Whether there is an address to name is the family's own answer: a hosted
+// one is reached by a region and a credential, so demanding one would make it
+// unsaveable. Nothing else relaxes - a connection still needs a name, and the
+// timeout is still bounded.
+func (s *Service) validateConnectionFields(
+	kind model.MQKind, name, endpoints string, timeoutSec int,
+) (string, string, error) {
 	name = strings.TrimSpace(name)
 	endpoints = strings.TrimSpace(endpoints)
 	if name == "" {
 		return "", "", fmt.Errorf("connection name cannot be empty")
 	}
-	if !hasEndpoint(endpoints) {
+	if s.requiresEndpoints(kind) && !hasEndpoint(endpoints) {
 		return "", "", fmt.Errorf("connection address cannot be empty")
 	}
 	if timeoutSec < 0 || timeoutSec > 300 {
