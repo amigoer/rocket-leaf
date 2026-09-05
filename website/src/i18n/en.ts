@@ -5,11 +5,11 @@ export const en: Content = {
   meta: {
     title: 'MQ Studio — One interface for every message queue',
     description:
-      'MQ Studio is a local-first desktop client for message queues. RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, and NATS share one interface and one workflow, with no web console to deploy or keep alive. macOS, Windows, and Linux. Apache-2.0.',
+      'MQ Studio is a local-first desktop client for message queues. RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, and ActiveMQ share one interface and one workflow, with no web console to deploy or keep alive. macOS, Windows, and Linux. Apache-2.0.',
     ogAlt: 'The MQ Studio cluster overview',
   },
   banner: {
-    text: 'NATS has landed — JetStream streams and consumers, subjects, and the cluster',
+    text: 'ActiveMQ has landed — Classic and Artemis, dead letters, and a live topic view',
     linkLabel: 'Changelog',
     dismiss: 'Dismiss announcement',
   },
@@ -33,7 +33,7 @@ export const en: Content = {
     badgeSuffix: 'is out · Apache-2.0',
     title: 'One interface for every message queue',
     subtitle:
-      'MQ Studio is a local-first desktop client for message queues — RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, and NATS behind the same pages and the same workflow, with no web console to deploy or keep alive.',
+      'MQ Studio is a local-first desktop client for message queues — RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, and ActiveMQ behind the same pages and the same workflow, with no web console to deploy or keep alive.',
     downloadFallback: 'Download MQ Studio',
     downloadFor: (platform: string) => `Download for ${platform}`,
     installGuide: 'Install guide',
@@ -53,8 +53,9 @@ export const en: Content = {
       'Redis Stream 6.0+',
       'MQTT 3.1.1 / 5.0',
       'NATS 2.x',
+      'ActiveMQ Classic 5.x / 6.x · Artemis 2.x',
     ],
-    planned: 'Planned: ActiveMQ · Amazon SQS · Google Cloud Pub/Sub and more',
+    planned: 'Planned: NSQ · Amazon SQS · Google Cloud Pub/Sub and more',
   },
   features: {
     title: 'Why MQ Studio',
@@ -164,6 +165,7 @@ export const en: Content = {
       { label: 'Pulsar', done: true },
       { label: 'MQTT', done: true },
       { label: 'NATS', done: true },
+      { label: 'ActiveMQ', done: true },
       { label: 'More drivers', done: false },
       { label: 'Agent', done: false },
     ],

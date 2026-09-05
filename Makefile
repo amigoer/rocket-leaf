@@ -18,6 +18,8 @@ ARCH ?=
 	e2e-mqtt-up e2e-mqtt-down e2e-mqtt-emqx-up e2e-mqtt-emqx-down \
 	e2e-nats-up e2e-nats-seed e2e-nats-down \
 	e2e-nats-plain-up e2e-nats-plain-down \
+	e2e-activemq-up e2e-activemq-seed e2e-activemq-down \
+	e2e-activemq-classic-up e2e-activemq-classic-down \
 	check ci clean \
 	website-dev website-build
 
@@ -152,6 +154,21 @@ e2e-nats-plain-up: ## Start the NATS server with JetStream and the system accoun
 
 e2e-nats-plain-down: ## Stop the JetStream-free NATS environment
 	npm run e2e:nats:plain:down
+
+e2e-activemq-up: ## Start the Artemis broker used by the ActiveMQ live tests
+	npm run e2e:activemq:up
+
+e2e-activemq-seed: ## Fill both ActiveMQ brokers with destinations for the cross-check
+	npm run e2e:activemq:seed
+
+e2e-activemq-down: ## Stop the Artemis environment
+	npm run e2e:activemq:down
+
+e2e-activemq-classic-up: ## Start the ActiveMQ Classic broker, the family's other product
+	npm run e2e:activemq:classic:up
+
+e2e-activemq-classic-down: ## Stop the ActiveMQ Classic environment
+	npm run e2e:activemq:classic:down
 
 e2e: ## Run the live tests against a running, seeded RocketMQ E2E environment
 	npm run test:e2e

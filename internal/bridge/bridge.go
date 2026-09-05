@@ -45,6 +45,7 @@ func Services(
 		application.NewService(&PulsarService{service: services.Pulsar}),
 		application.NewService(&RedisStreamService{service: services.RedisStream}),
 		application.NewService(&NATSService{service: services.NATS}),
+		application.NewService(&ActiveMQService{service: services.ActiveMQ}),
 		// Wails' own service, registered rather than wrapped: it is a platform
 		// capability like WindowService, not business data to reshape. On macOS
 		// it only delivers from a packaged, signed bundle -- the renderer falls

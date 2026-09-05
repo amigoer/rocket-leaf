@@ -40,7 +40,8 @@ export type ProtocolId =
   | "pulsar"
   | "redis"
   | "mqtt"
-  | "nats";
+  | "nats"
+  | "activemq";
 
 export type PageId =
   | "overview"
@@ -292,6 +293,54 @@ export const PROTOCOLS: Record<ProtocolId, Protocol> = {
       },
     ],
   },
+  activemq: {
+    id: "activemq",
+    name: "ActiveMQ",
+    badge: "AMQ",
+    badgeClass: "pAMQ",
+    /* One MQKind, two products, one nav. Classic and Artemis disagree about
+       almost everything underneath - Artemis routes through an address and
+       stores in a queue, Classic addresses a destination directly - but a user
+       reading the sidebar is not choosing a product, so the difference is the
+       driver's to absorb.
+
+       Queues and topics share the topics slot rather than splitting into two.
+       Their management surface is identical - same attributes, same
+       operations, both browsable - and what separates them is delivery, which
+       the subscriptions page already shows: a queue has no named subscribers
+       and a topic does. RabbitMQ splits queues from exchanges because an
+       exchange holds no messages at all; a JMS topic does. */
+    nav: [
+      { items: [{ id: "overview", icon: House, label: "shell.nav.activemq.overview" }] },
+      {
+        label: BROWSE,
+        items: [
+          { id: "topics", icon: Layers, label: "shell.nav.activemq.topics" },
+          { id: "consumers", icon: Users, label: "shell.nav.activemq.consumers" },
+          { id: "messages", icon: Mail, label: "shell.nav.activemq.messages" },
+          /* The first family since RabbitMQ with a real broker-side dead
+             letter queue and a retry that puts a message back where it came
+             from, rather than a convention a client library follows. */
+          { id: "dlq", icon: TriangleAlert, label: "shell.nav.activemq.dlq" },
+          { id: "producer", icon: Send, label: "shell.nav.activemq.producer" },
+          /* Not the messages page with a filter on it. That one browses what
+             the broker is holding and takes nothing; this attaches a
+             subscriber, and what arrives is a copy of what is published while
+             it listens. Topics only - a JMS consumer consumes, so attaching
+             one to a queue would take its messages. */
+          { id: "subscribe", icon: Radio, label: "shell.nav.activemq.subscribe" },
+        ],
+      },
+      {
+        label: OPS,
+        items: [
+          { id: "cluster", icon: Server, label: "shell.nav.activemq.cluster" },
+          { id: "clients", icon: Plug, label: "shell.nav.activemq.clients" },
+          { id: "alerts", icon: BellRing, label: "shell.nav.activemq.alerts" },
+        ],
+      },
+    ],
+  },
 };
 
 export const PROTOCOL_ORDER: ProtocolId[] = [
@@ -302,6 +351,7 @@ export const PROTOCOL_ORDER: ProtocolId[] = [
   "redis",
   "mqtt",
   "nats",
+  "activemq",
 ];
 
 /** Every page the protocol's sidebar can reach, flattened. */
@@ -332,6 +382,7 @@ const READY: ReadonlySet<ProtocolId> = new Set<ProtocolId>([
   "redis",
   "mqtt",
   "nats",
+  "activemq",
 ]);
 
 export function isProtocolReady(protocol: ProtocolId): boolean {

@@ -81,6 +81,7 @@ internal/
     redisstream/         Redis Stream driver
     mqtt/                MQTT driver, with emqx/ for the vendor management API
     nats/                NATS driver, JetStream and the $SYS account
+    activemq/            ActiveMQ driver: Classic and Artemis over Jolokia
   model/                 Domain models and the capability vocabulary
   crypto/                Local encryption helpers
   storage/               On-disk layout and atomic writes
@@ -113,6 +114,8 @@ tests/
   e2e/mqtt-emqx/         EMQX: a management API and no readable $SYS
   e2e/nats/              Three-server NATS cluster with JetStream and $SYS
   e2e/nats-plain/        NATS with neither, for the degraded paths
+  e2e/activemq/          ActiveMQ Artemis with its console and AMQP acceptor
+  e2e/activemq-classic/  ActiveMQ Classic, the family's other product
   throughput-load/       Load generator for the throughput charts (own module)
 ```
 

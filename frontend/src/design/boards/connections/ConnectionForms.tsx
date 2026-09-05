@@ -2113,3 +2113,308 @@ export function NatsForm({
     </>
   );
 }
+
+/** Option keys the ActiveMQ driver reads back off a stored profile. */
+export const OPTION_ACTIVEMQ_JOLOKIA_PATH = "jolokiaPath";
+export const OPTION_ACTIVEMQ_BROKER_NAME = "brokerName";
+export const OPTION_ACTIVEMQ_ORIGIN = "originHeader";
+export const OPTION_ACTIVEMQ_AMQP_URL = "amqpUrl";
+export const OPTION_ACTIVEMQ_TLS_SKIP_VERIFY = "tlsSkipVerify";
+
+/**
+ * Two mechanisms, because the console has two.
+ *
+ * The broker's own authentication is a JAAS realm configured in XML and has no
+ * bearing on reaching Jolokia - which is the whole management plane here, so
+ * these credentials are the console's rather than the broker's.
+ */
+export type ActiveMQMechanism = "none" | "plain";
+
+export interface ActiveMQDraft {
+  name: string;
+  /** The web console's URL. For this family the endpoint is HTTP. */
+  endpoints: string;
+  mechanism: ActiveMQMechanism;
+  username: string;
+  password: string;
+  /** Left empty the driver probes both agent paths and keeps what answered. */
+  jolokiaPath: string;
+  /** The name inside every ObjectName; read off a search when left empty. */
+  brokerName: string;
+  /** Not decoration - see the hint. A blank field still sends localhost. */
+  originHeader: string;
+  tlsSkipVerify: boolean;
+  /** Optional. Without it everything works except live tail and binary sends. */
+  amqpUrl: string;
+  amqpUsername: string;
+  amqpPassword: string;
+  group: string;
+  remark: string;
+  timeoutSec: number;
+  /** A stored secret never comes back, so blank means "keep it". */
+  credentialsStored: boolean;
+  clearCredentials: boolean;
+}
+
+export function emptyActiveMQDraft(): ActiveMQDraft {
+  return {
+    name: "",
+    endpoints: "",
+    mechanism: "plain",
+    username: "",
+    password: "",
+    jolokiaPath: "",
+    brokerName: "",
+    originHeader: "",
+    tlsSkipVerify: false,
+    amqpUrl: "",
+    amqpUsername: "",
+    amqpPassword: "",
+    group: "",
+    remark: "",
+    timeoutSec: DEFAULT_TIMEOUT_SEC,
+    credentialsStored: false,
+    clearCredentials: false,
+  };
+}
+
+/**
+ * ActiveMQ, both products.
+ *
+ * The address is a console URL rather than a broker port, which is unlike
+ * every other family here and is not a simplification: Jolokia, the JMX bridge
+ * under the web console, is the management plane and the data plane both.
+ * Browsing and sending are JMX operations on Classic and on Artemis alike.
+ *
+ * Which product is behind the console is not asked. The driver finds out by
+ * searching for each one's MBean domain, because a user should not have to
+ * know - and a user who picked wrong would get a connection that opened and
+ * then failed on every page.
+ *
+ * Two credential blocks, as MQTT and NATS have. The AMQP pair is optional
+ * twice over: the tier itself is optional, and left blank the console's
+ * credentials are reused, which is what most deployments want.
+ */
+export function ActiveMQForm({
+  value,
+  onChange,
+}: {
+  value: ActiveMQDraft;
+  onChange: (next: ActiveMQDraft) => void;
+}) {
+  const { t } = useTranslation();
+  const set = <K extends keyof ActiveMQDraft>(key: K, next: ActiveMQDraft[K]) =>
+    onChange({ ...value, [key]: next });
+  const [advancedOpen, setAdvancedOpen] = useState(
+    value.timeoutSec !== DEFAULT_TIMEOUT_SEC ||
+      value.remark !== "" ||
+      value.jolokiaPath !== "" ||
+      value.brokerName !== "" ||
+      value.originHeader !== "" ||
+      value.tlsSkipVerify,
+  );
+  const stored = value.credentialsStored && !value.clearCredentials;
+
+  return (
+    <>
+      <div style={GRID}>
+        <Fld label={t("page.connections.form.name")}>
+          <Input
+            value={value.name}
+            placeholder="artemis-prod"
+            onChange={(event) => set("name", event.target.value)}
+          />
+        </Fld>
+        <Fld label={t("page.connections.form.activemq.mechanism")}>
+          <SelectField<ActiveMQMechanism>
+            value={value.mechanism}
+            options={[
+              { value: "plain", label: t("page.connections.form.activemq.mechanismPlain") },
+              { value: "none", label: t("page.connections.form.activemq.mechanismNone") },
+            ]}
+            onValueChange={(next) =>
+              onChange({
+                ...value,
+                mechanism: next,
+                username: next === "plain" ? value.username : "",
+                password: next === "plain" ? value.password : "",
+              })
+            }
+          />
+        </Fld>
+        <Fld
+          span
+          label={t("page.connections.form.activemq.console")}
+          hint={t("page.connections.form.activemq.consoleHint")}
+        >
+          <Input
+            className="mono3"
+            style={MONO}
+            value={value.endpoints}
+            placeholder="http://activemq.example.com:8161"
+            onChange={(event) => set("endpoints", event.target.value)}
+          />
+        </Fld>
+        {value.mechanism === "plain" && (
+          <>
+            <Fld
+              label={t("page.connections.form.username")}
+              hint={
+                stored ? (
+                  <button
+                    type="button"
+                    className="mqs-linkbtn"
+                    onClick={() => set("clearCredentials", true)}
+                  >
+                    {t("page.connections.form.clearCredentials")}
+                  </button>
+                ) : undefined
+              }
+            >
+              <Input
+                value={value.username}
+                placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+                onChange={(event) => set("username", event.target.value)}
+              />
+            </Fld>
+            <Fld label={t("page.connections.form.password")}>
+              <Input
+                type="password"
+                value={value.password}
+                placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+                onChange={(event) => set("password", event.target.value)}
+              />
+            </Fld>
+          </>
+        )}
+        <Fld
+          span
+          label={t("page.connections.form.activemq.amqpUrl")}
+          hint={t("page.connections.form.activemq.amqpUrlHint")}
+        >
+          <Input
+            className="mono3"
+            style={MONO}
+            value={value.amqpUrl}
+            placeholder="amqp://activemq.example.com:61616"
+            onChange={(event) => set("amqpUrl", event.target.value)}
+          />
+        </Fld>
+        {value.amqpUrl.trim() !== "" && (
+          <>
+            <Fld
+              label={t("page.connections.form.activemq.amqpUsername")}
+              hint={t("page.connections.form.activemq.amqpUsernameHint")}
+            >
+              <Input
+                value={value.amqpUsername}
+                placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+                onChange={(event) => set("amqpUsername", event.target.value)}
+              />
+            </Fld>
+            <Fld label={t("page.connections.form.activemq.amqpPassword")}>
+              <Input
+                type="password"
+                value={value.amqpPassword}
+                placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+                onChange={(event) => set("amqpPassword", event.target.value)}
+              />
+            </Fld>
+          </>
+        )}
+      </div>
+
+      <FormNote
+        advanced={
+          <button
+            type="button"
+            className="mqs-disclosure"
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((open) => !open)}
+          >
+            <ChevronRight size={12} aria-hidden />
+            {t("page.connections.form.rocketmq.advanced")}
+          </button>
+        }
+        note={t("page.connections.form.activemq.note")}
+      />
+      {advancedOpen && (
+        <div style={GRID}>
+          <Fld
+            label={t("page.connections.form.rocketmq.timeout")}
+            hint={t("page.connections.form.rocketmq.timeoutHint")}
+          >
+            <Input
+              type="number"
+              value={value.timeoutSec > 0 ? String(value.timeoutSec) : ""}
+              onChange={(event) => {
+                const seconds = Number.parseInt(event.target.value, 10);
+                set("timeoutSec", Number.isNaN(seconds) ? 0 : seconds);
+              }}
+            />
+          </Fld>
+          <Fld
+            label={t("page.connections.form.remark")}
+            hint={t("page.connections.form.remarkHint")}
+          >
+            <Input value={value.remark} onChange={(event) => set("remark", event.target.value)} />
+          </Fld>
+          <Fld
+            span
+            label={t("page.connections.form.activemq.jolokiaPath")}
+            hint={t("page.connections.form.activemq.jolokiaPathHint")}
+          >
+            <Input
+              className="mono3"
+              style={MONO}
+              value={value.jolokiaPath}
+              placeholder="/api/jolokia"
+              onChange={(event) => set("jolokiaPath", event.target.value)}
+            />
+          </Fld>
+          <Fld
+            span
+            label={t("page.connections.form.activemq.brokerName")}
+            hint={t("page.connections.form.activemq.brokerNameHint")}
+          >
+            <Input
+              className="mono3"
+              style={MONO}
+              value={value.brokerName}
+              placeholder="localhost"
+              onChange={(event) => set("brokerName", event.target.value)}
+            />
+          </Fld>
+          <Fld
+            span
+            label={t("page.connections.form.activemq.origin")}
+            hint={t("page.connections.form.activemq.originHint")}
+          >
+            <Input
+              className="mono3"
+              style={MONO}
+              value={value.originHeader}
+              placeholder="http://localhost"
+              onChange={(event) => set("originHeader", event.target.value)}
+            />
+          </Fld>
+          <Fld
+            span
+            label={t("page.connections.form.kafka.skipVerify")}
+            hint={t("page.connections.form.kafka.skipVerifyHint")}
+          >
+            <div style={SWITCH_ROW}>
+              <Switch
+                checked={value.tlsSkipVerify}
+                onCheckedChange={(next: boolean) => set("tlsSkipVerify", next)}
+              />
+              <span style={{ color: "var(--c-muted)" }}>
+                {t("page.connections.form.kafka.skipVerifyNote")}
+              </span>
+            </div>
+          </Fld>
+        </div>
+      )}
+    </>
+  );
+}

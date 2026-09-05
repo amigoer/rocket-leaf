@@ -3,6 +3,7 @@ module github.com/amigoer/mq-studio
 go 1.26.0
 
 require (
+	github.com/Azure/go-amqp v1.7.0
 	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/amigoer/rocketmq-admin-go v1.4.0
 	github.com/apache/pulsar-client-go v0.21.0

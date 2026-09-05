@@ -1,0 +1,58 @@
+name: mq-studio-e2e-activemq
+
+# Artemis, the modern half of the family.
+#
+# One broker, not a cluster. Artemis clustering needs a second broker with a
+# cluster-connection and a shared or replicated journal, and none of the pages
+# this driver lights up read anything a second node would change: the cluster
+# board reports acceptors and cluster connections, both of which a single
+# broker declares. RocketMQ and NATS run multi-node because their topology is
+# the thing under test; here it is not.
+#
+# The image already defaults EXTRA_ARGS to "--http-host 0.0.0.0
+# --relax-jolokia", so the console and its Jolokia agent answer from outside
+# the container without further arguments. That default is why this file
+# carries no EXTRA_ARGS of its own - overriding it would silently drop both.
+
+services:
+  artemis:
+    image: apache/activemq-artemis:2.44.0-alpine
+    hostname: artemis
+    environment:
+      ARTEMIS_USER: artemis
+      ARTEMIS_PASSWORD: artemis
+      ANONYMOUS_LOGIN: 'false'
+    ports:
+      # The console, and the Jolokia agent under it at /console/jolokia. This
+      # is the address a connection profile points at: for this family the
+      # management plane is HTTP, and the broker port is the optional extra.
+      - '127.0.0.1:8161:8161'
+      # The multiplexed acceptor. CORE, AMQP, STOMP, HORNETQ, MQTT and
+      # OPENWIRE all arrive here, so the driver's optional AMQP 1.0 tier needs
+      # no second port. 61616 rather than the 5672 the image also opens,
+      # because RabbitMQ already holds 5672 on this host.
+      - '127.0.0.1:61616:61616'
+    healthcheck:
+      # A Jolokia search for the broker MBean, not a port check. Jetty binds
+      # 8161 while the broker is still starting, and a driver that connects in
+      # that window gets a console that answers and a broker that is not there
+      # - which is the one failure this environment exists to never produce.
+      test:
+        [
+          'CMD',
+          'wget',
+          '-q',
+          '-O',
+          '/dev/null',
+          '--header=Origin: http://localhost',
+          'http://artemis:artemis@127.0.0.1:8161/console/jolokia/search/org.apache.activemq.artemis:broker=*',
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+    restart: unless-stopped
+    volumes:
+      - artemis-data:/var/lib/artemis-instance
+
+volumes:
+  artemis-data:

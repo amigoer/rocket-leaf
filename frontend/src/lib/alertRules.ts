@@ -110,6 +110,30 @@ const RULES_BY_KIND: Partial<Record<MQKind, readonly AlertRuleKey[]>> = {
     "groupLag",
     "memoryUsage",
   ],
+  /*
+   * Nothing new, and one deliberate absence. Everything this family can raise
+   * is a question another family already asks - a queue nobody is draining, a
+   * store filling up, a consumer the broker has marked slow.
+   *
+   * groupOffline is one of two left out. A subscription with nothing attached
+   * is a fault on Kafka and Pulsar and is the normal resting state here: a
+   * durable subscription exists precisely so the broker can hold messages for
+   * a client that is not connected, so the rule would fire on every healthy
+   * deployment.
+   *
+   * slowConsumer is the other, and for a subtler reason. Classic does flag a
+   * subscriber falling behind - but the sentence behind that key reads "the
+   * server has disconnected N clients since it started", which is NATS's
+   * meaning. The flag is shown on the subscriptions board instead, worded for
+   * what it is here.
+   */
+  [MQKind.KindActiveMQ]: [
+    "queueNoConsumer",
+    "queueBacklog",
+    "diskUsage",
+    "memoryUsage",
+    "dlqGrowth",
+  ],
   [MQKind.KindRabbitMQ]: [
     "brokerOffline",
     "resourceAlarm",
@@ -164,6 +188,49 @@ export function rulesFor(kind: MQKind | undefined): readonly AlertRuleKey[] {
 }
 
 const STORAGE_KEY = "mq-studio:alert-rules";
+
+/**
+ * Rules that read facts.destinations, and the families that must therefore
+ * have them swept.
+ *
+ * Two lists rather than one boolean expression in the sweep, because nothing
+ * tied them together and both went stale: ActiveMQ shipped with three
+ * destination rules and no destinations gathered, which is an alerts page that
+ * is armed and cannot fire. The test in alertRules.test.ts holds them in step.
+ *
+ * The sweep is per family and hand-written for a reason - a destination
+ * listing costs a request on some families and a walk on others - so this
+ * names which families pay it rather than making every family pay.
+ */
+export const DESTINATION_RULES: readonly AlertRuleKey[] = [
+  "queueNoConsumer",
+  "queueBacklog",
+  "dlqGrowth",
+  "partitionLeaderless",
+  "partitionOffline",
+  "partitionUnderReplicated",
+  "streamNoLeader",
+  "streamUnderReplicated",
+];
+
+/**
+ * The families with a rule list of their own.
+ *
+ * A family not here runs RocketMQ's rules, which read RocketMQ's facts the
+ * RocketMQ way - so the destination pairing below is only a question for the
+ * families that brought their own.
+ */
+export const KINDS_WITH_OWN_RULES: readonly MQKind[] = Object.keys(
+  RULES_BY_KIND,
+) as MQKind[];
+
+/** The families whose sweep fetches a destination listing. */
+export const KINDS_NEEDING_DESTINATIONS: readonly MQKind[] = [
+  MQKind.KindRabbitMQ,
+  MQKind.KindKafka,
+  MQKind.KindNATS,
+  MQKind.KindActiveMQ,
+];
 
 export const DEFAULT_ALERT_RULES: AlertRulePrefs = {
   brokerOffline: true,

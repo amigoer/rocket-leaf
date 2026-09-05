@@ -27,7 +27,6 @@ body:
     attributes:
       label: Which broker
       options:
-        - ActiveMQ
         - NSQ
         - Amazon SQS
         - Google Pub/Sub
@@ -49,7 +48,7 @@ body:
     id: deployment
     attributes:
       label: Version and how you run it
-      placeholder: ActiveMQ Artemis 2.33, three-node cluster on Kubernetes
+      placeholder: NSQ 1.3, nsqd with three nodes behind nsqlookupd
     validations:
       required: true
 

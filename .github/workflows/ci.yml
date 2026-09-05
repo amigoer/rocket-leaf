@@ -289,6 +289,19 @@ jobs:
               npm run e2e:nats:up
               npm run e2e:nats:seed
               npm run e2e:nats:plain:up
+          - family: activemq
+            packages: ./internal/app/... ./internal/driver/activemq/...
+            # Two brokers, because one MQKind covers two products. Artemis and
+            # Classic share no ObjectName, no attribute name and no message-map
+            # key, so a driver green against one proves nothing about the
+            # other. The seed is required: the cross-check compares what the
+            # app computes against raw Jolokia, and Classic's queue is seeded
+            # past its 400-message browse cap so the caveat the driver reports
+            # is exercised rather than assumed.
+            up: |
+              npm run e2e:activemq:up
+              npm run e2e:activemq:classic:up
+              npm run e2e:activemq:seed
     steps:
       - uses: actions/checkout@v7
 

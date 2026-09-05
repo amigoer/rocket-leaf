@@ -195,6 +195,12 @@ capability，画出来的页面看着不像「诚实」，而像「坏了」。
 - `frontend/src/App.tsx` 与 `frontend/src/mq/navigation.ts` —— 注释里对家族数量的计数。
 - `.github/ISSUE_TEMPLATE/` —— Bug 与功能建议表单里的消息队列下拉项，中英两套都要改，
   同时把这个家族从驱动支持请求表单里去掉。
+- `frontend/src/lib/alertRules.ts` 与 `frontend/src/lib/alertDerive.ts` —— 一个家族
+  能触发哪些规则，以及挑选规则的分发逻辑。两处都不加，新驱动会落回 RocketMQ 的规则，
+  而那些规则读的是它根本不报的数字：告警页看着是武装好的，实际永远不会触发。
+- `frontend/src/i18n/degradedReasons.test.ts` —— 驱动声明的每一条 degraded 原因
+  **和 caveat** 的手抄副本。没有任何东西把 Go 字符串和 JSON 键绑在一起，改名时只有
+  这份副本会变红。
 - `.github/labels.json` —— 加一条 `driver:<family>`，然后跑 `npm run labels:sync`。
 - `tests/e2e/<family>/compose.yaml`、`package.json` 里的 `e2e:<family>:*` 脚本，
   以及 `.github/workflows/ci.yml` 里的分片。

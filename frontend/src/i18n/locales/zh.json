@@ -573,6 +573,39 @@
         "systemAbsent": "这个连接没有系统账户凭据，所以只能问到监控地址所属的那一台服务器。系统账户是另一个独立账户，有自己的用户，凭据填在连接的高级设置里。",
         "systemForbidden": "连接上的系统账户凭据被拒绝了。普通账户再怎么正确也到不了 $SYS——这里需要的是服务器配置里 system_account 指向的那个账户的用户。"
       }
+    },
+    "activemq": {
+      "name": "ActiveMQ",
+      "terms": {
+        "destination": "目的地",
+        "destinationPlural": "目的地",
+        "subscription": "订阅",
+        "subscriptionPlural": "订阅",
+        "node": "Broker",
+        "nodePlural": "Broker",
+        "backlog": "待处理"
+      },
+      "form": {
+        "console": "Web 控制台",
+        "mechanism": "认证方式",
+        "authPlain": "用户名与密码",
+        "username": "控制台用户",
+        "password": "控制台密码",
+        "jolokiaPath": "Jolokia 路径",
+        "brokerName": "Broker 名称",
+        "origin": "Origin 头",
+        "amqpUrl": "AMQP 地址",
+        "amqpUsername": "AMQP 用户",
+        "amqpPassword": "AMQP 密码"
+      },
+      "degraded": {
+        "amqpAbsent": "这个连接没有填 AMQP 地址，因而没有可用于实时跟随的连接。其余功能不受影响——浏览和发送都走控制台。想开启实时跟随，把 broker 的 AMQP 接入地址填进这个连接。",
+        "amqpUnreachable": "填了 AMQP 地址，但没有任何响应。请确认 broker 声明了 AMQP 接入点并且从这里可达：Classic 是 activemq.xml 里的 transportConnector，Artemis 是 broker.xml 里的 acceptor。",
+        "amqpForbidden": "broker 在 AMQP 上应答了，但拒绝了这组凭据。控制台和 broker 使用不同的认证域，能打开控制台的账号未必能建立连接——请为这个连接单独填写 AMQP 凭据。"
+      },
+      "caveat": {
+        "browseCapped": "无论目的地有多深，Classic 一次浏览最多返回 maxBrowsePageSize 条消息，默认 400 条。页面显示的是 broker 实际返回的内容——要看得更远，请在目的地的 policyEntry 里调高这个上限。"
+      }
     }
   },
   "shell": {
@@ -729,6 +762,18 @@
         "clients": "连接",
         "alerts": "告警",
         "vhosts": "账户"
+      },
+      "activemq": {
+        "overview": "概览",
+        "topics": "目的地",
+        "consumers": "订阅",
+        "messages": "消息",
+        "dlq": "死信",
+        "producer": "发送",
+        "cluster": "Broker",
+        "clients": "连接",
+        "alerts": "告警",
+        "subscribe": "订阅台"
       }
     }
   },
@@ -999,7 +1044,27 @@
           "note": "监控地址和系统账户都是可选的，各自能让集群相关页面多显示一部分内容。"
         },
         "secretStored": "已保存，留空保持不变",
-        "clearCredentials": "清除凭证"
+        "clearCredentials": "清除凭证",
+        "activemq": {
+          "mechanism": "控制台认证",
+          "mechanismPlain": "用户名与密码",
+          "mechanismNone": "无",
+          "console": "Web 控制台地址",
+          "consoleHint": "填控制台 URL 而不是 broker 端口——它下面的 Jolokia 就是这个家族的整个管理面。Classic 与 Artemis 会自动区分。",
+          "jolokiaPath": "Jolokia 路径",
+          "jolokiaPathHint": "留空则两条都探：Classic 是 /api/jolokia，Artemis 是 /console/jolokia。只有反向代理把 agent 挂到别处时才需要填。",
+          "brokerName": "Broker 名称",
+          "brokerNameHint": "留空则从 broker 自身读取。只有一个 JVM 注册了多个 broker 时才需要填——那正是无法自动判定的情况。",
+          "origin": "Origin 头",
+          "originHint": "每次调用都会带上，留空则用 http://localhost。两个 broker 的 jolokia-access.xml 默认都开着 strict-checking，不带 origin 的调用会被 403 拒绝，而那个报错看起来就像密码错了。",
+          "amqpUrl": "AMQP 地址（可选）",
+          "amqpUrlHint": "只有实时跟随目的地、或发送非文本消息体时才需要。其余页面没有它照样工作。Artemis 在 61616 上复用 AMQP，Classic 监听 5672。",
+          "amqpUsername": "AMQP 用户",
+          "amqpUsernameHint": "留空则复用控制台凭据，这也是多数部署想要的。",
+          "amqpPassword": "AMQP 密码",
+          "note": "Classic 与 Artemis，连接时自动区分",
+          "consoleScheme": "地址需要带 http:// 或 https:// —— 这里填的是 Web 控制台 URL，不是 broker 端口。"
+        }
       },
       "deleteTitle": "删除连接",
       "deleteDesc": "将删除连接「{{name}}」及其保存的凭证，且无法撤销。",
@@ -1206,7 +1271,7 @@
         "aheadOfRelease": "当前 v{{current}} 新于线上 v{{latest}}",
         "upToDate": "已是最新版本 v{{version}}",
         "updateCheckFailed": "无法检查更新",
-        "blurb": "本地优先的消息队列桌面客户端，无需额外部署控制台，即可管理 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT 与 NATS 的集群、主题、消费者与消息。"
+        "blurb": "本地优先的消息队列桌面客户端，无需额外部署控制台，即可管理 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS 与 ActiveMQ 的集群、主题、消费者与消息。"
       }
     }
   },
@@ -3849,6 +3914,276 @@
         "truncated": "已截断",
         "emptyBody": "空内容",
         "matched": "匹配 {{filter}}"
+      }
+    },
+    "activemq": {
+      "destinations": {
+        "count": "{{queues}} 个队列 · {{topics}} 个主题",
+        "search": "按名称筛选",
+        "name": "目的地",
+        "kindColumn": "类型",
+        "kind": {
+          "all": "全部",
+          "queue": "队列",
+          "topic": "主题"
+        },
+        "depth": "堆积",
+        "subscribers": "订阅者",
+        "inFlight": "投递中",
+        "enqueued": "入队",
+        "dequeued": "出队",
+        "bytes": "占用",
+        "scheduled": "定时待发",
+        "expired": "已过期",
+        "producers": "生产者",
+        "dispatched": "已派发",
+        "memoryPercent": "内存占用",
+        "averageSize": "平均消息",
+        "address": "地址",
+        "routingTypes": "路由类型",
+        "queueCount": "下挂队列",
+        "deadLetterAddress": "死信去向",
+        "expiryAddress": "过期去向",
+        "filter": "过滤器",
+        "deadLetterBadge": "死信",
+        "pausedBadge": "已暂停",
+        "section": {
+          "state": "状态",
+          "routing": "地址与路由",
+          "classic": "Classic 计数器"
+        },
+        "browseCapped": "深度超过一次浏览能返回的量。无论目的地有多深，Classic 每次浏览最多返回 {{cap}} 条；消息页显示的是 broker 实际返回的内容。",
+        "note": {
+          "classic": "ActiveMQ Classic。队列与主题分属两棵 MBean 树；advisory 主题已隐藏——broker 会为每个目的地的每类事件各发布一个。",
+          "artemis": "ActiveMQ Artemis。一行是一个地址：anycast 即队列，multicast 即主题；multicast 地址下挂的队列是它的持久订阅，而不是独立的目的地。"
+        },
+        "create": "新建目的地",
+        "createTitle": "新建目的地",
+        "kindHint": "队列和主题可以同名——在 Classic 上它们是两棵树里的两个对象——所以这一项无法自动判断。",
+        "created": "已创建 {{name}}",
+        "purgeTitle": "清空 {{name}}？",
+        "purgeDesc": "将丢弃 {{count}} 条消息，且无法撤销。对主题执行会清空它下面的每一个订阅。",
+        "purged": "已清空 {{name}}",
+        "purgeFailed": "清空目的地失败",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "将删除该目的地及其持有的全部内容，且无法撤销。",
+        "deleted": "已删除 {{name}}",
+        "deleteFailed": "删除目的地失败",
+        "moveTitle": "把消息移出 {{name}}",
+        "moveTarget": "移入",
+        "moveHint": "消息将被移入的目的地。ActiveMQ 按名称移动——中间没有 exchange 或 routing key。",
+        "moveAction": "移动",
+        "moved": "已移动 {{count}} 条消息"
+      },
+      "subscriptions": {
+        "count": "{{count}} 个订阅 · {{attached}} 个已连接",
+        "search": "按名称或主题筛选",
+        "name": "订阅",
+        "topic": "主题",
+        "topicPlaceholder": "选择一个主题",
+        "topicHint": "只有主题能持有持久订阅。队列的消费者是连接——没有名字、不保存位置，socket 一断就没了。",
+        "state": "状态",
+        "attached": "已连接",
+        "waiting": "等待中",
+        "slow": "消费滞后",
+        "backlog": "待收",
+        "pendingAck": "投递中",
+        "dispatched": "已派发",
+        "consumed": "已消费",
+        "members": "消费者",
+        "clientId": "Client ID",
+        "clientIdHint": "Classic 用注册它的客户端加上订阅自身的名称来标识一个持久订阅。",
+        "selector": "选择器",
+        "selectorHint": "JMS selector 表达式，留空表示全部。创建之后不可更改。",
+        "durable": "持久",
+        "prefetch": "预取",
+        "deadLetterAddress": "死信去向",
+        "unsubscribe": "取消订阅",
+        "create": "新建订阅",
+        "createTitle": "新建持久订阅",
+        "created": "已创建 {{name}}",
+        "deleteTitle": "取消订阅 {{name}}？",
+        "deleteDesc": "将丢弃 broker 为它保留的 {{count}} 条消息，且无法撤销。",
+        "deleted": "已取消订阅 {{name}}",
+        "deleteFailed": "取消订阅失败",
+        "section": {
+          "state": "进度",
+          "identity": "身份与规则"
+        },
+        "note": "没有连接的订阅不是故障——broker 正在为一个已离开的客户端保留消息，这正是「持久」的含义。"
+      },
+      "messages": {
+        "count": "{{count}} 条消息",
+        "browse": "浏览",
+        "id": "消息 ID",
+        "body": "内容",
+        "time": "发送时间",
+        "priority": "优先级",
+        "persistent": "持久化",
+        "redelivered": "重投递",
+        "correlationId": "关联 ID",
+        "replyTo": "回复到",
+        "jmsType": "JMS 类型",
+        "groupId": "分组",
+        "protocol": "接入协议",
+        "copy": "复制内容",
+        "copied": "内容已复制",
+        "truncated": "（未包含）",
+        "largeBody": "大消息的内容存放在 journal 之外，不随浏览结果返回。本页其余部分显示的是消息头，那部分是返回了的。",
+        "noProperties": "生产者没有设置任何属性。",
+        "capped": "这个目的地的深度超过一次浏览能返回的量。无论多深，Classic 每次浏览最多返回 400 条，而这个上限无法通过 JMX 读取——列出的是 broker 实际返回的内容。",
+        "section": {
+          "headers": "JMS 消息头",
+          "properties": "属性",
+          "body": "内容"
+        }
+      },
+      "dlq": {
+        "count": "{{count}} 个死信目的地",
+        "name": "目的地",
+        "depth": "堆积",
+        "consumers": "消费者",
+        "sources": "来源",
+        "retry": "全部重投",
+        "retryTitle": "重投 {{name}} 中的全部消息？",
+        "retryDesc": "会把 {{count}} 条消息送回它们当初失败的目的地。再次失败的还会回到这里。",
+        "retried": "已重投 {{count}} 条消息",
+        "retryFailed": "重投失败",
+        "retryNote": "每条消息回到它失败的那个目的地，而不是另开一条重试链路。两个产品都只能整个目的地重投——都不接受 selector。",
+        "noSourcesClassic": "Classic 通过 broker 级策略决定死信去向，不记录是谁把消息送到这里的。按目的地名称去推断来源只会是猜测。",
+        "noSourcesArtemis": "已经没有任何队列指向这里。里面堆积的消息不会再动：没有队列声明这个地址，它也不会再收到任何东西。",
+        "section": {
+          "state": "状态",
+          "sources": "来源"
+        }
+      },
+      "producer": {
+        "title": "发送消息",
+        "destination": "目的地",
+        "artemisQueuesOnly": "Artemis 通过队列发送。multicast 地址本身没有队列可发，所以这里不列出主题。",
+        "body": "内容",
+        "textOnly": "仅支持文本。两个产品的发送操作都只接受字符串，二进制内容需要 AMQP 层。",
+        "headers": "消息头",
+        "headersHint": "每行一条 key: value，会以字符串属性的形式带上，selector 可以匹配它们。",
+        "badHeader": "这一行不是 key/value：{{line}}。原样发出会变成一个以整行为名的属性。",
+        "correlationId": "关联 ID",
+        "replyTo": "回复到",
+        "jmsType": "JMS 类型",
+        "persistent": "持久化",
+        "persistentHint": "决定消息是否能在 broker 重启后存活。",
+        "persistentClassic": "Classic 的发送操作没有投递模式参数——由目的地自身的策略决定，所以这个开关在这里不起作用。",
+        "priority": "优先级",
+        "count": "份数",
+        "countHint": "每一份都是一次独立调用，合并成一批发出。上限 500。",
+        "send": "发送",
+        "sent": "已发送 {{count}} 条消息",
+        "partial": "成功 {{sent}} 条，被拒 {{refused}} 条",
+        "failed": "发送失败",
+        "section": {
+          "headers": "消息头",
+          "delivery": "投递"
+        },
+        "destinationPlaceholder": "选择一个目的地"
+      },
+      "cluster": {
+        "count": "1 个 broker · {{bridges}} 条桥接",
+        "name": "Broker",
+        "version": "版本",
+        "uptime": "运行时长",
+        "messages": "持有消息",
+        "enqueued": "入队",
+        "dequeued": "出队",
+        "consumers": "消费者",
+        "producers": "生产者",
+        "connections": "连接",
+        "disk": "磁盘",
+        "store": "存储",
+        "temp": "临时存储",
+        "memory": "内存",
+        "memoryLimit": "内存上限",
+        "journalType": "Journal",
+        "nodeId": "节点 ID",
+        "persistent": "持久化",
+        "dataDirectory": "数据目录",
+        "clustered": "已组集群",
+        "haPolicy": "高可用策略",
+        "security": "安全认证",
+        "acceptors": "接入点",
+        "bridgeBadge": "桥接",
+        "backupBadge": "备节点",
+        "bridgeNote": "本 broker 转发的目标。这条链路在本端配置，而对端 broker 只在它自己的控制台上应答，本连接无法触达——所以它的状态是真的未知，而不是被假定的。",
+        "noSettings": "没有返回任何设置。",
+        "note": "一个 broker，以及它声明的链路。JMS 的 broker 是一个整体——目的地属于拥有它的那一个——所以这里的集群是 broker 之间的桥接，而不是共享命名空间的节点。任何位置都不显示速率：两个产品都只有累计计数器。",
+        "section": {
+          "identity": "身份",
+          "load": "负载",
+          "storage": "存储",
+          "availability": "可用性",
+          "settings": "生效配置"
+        }
+      },
+      "clients": {
+        "count": "{{count}} 个连接",
+        "search": "按对端、用户或 client id 筛选",
+        "peer": "对端",
+        "protocol": "协议",
+        "user": "用户",
+        "state": "状态",
+        "sessions": "会话",
+        "running": "正常",
+        "blocked": "已阻塞",
+        "slow": "消费滞后",
+        "connectionId": "连接 ID",
+        "clientId": "Client ID",
+        "connector": "接入器",
+        "created": "建立时间",
+        "close": "断开",
+        "closeTitle": "断开 {{peer}}？",
+        "closeDesc": "会关闭该 socket。带自动重连的客户端几秒内就会回来。",
+        "closed": "已断开 {{peer}}",
+        "closeFailed": "断开失败",
+        "sessionNote": "会话不是 channel。channel 有自己的预取和流控，可以被单独关闭；JMS 会话只是连接内部的一个工作单元，这些都没有——所以它在这里是一列，而不是一个页面。",
+        "section": {
+          "identity": "连接"
+        }
+      },
+      "overview": {
+        "subtitle": "{{product}} {{version}}",
+        "product": {
+          "classic": "ActiveMQ Classic",
+          "artemis": "ActiveMQ Artemis"
+        },
+        "queues": "队列",
+        "topics": "主题",
+        "held": "持有消息",
+        "undrained": "无人消费",
+        "undrainedHint": "堆在没有消费者的队列上",
+        "subscriptions": "订阅",
+        "detached": "未连接",
+        "detachedHint": "持久订阅，当前无人接",
+        "version": "版本",
+        "uptime": "运行时长",
+        "connections": "连接",
+        "consumers": "消费者",
+        "disk": "磁盘",
+        "memory": "内存",
+        "persistent": "持久化",
+        "note": "此页不显示速率。两个产品都只保留累计的入队和出队计数，本身不报速率；拿两次采样相减，那是本应用的算术，不是 broker 的数字。"
+      },
+      "subscribe": {
+        "idle": "未在监听",
+        "watching": "正在监听 {{topics}}",
+        "start": "开始监听",
+        "stop": "停止",
+        "clear": "清空",
+        "listening": "监听中",
+        "dropped": "会话已断开",
+        "stopped": "已停止",
+        "counts": "已收 {{received}} · 丢弃 {{lost}}",
+        "arrivals": "到达的消息",
+        "waiting": "正在监听。这个主题还没有任何消息发布。",
+        "notStarted": "选一个主题，然后开始监听。",
+        "note": "只支持主题。JMS 的消费者会真的消费，挂到队列上会把消息取走——消息页用的是浏览，不会取走任何东西。这里的内容不做保存：本次监听开始之前发布的消息，本页从来就无从找起。"
       }
     }
   }

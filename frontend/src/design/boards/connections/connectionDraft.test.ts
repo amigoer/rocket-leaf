@@ -803,6 +803,7 @@ describe("the draft registry", () => {
       "redis",
       "mqtt",
       "nats",
+      "activemq",
     ] as const) {
       expect(isDraftable(protocol)).toBe(true);
       expect(emptyDraft(protocol).protocol).toBe(protocol);
@@ -810,15 +811,17 @@ describe("the draft registry", () => {
   });
 
   // The picker gates on this: a tile whose form cannot be built must not open
-  // one, which is what disabling it is for. Every family has a form now, so
-  // the list of exceptions is empty and a loop over it would pass vacuously.
-  // What is pinned instead is that every tile the picker can draw has one, and
-  // that the gate still refuses a protocol that does not.
+  // one, which is what disabling it is for. Every protocol the picker draws
+  // has a form now, so the list of exceptions is empty and a loop over it
+  // would pass vacuously. What is pinned instead is that every tile has one,
+  // and that the gate still refuses a name that is not a protocol here at all
+  // - nsq is next on the roadmap and has no driver, which is what makes it the
+  // honest stand-in.
   it("has a form for every protocol the picker can draw", () => {
     for (const protocol of Object.values(PROTOCOLS)) {
       expect(isDraftable(protocol.id)).toBe(true);
     }
-    expect(isDraftable("activemq" as unknown as ProtocolId)).toBe(false);
+    expect(isDraftable("nsq" as unknown as ProtocolId)).toBe(false);
   });
 });
 

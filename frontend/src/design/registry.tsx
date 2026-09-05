@@ -55,6 +55,10 @@ import { ProducerPulsar } from "./boards/producer/ProducerPulsar";
 import { ProducerRabbitMQ } from "./boards/producer/ProducerRabbitMQ";
 import { ProducerRedis } from "./boards/producer/ProducerRedis";
 import { ProducerNats } from "./boards/producer/ProducerNats";
+import { ProducerActiveMQ } from "./boards/producer/ProducerActiveMQ";
+import { BrokerActiveMQ } from "./boards/cluster/BrokerActiveMQ";
+import { OverviewActiveMQ } from "./boards/overview/OverviewActiveMQ";
+import { ClientsActiveMQ } from "./boards/consumers/ClientsActiveMQ";
 import { Alerts } from "./boards/alerts/Alerts";
 import { Acl } from "./boards/acl/Acl";
 import { AclKafka } from "./boards/acl/AclKafka";
@@ -72,6 +76,11 @@ import { ServersNats } from "./boards/cluster/ServersNats";
 
 import { MqttWorkbench } from "./boards/mqtt/MqttWorkbench";
 import { NatsWorkbench } from "./boards/nats/NatsWorkbench";
+import { ActiveMQWorkbench } from "./boards/activemq/ActiveMQWorkbench";
+import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
+import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
+import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
+import { DlqActiveMQ } from "./boards/dlq/DlqActiveMQ";
 import { NotDesigned } from "./boards/misc/NotDesigned";
 
 /**
@@ -117,6 +126,7 @@ const BOARDS: Partial<
     redis: OverviewRedis,
     mqtt: OverviewMqtt,
     nats: OverviewNats,
+    activemq: OverviewActiveMQ,
   },
   topics: {
     rocketmq: TopicsRocketMQ,
@@ -126,6 +136,7 @@ const BOARDS: Partial<
     redis: StreamsRedis,
     mqtt: TopicsMqtt,
     nats: StreamsNats,
+    activemq: DestinationsActiveMQ,
   },
   exchanges: { rabbitmq: ExchangesRabbitMQ },
   vhosts: { rabbitmq: VhostsRabbitMQ, pulsar: NamespacesPulsar, nats: AccountsNats },
@@ -140,9 +151,10 @@ const BOARDS: Partial<
     pulsar: SubscriptionsPulsar,
     redis: ConsumersRedis,
     nats: ConsumersNats,
+    activemq: SubscriptionsActiveMQ,
   },
-  subscribe: { mqtt: MqttWorkbench, nats: NatsWorkbench },
-  clients: { mqtt: ClientsMqtt, redis: ClientsRedis, nats: ClientsNats },
+  subscribe: { mqtt: MqttWorkbench, nats: NatsWorkbench, activemq: ActiveMQWorkbench },
+  clients: { mqtt: ClientsMqtt, redis: ClientsRedis, nats: ClientsNats, activemq: ClientsActiveMQ },
   messages: {
     rocketmq: MessagesRocketMQ,
     kafka: MessagesKafka,
@@ -150,12 +162,14 @@ const BOARDS: Partial<
     pulsar: MessagesPulsar,
     redis: MessagesRedis,
     nats: MessagesNats,
+    activemq: MessagesActiveMQ,
   },
   dlq: {
     rocketmq: DlqRocketMQ,
     rabbitmq: DlqRabbitMQ,
     pulsar: DlqPulsar,
     redis: PelRedis,
+    activemq: DlqActiveMQ,
   },
   cluster: {
     rocketmq: ClusterRocketMQ,
@@ -165,6 +179,7 @@ const BOARDS: Partial<
     redis: NodeRedis,
     mqtt: NodesMqtt,
     nats: ServersNats,
+    activemq: BrokerActiveMQ,
   },
 };
 
@@ -192,6 +207,12 @@ export function renderBoard(
        needs instead is headers, the choice between a core send and a stored
        one, and a reply timeout. */
     if (protocol === "nats") return <ProducerNats />;
+    /* ActiveMQ's own too, for the same reason and one more: the shared console
+       collects a delay level, and a delay is the one thing this family has and
+       cannot express - both send operations take Map<String,String> and the
+       scheduling annotation has to be a Long, so a delay set here would be
+       accepted, ignored, and reported as having worked. */
+    if (protocol === "activemq") return <ProducerActiveMQ />;
     return <Producer protocol={protocol} nav={nav} />;
   }
   /* Alerts is one board for every family: the rules are numeric comparisons

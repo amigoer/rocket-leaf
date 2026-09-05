@@ -573,6 +573,39 @@
         "systemAbsent": "This connection carries no system-account credentials, so the cluster can only be asked about the one server the monitoring endpoint belongs to. The system account is a separate account with its own user; its credentials go in the connection's advanced settings.",
         "systemForbidden": "The system-account credentials on this connection were refused. An ordinary account cannot reach $SYS however valid it is — these have to be a user inside the account named by system_account in the server's configuration."
       }
+    },
+    "activemq": {
+      "name": "ActiveMQ",
+      "terms": {
+        "destination": "Destination",
+        "destinationPlural": "Destinations",
+        "subscription": "Subscription",
+        "subscriptionPlural": "Subscriptions",
+        "node": "Broker",
+        "nodePlural": "Brokers",
+        "backlog": "Pending"
+      },
+      "form": {
+        "console": "Web console",
+        "mechanism": "Authentication",
+        "authPlain": "Username and password",
+        "username": "Console user",
+        "password": "Console password",
+        "jolokiaPath": "Jolokia path",
+        "brokerName": "Broker name",
+        "origin": "Origin header",
+        "amqpUrl": "AMQP address",
+        "amqpUsername": "AMQP user",
+        "amqpPassword": "AMQP password"
+      },
+      "degraded": {
+        "amqpAbsent": "This connection names no AMQP address, so there is no open socket to follow a destination on. Everything else works without one — browsing and sending both go through the console. Add the broker's AMQP acceptor to this connection to turn live following on.",
+        "amqpUnreachable": "The AMQP address was configured and nothing answered on it. Check that the broker declares an AMQP acceptor and that it is reachable from here: on Classic it is a transportConnector in activemq.xml, on Artemis an acceptor in broker.xml.",
+        "amqpForbidden": "The broker answered on AMQP and turned these credentials away. The console and the broker authenticate against different realms, so an account that opens the console need not open a connection — give this connection its own AMQP credentials."
+      },
+      "caveat": {
+        "browseCapped": "Classic returns at most maxBrowsePageSize messages per browse, 400 by default, however deep the destination is. The page shows what the broker sent — raise the limit in the destination's policy entry to see further."
+      }
     }
   },
   "shell": {
@@ -610,7 +643,7 @@
       "loading": "Reading the namespaces in use…",
       "empty": "No name on this cluster carries a namespace yet",
       "counts": "{{destinations}} topics · {{subscriptions}} groups",
-      "useTyped": "Switch to \u201c{{scope}}\u201d",
+      "useTyped": "Switch to “{{scope}}”",
       "more": "{{count}} more not shown",
       "switched": "Switched to {{scope}}",
       "switchedUnscoped": "Now reading the whole cluster",
@@ -729,6 +762,18 @@
         "clients": "Connections",
         "alerts": "Alerts",
         "vhosts": "Accounts"
+      },
+      "activemq": {
+        "overview": "Overview",
+        "topics": "Destinations",
+        "consumers": "Subscriptions",
+        "messages": "Messages",
+        "dlq": "Dead letters",
+        "producer": "Send",
+        "cluster": "Broker",
+        "clients": "Connections",
+        "alerts": "Alerts",
+        "subscribe": "Watch"
       }
     }
   },
@@ -999,7 +1044,27 @@
           "note": "The monitoring endpoint and the system account are both optional, and each widens what the cluster pages can show."
         },
         "secretStored": "Saved — leave blank to keep it",
-        "clearCredentials": "Clear credentials"
+        "clearCredentials": "Clear credentials",
+        "activemq": {
+          "mechanism": "Console authentication",
+          "mechanismPlain": "Username and password",
+          "mechanismNone": "None",
+          "console": "Web console address",
+          "consoleHint": "The console URL, not a broker port — Jolokia under it is this family's whole management plane. Classic and Artemis are told apart automatically.",
+          "jolokiaPath": "Jolokia path",
+          "jolokiaPathHint": "Leave empty to probe both: /api/jolokia on Classic, /console/jolokia on Artemis. Set it for a reverse proxy that mounts the agent elsewhere.",
+          "brokerName": "Broker name",
+          "brokerNameHint": "Read off the broker when left empty. Set it only where one JVM registers more than one broker, which is the case that cannot be resolved automatically.",
+          "origin": "Origin header",
+          "originHint": "Sent with every call, http://localhost when empty. Both brokers ship jolokia-access.xml with strict-checking, which refuses a call carrying no origin with a 403 that reads like a wrong password.",
+          "amqpUrl": "AMQP address (optional)",
+          "amqpUrlHint": "Only needed to follow a destination live or to send a body that is not text. Every other page works without it. Artemis multiplexes AMQP on 61616; Classic listens on 5672.",
+          "amqpUsername": "AMQP user",
+          "amqpUsernameHint": "Left blank the console credentials are reused, which is what most deployments want.",
+          "amqpPassword": "AMQP password",
+          "note": "Classic and Artemis, told apart on connect",
+          "consoleScheme": "The address needs an http:// or https:// scheme — this field takes the web console's URL, not a broker port."
+        }
       },
       "deleteTitle": "Delete connection",
       "deleteDesc": "This deletes “{{name}}” and the credentials stored with it, and cannot be undone.",
@@ -1206,7 +1271,7 @@
         "aheadOfRelease": "Local v{{current}} is newer than published v{{latest}}",
         "upToDate": "You are on the latest version v{{version}}",
         "updateCheckFailed": "Could not check for updates",
-        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, and NATS without deploying a separate console."
+        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, and ActiveMQ without deploying a separate console."
       }
     }
   },
@@ -3849,6 +3914,276 @@
         "truncated": "truncated",
         "emptyBody": "no payload",
         "matched": "matched {{filter}}"
+      }
+    },
+    "activemq": {
+      "destinations": {
+        "count": "{{queues}} queues · {{topics}} topics",
+        "search": "Filter by name",
+        "name": "Destination",
+        "kindColumn": "Kind",
+        "kind": {
+          "all": "All",
+          "queue": "Queues",
+          "topic": "Topics"
+        },
+        "depth": "Depth",
+        "subscribers": "Subscribers",
+        "inFlight": "In flight",
+        "enqueued": "Enqueued",
+        "dequeued": "Dequeued",
+        "bytes": "Size",
+        "scheduled": "Scheduled",
+        "expired": "Expired",
+        "producers": "Producers",
+        "dispatched": "Dispatched",
+        "memoryPercent": "Memory used",
+        "averageSize": "Average message",
+        "address": "Address",
+        "routingTypes": "Routing",
+        "queueCount": "Queues under it",
+        "deadLetterAddress": "Dead letters to",
+        "expiryAddress": "Expired to",
+        "filter": "Filter",
+        "deadLetterBadge": "DLQ",
+        "pausedBadge": "Paused",
+        "section": {
+          "state": "State",
+          "routing": "Address and routing",
+          "classic": "Classic counters"
+        },
+        "browseCapped": "Deeper than one browse returns. Classic stops at {{cap}} messages per browse however deep the destination is; the message page shows what the broker sent.",
+        "note": {
+          "classic": "ActiveMQ Classic. A queue and a topic live in separate MBean trees, and advisory topics are hidden — the broker publishes one per destination per event.",
+          "artemis": "ActiveMQ Artemis. A row is an address: anycast makes it a queue, multicast a topic, and a multicast address's queues are its durable subscriptions rather than destinations of their own."
+        },
+        "create": "New destination",
+        "createTitle": "New destination",
+        "kindHint": "A queue and a topic can share a name — on Classic they are different objects in different trees — so this cannot be inferred.",
+        "created": "Created {{name}}",
+        "purgeTitle": "Purge {{name}}?",
+        "purgeDesc": "Discards {{count}} messages. There is no undo. On a topic this empties every subscription under it.",
+        "purged": "Purged {{name}}",
+        "purgeFailed": "Could not purge the destination",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "Removes the destination and everything it holds. There is no undo.",
+        "deleted": "Deleted {{name}}",
+        "deleteFailed": "Could not delete the destination",
+        "moveTitle": "Move messages out of {{name}}",
+        "moveTarget": "Into",
+        "moveHint": "The destination messages are moved into. ActiveMQ moves by name — there is no exchange or routing key in between.",
+        "moveAction": "Move",
+        "moved": "Moved {{count}} messages"
+      },
+      "subscriptions": {
+        "count": "{{count}} subscriptions · {{attached}} attached",
+        "search": "Filter by name or topic",
+        "name": "Subscription",
+        "topic": "Topic",
+        "topicPlaceholder": "Choose a topic",
+        "topicHint": "Only a topic can hold a durable subscription. A queue's consumers are connections — no name, no stored position, gone when the socket closes.",
+        "state": "State",
+        "attached": "Attached",
+        "waiting": "Waiting",
+        "slow": "Falling behind",
+        "backlog": "Owed",
+        "pendingAck": "In flight",
+        "dispatched": "Dispatched",
+        "consumed": "Consumed",
+        "members": "Consumers",
+        "clientId": "Client id",
+        "clientIdHint": "Classic identifies a durable subscription by the client that registered it, together with the subscription's own name.",
+        "selector": "Selector",
+        "selectorHint": "A JMS selector expression, or empty for everything. It is fixed when the subscription is created.",
+        "durable": "Durable",
+        "prefetch": "Prefetch",
+        "deadLetterAddress": "Dead letters to",
+        "unsubscribe": "Unsubscribe",
+        "create": "New subscription",
+        "createTitle": "New durable subscription",
+        "created": "Created {{name}}",
+        "deleteTitle": "Unsubscribe {{name}}?",
+        "deleteDesc": "Discards the {{count}} messages the broker is still holding for it. There is no undo.",
+        "deleted": "Unsubscribed {{name}}",
+        "deleteFailed": "Could not unsubscribe",
+        "section": {
+          "state": "Progress",
+          "identity": "Identity and rules"
+        },
+        "note": "A subscription with nothing attached is not a fault — the broker is holding messages for a client that has gone away, which is what durable means."
+      },
+      "messages": {
+        "count": "{{count}} messages",
+        "browse": "Browse",
+        "id": "Message id",
+        "body": "Body",
+        "time": "Sent",
+        "priority": "Priority",
+        "persistent": "Persistent",
+        "redelivered": "Redelivered",
+        "correlationId": "Correlation id",
+        "replyTo": "Reply to",
+        "jmsType": "JMS type",
+        "groupId": "Group",
+        "protocol": "Arrived over",
+        "copy": "Copy body",
+        "copied": "Body copied",
+        "truncated": "(not included)",
+        "largeBody": "A large message's body is stored outside the journal and is not part of a browse result. What is shown elsewhere on this page is the message's headers, which are.",
+        "noProperties": "The producer set no properties.",
+        "capped": "This destination is deeper than one browse returns. Classic stops at 400 messages per browse whatever the depth, and the limit is not readable over JMX — what is listed is what the broker sent.",
+        "section": {
+          "headers": "JMS headers",
+          "properties": "Properties",
+          "body": "Body"
+        }
+      },
+      "dlq": {
+        "count": "{{count}} dead-letter destinations",
+        "name": "Destination",
+        "depth": "Holding",
+        "consumers": "Consumers",
+        "sources": "Fed by",
+        "retry": "Retry all",
+        "retryTitle": "Retry everything in {{name}}?",
+        "retryDesc": "Sends {{count}} messages back to the destinations they originally failed on. Anything that fails again comes back here.",
+        "retried": "Retried {{count}} messages",
+        "retryFailed": "Could not retry",
+        "retryNote": "Each message goes back to the destination it failed on, not onto a separate retry path. Both products retry the whole destination — neither takes a selector.",
+        "noSourcesClassic": "Classic decides where a dead letter goes by a broker-wide policy and keeps no record of what fed this destination. Naming the sources from the destination list would be a guess.",
+        "noSourcesArtemis": "Nothing points here any more. Whatever is holding will stay: no queue names this address, so it will never receive anything again.",
+        "section": {
+          "state": "State",
+          "sources": "Fed by"
+        }
+      },
+      "producer": {
+        "title": "Send a message",
+        "destination": "Destination",
+        "artemisQueuesOnly": "Artemis sends through a queue. A multicast address has no queue of its own to send through, so topics are not listed here.",
+        "body": "Body",
+        "textOnly": "Text only. Both products' send operations take a string, so a binary body needs the AMQP tier.",
+        "headers": "Headers",
+        "headersHint": "One key: value per line. They arrive as string properties a selector can match.",
+        "badHeader": "Not a key/value pair: {{line}}. Sent as-is it becomes a property named after the whole line.",
+        "correlationId": "Correlation id",
+        "replyTo": "Reply to",
+        "jmsType": "JMS type",
+        "persistent": "Persistent",
+        "persistentHint": "Whether the message survives a broker restart.",
+        "persistentClassic": "Classic's send operation has no delivery-mode parameter — the destination's own policy decides, so this switch would do nothing here.",
+        "priority": "Priority",
+        "count": "Copies",
+        "countHint": "Each copy is its own call, sent as one batch. Capped at 500.",
+        "send": "Send",
+        "sent": "Sent {{count}} messages",
+        "partial": "{{sent}} sent, {{refused}} refused",
+        "failed": "Could not send",
+        "section": {
+          "headers": "Headers",
+          "delivery": "Delivery"
+        },
+        "destinationPlaceholder": "Choose a destination"
+      },
+      "cluster": {
+        "count": "1 broker · {{bridges}} bridged",
+        "name": "Broker",
+        "version": "Version",
+        "uptime": "Uptime",
+        "messages": "Messages held",
+        "enqueued": "Enqueued",
+        "dequeued": "Dequeued",
+        "consumers": "Consumers",
+        "producers": "Producers",
+        "connections": "Connections",
+        "disk": "Disk",
+        "store": "Store",
+        "temp": "Temp store",
+        "memory": "Memory",
+        "memoryLimit": "Memory limit",
+        "journalType": "Journal",
+        "nodeId": "Node id",
+        "persistent": "Persistent",
+        "dataDirectory": "Data directory",
+        "clustered": "Clustered",
+        "haPolicy": "HA policy",
+        "security": "Security",
+        "acceptors": "Acceptors",
+        "bridgeBadge": "Bridge",
+        "backupBadge": "Backup",
+        "bridgeNote": "A broker this one forwards to. The link is configured here and the broker at the other end answers on its own console, which this connection cannot reach — so its state is genuinely unknown rather than assumed.",
+        "noSettings": "No settings were reported.",
+        "note": "One broker, and the links it declares. A JMS broker is a unit — destinations live on the one that owns them — so clustering here is a bridge between brokers rather than nodes sharing a namespace. No rate is shown anywhere: both products keep cumulative counters and nothing else.",
+        "section": {
+          "identity": "Identity",
+          "load": "Load",
+          "storage": "Storage",
+          "availability": "Availability",
+          "settings": "Effective settings"
+        }
+      },
+      "clients": {
+        "count": "{{count}} connections",
+        "search": "Filter by peer, user or client id",
+        "peer": "Peer",
+        "protocol": "Protocol",
+        "user": "User",
+        "state": "State",
+        "sessions": "Sessions",
+        "running": "Running",
+        "blocked": "Blocked",
+        "slow": "Falling behind",
+        "connectionId": "Connection id",
+        "clientId": "Client id",
+        "connector": "Connector",
+        "created": "Connected at",
+        "close": "Disconnect",
+        "closeTitle": "Disconnect {{peer}}?",
+        "closeDesc": "Closes the socket. A client that reconnects on its own will be back within seconds.",
+        "closed": "Disconnected {{peer}}",
+        "closeFailed": "Could not disconnect",
+        "sessionNote": "Sessions are not channels. A channel has its own prefetch and flow control and can be closed on its own; a JMS session is a unit of work inside the connection and has none of that, which is why it is a column here rather than a page.",
+        "section": {
+          "identity": "Connection"
+        }
+      },
+      "overview": {
+        "subtitle": "{{product}} {{version}}",
+        "product": {
+          "classic": "ActiveMQ Classic",
+          "artemis": "ActiveMQ Artemis"
+        },
+        "queues": "Queues",
+        "topics": "Topics",
+        "held": "Messages held",
+        "undrained": "Undrained",
+        "undrainedHint": "on queues with no consumer",
+        "subscriptions": "Subscriptions",
+        "detached": "Detached",
+        "detachedHint": "durable, nothing attached",
+        "version": "Version",
+        "uptime": "Uptime",
+        "connections": "Connections",
+        "consumers": "Consumers",
+        "disk": "Disk",
+        "memory": "Memory",
+        "persistent": "Persistent",
+        "note": "No rate is shown. Both products keep cumulative enqueue and dequeue counters and report no rate at all, and dividing two samples of a counter would be this app's arithmetic printed as the broker's figure."
+      },
+      "subscribe": {
+        "idle": "Not watching anything",
+        "watching": "Watching {{topics}}",
+        "start": "Watch",
+        "stop": "Stop",
+        "clear": "Clear",
+        "listening": "Listening",
+        "dropped": "Session dropped",
+        "stopped": "Stopped",
+        "counts": "{{received}} received · {{lost}} dropped",
+        "arrivals": "Arrivals",
+        "waiting": "Listening. Nothing has been published to this topic yet.",
+        "notStarted": "Choose a topic and start watching.",
+        "note": "Topics only. A JMS consumer consumes, so attaching one to a queue would take its messages — the message page browses instead, which takes nothing. Nothing here is stored: a message published before this stream started was never anywhere this page could find it."
       }
     }
   }

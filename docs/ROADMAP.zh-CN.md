@@ -45,7 +45,30 @@ MQ Studio 正在成为一个覆盖所有消息队列的桌面客户端。每种�
   修改，唯一的「重置」是删掉重建，而那会换掉它的身份。没有未确认投递清单，因为 JetStream
   只报未确认的数量，不报是哪些。账户是只读的：无论配置模式还是 operator 模式，没有任何
   NATS 服务端提供创建账户的请求。
-- **已完成设计，尚未实现** — 下面列出的十种形态。
+- **已支持** — ActiveMQ Classic 5.x / 6.x 与 ActiveMQ Artemis 2.x，通过 Jolokia 接入，也就是
+  两个 broker 都随 Web 控制台附带的那个 JMX-over-HTTP 代理。一个 MQKind 覆盖两种产品，因为对
+  使用者来说它们是一个家族；而对驱动来说它们没有一处相同：代理路径不同、MBean 域不同、
+  ObjectName 的键不同、属性名不同，连浏览结果的 map 键都毫无交集。到底是哪一个应答，在连接
+  建立时就定下来——按哪个 MBean 域响应了 search 来判断。
+
+  这个驱动特别的地方在于：管理面同时就是数据面。浏览和发送在两个产品上都是 JMX 操作，而且
+  浏览什么都不会取走——所以消息页不需要 RabbitMQ 那样的 requeue 警告，而且在所有线协议接入点
+  都关掉的 broker 上，每个页面照样能用。队列与主题及其堆积、计数器和配置；两种产品上的持久
+  订阅，可建可删；带 JMS 消息头、属性和优先级的发送；沿声明反向查出死信目的地，并把消息重投
+  回它们当初失败的地方——这是本应用第一个真正能重投的家族；broker 的存储、journal 与生效配置，
+  以及它桥接到的其他 broker；还有客户端连接及各自使用的协议。
+
+  AMQP 1.0 是一个可选层，在连接时探测，只为一件 JMX 做不到的事：实时跟随目的地。管理面是
+  请求/响应式的，没有推送。只支持主题，这是安全规则——JMS 的消费者会真的消费，挂到队列上会把
+  消息取走。接入点关闭的 broker 保留其余全部页面，并说明它处于三种状态中的哪一种。
+
+  有四样东西是明确不做的。没有延迟投递，而两个产品其实都有：调度标注必须是 Long，而两个发送
+  操作都只接受 Map<String,String>，所以通过 Jolokia 设的延迟会被接受、被忽略，然后被当成生效了
+  报回来。没有位点、没有分区，因为 JMS 两者都没有——消息确认之后就没了，也没有任何东西把目的地
+  切成消费者可寻址的分片。没有权限页：两个产品的认证都写在启动时读取的 XML 里，JMX 没有创建
+  用户的操作。还有 Classic 的浏览止步于 maxBrowsePageSize，默认 400 条，无论目的地多深；这个
+  上限无法通过 JMX 读取，所以页面把它作为一条 caveat 报出来，而不是假装队列就是 400 条深。
+- **已完成设计，尚未实现** — 下面列出的九种形态。
 
 ## 交付顺序
 
@@ -58,8 +81,9 @@ MQ Studio 正在成为一个覆盖所有消息队列的桌面客户端。每种�
 | 7 | **Pulsar** | 已完成。主题、命名空间与其上的租户、订阅与游标、浏览与跟随、发送控制台、死信与角色授权全部端到端可用；并且没有任何页面去假装这个中间件有 tag、磁盘用量或用户目录 |
 | 8 | **MQTT** | 已完成。第一个自身没有管理面的家族：能做什么在连接时按三层探测——协议层、$SYS 树、broker 自带的 REST API——探测不到的那层会说明原因，而不是默默变空 |
 | 9 | **NATS** | 已完成。和预期一样是纯增量——没有任何规范页面改变形状——但它是第一个驱动会去读 profile 认证方式（而不只是读凭据）的家族，也正因此暴露了一个拨号时把 RocketMQ 之外所有家族的认证方式重置掉的缺陷 |
-| 10 | **ActiveMQ / Artemis**，然后 **NSQ** | 仍是纯增量；ActiveMQ 用来检验 JMS 语义能否套进规范页面 |
-| 11 | **Amazon SQS**、**Google Cloud Pub/Sub**、**Azure Service Bus**、**Amazon Kinesis**，然后 **IBM MQ** 与 **Solace PubSub+** | 连接表单能表达「没有地址，只有 region 与凭证」 |
+| 10 | **ActiveMQ / Artemis** | 已完成。JMS 语义能套进规范页面，除了那些假定存在日志的地方：没有位点、没有分区、没有 trim。换来的是死信页第一次被填满，以及本应用第一个重投操作 |
+| 11 | **NSQ** | 主题与 channel；没有消息历史，因此没有浏览 |
+| 12 | **Amazon SQS**、**Google Cloud Pub/Sub**、**Azure Service Bus**、**Amazon Kinesis**，然后 **IBM MQ** 与 **Solace PubSub+** | 连接表单能表达「没有地址，只有 region 与凭证」 |
 
 有两个排序决定值得一直放在视野里。
 
@@ -87,7 +111,7 @@ MQ Studio 正在成为一个覆盖所有消息队列的桌面客户端。每种�
 | **RabbitMQ** | HTTP 管理插件，消息面走 AMQP 0-9-1 | 全部六个，外加 Exchanges/Bindings、连接、死信、虚拟主机、策略、定义、数据搬运 | 没有 offset 与分区；没有具名消费组；没有稳定的消息 id；浏览会把读到的消息重新入队，因此带 caveat；Shovel、Federation 与 stream 协议都是插件，未装时能力降级并给出原因 |
 | **Kafka** | 基于 Kafka 协议的 AdminClient | 全部六个 | ACL 取决于所配置的 authorizer；浏览是按 offset 区间拉取，不是随机访问 |
 | **Pulsar** | Admin REST API + 二进制协议 | 全部六个 | 已完成。tenant 与 namespace 最后两者都做了：既是每个页面上的范围选择器，也有自己的页面 —— 因为主题的地址就是 tenant/namespace/name，选择器的选项总得有个来源 |
-| **ActiveMQ / Artemis** | 基于 JMX 的 Jolokia REST | 全部六个 | Classic 5.x 与 Artemis 暴露的管理树不同，驱动需探测实际应答的是哪一种 |
+| **ActiveMQ / Artemis** | 基于 JMX 的 Jolokia REST，外加用于跟随主题的 AMQP 1.0 | 全部六个，另加死信、连接与主题实时视图 | 已完成。两个产品的管理树没有一个 ObjectName、属性名或消息 map 键是相同的，靠 MBean 域判断哪一个在应答。浏览和发送都是管理操作，因此都不会取走消息、也不需要线协议客户端——可选的 AMQP 层存在的唯一理由是 JMX 无法推送。已确认：没有位点、分区和 trim，因为 JMS 没有；没有延迟投递，因为两个发送操作都只接受 Map<String,String> 而调度标注必须是 Long；没有权限页，因为两者的认证都写在 XML 里；Classic 的浏览止步于 maxBrowsePageSize，该值无法通过 JMX 读取，作为 caveat 报出 |
 | **Redis Stream** | `XINFO`、`XRANGE`、`XADD` 等命令 | 全部六个 | 已完成。集群拓扑和 ACL 最后都做了：单机、哨兵与集群三种部署都能读，ACL 用户带键、频道与命令规则 |
 | **NATS** | JetStream API、服务端监控端点与 $SYS 账户 | Destinations、Subscriptions、Messages、Publish、Subjects、Cluster、Connections、Accounts、Alerts | 已完成。四层，每一层都在连接时探测：未启用 JetStream 时端点退化为仅发布与订阅；集群相关页面需要监控端点或系统账户其一——监控端点只答一台服务器，$SYS 才答整个集群 |
 | **NSQ** | nsqd 与 nsqlookupd HTTP 接口 | Destinations、Subscriptions、Publish、Cluster | 没有消息历史，因此没有浏览 |

@@ -257,6 +257,245 @@ export class AclUserInput {
 }
 
 /**
+ * ActiveMQDestinationInput is a destination declaration as the ActiveMQ form
+ * collects it.
+ * 
+ * Deliberately not TopicService.Create's shape. That one takes a broker
+ * address, a read queue count, a write queue count and a permission string,
+ * which is RocketMQ's vocabulary; a JMS destination has none of those, and a
+ * form that filled them in with placeholders would be lying about what it
+ * sent.
+ */
+export class ActiveMQDestinationInput {
+    "name": string;
+
+    /**
+     * Topic rather than a kind string, because there are exactly two and a
+     * boolean cannot arrive misspelled. It is not inferable from the name: a
+     * queue and a topic may both be called ORDERS, and on Classic they are
+     * different objects in different trees.
+     */
+    "topic": boolean;
+
+    /** Creates a new ActiveMQDestinationInput instance. */
+    constructor($$source: Partial<ActiveMQDestinationInput> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("topic" in $$source)) {
+            this["topic"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ActiveMQDestinationInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ActiveMQDestinationInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ActiveMQDestinationInput($$parsedSource as Partial<ActiveMQDestinationInput>);
+    }
+}
+
+/**
+ * MoveInput names one destination to drain into another.
+ * 
+ * Flatter than the canonical MoveRequest because ActiveMQ has no exchange and
+ * no routing key: a JMS move puts the message in the named destination, with
+ * no topology in between for it to take.
+ */
+export class ActiveMQMoveInput {
+    "from": string;
+    "to": string;
+
+    /** Creates a new ActiveMQMoveInput instance. */
+    constructor($$source: Partial<ActiveMQMoveInput> = {}) {
+        if (!("from" in $$source)) {
+            this["from"] = "";
+        }
+        if (!("to" in $$source)) {
+            this["to"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ActiveMQMoveInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ActiveMQMoveInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ActiveMQMoveInput($$parsedSource as Partial<ActiveMQMoveInput>);
+    }
+}
+
+/**
+ * ActiveMQPublishInput is a send as the ActiveMQ console collects it.
+ * 
+ * Flatter than the canonical PublishRequest, which is AMQP's: there is no
+ * exchange, no routing key and no mandatory flag here, because a JMS send
+ * names its destination and nothing routes in between. What is left is the
+ * body, the JMS headers a producer can set, and a count.
+ */
+export class ActiveMQPublishInput {
+    "destination": string;
+    "body": string;
+
+    /**
+     * Persistent is honoured on Artemis, whose sendMessage takes it. Classic's
+     * sendTextMessage has no delivery-mode parameter and the destination's own
+     * policy decides, so the switch does nothing there - which the console
+     * says rather than pretending otherwise.
+     */
+    "persistent": boolean;
+    "priority": number;
+    "correlationId": string;
+    "replyTo": string;
+    "jmsType": string;
+    "headers": { [_ in string]?: string };
+    "count": number;
+
+    /** Creates a new ActiveMQPublishInput instance. */
+    constructor($$source: Partial<ActiveMQPublishInput> = {}) {
+        if (!("destination" in $$source)) {
+            this["destination"] = "";
+        }
+        if (!("body" in $$source)) {
+            this["body"] = "";
+        }
+        if (!("persistent" in $$source)) {
+            this["persistent"] = false;
+        }
+        if (!("priority" in $$source)) {
+            this["priority"] = 0;
+        }
+        if (!("correlationId" in $$source)) {
+            this["correlationId"] = "";
+        }
+        if (!("replyTo" in $$source)) {
+            this["replyTo"] = "";
+        }
+        if (!("jmsType" in $$source)) {
+            this["jmsType"] = "";
+        }
+        if (!("headers" in $$source)) {
+            this["headers"] = {};
+        }
+        if (!("count" in $$source)) {
+            this["count"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ActiveMQPublishInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ActiveMQPublishInput {
+        const $$createField7_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("headers" in $$parsedSource) {
+            $$parsedSource["headers"] = $$createField7_0($$parsedSource["headers"]);
+        }
+        return new ActiveMQPublishInput($$parsedSource as Partial<ActiveMQPublishInput>);
+    }
+}
+
+/**
+ * ActiveMQSubscribeInput is a live view as the workbench asks for one.
+ * 
+ * Topics only, and the driver enforces it rather than the form: a JMS consumer
+ * consumes, so attaching one to a queue would take its messages and hand them
+ * to a window somebody opened to look.
+ */
+export class ActiveMQSubscribeInput {
+    "topics": string[];
+
+    /**
+     * Buffer bounds what one stream holds between polls. Zero takes the
+     * driver's default, and whatever it drops is reported rather than lost
+     * silently - a busy topic and a quiet one look the same otherwise.
+     */
+    "buffer": number;
+
+    /** Creates a new ActiveMQSubscribeInput instance. */
+    constructor($$source: Partial<ActiveMQSubscribeInput> = {}) {
+        if (!("topics" in $$source)) {
+            this["topics"] = [];
+        }
+        if (!("buffer" in $$source)) {
+            this["buffer"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ActiveMQSubscribeInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ActiveMQSubscribeInput {
+        const $$createField0_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("topics" in $$parsedSource) {
+            $$parsedSource["topics"] = $$createField0_0($$parsedSource["topics"]);
+        }
+        return new ActiveMQSubscribeInput($$parsedSource as Partial<ActiveMQSubscribeInput>);
+    }
+}
+
+/**
+ * ActiveMQSubscriptionInput is a durable subscription as the ActiveMQ form
+ * collects it.
+ * 
+ * Deliberately not ConsumerInput's shape: that one carries a broker address, a
+ * consume mode and a retry count, and carries no topic - which is the one
+ * thing a durable subscription cannot be made without.
+ */
+export class ActiveMQSubscriptionInput {
+    /**
+     * Topic is what the subscription reads.
+     */
+    "topic": string;
+
+    /**
+     * Name is the canonical ref. On Artemis it is the queue's name; on Classic
+     * it is the client id and the subscription name joined by a vertical bar,
+     * because a JMS client id routinely contains a slash or a colon.
+     */
+    "name": string;
+
+    /**
+     * Selector is a JMS selector expression, empty for everything. Classic
+     * rejects an empty string as an expression, so the driver sends null.
+     */
+    "selector": string;
+
+    /** Creates a new ActiveMQSubscriptionInput instance. */
+    constructor($$source: Partial<ActiveMQSubscriptionInput> = {}) {
+        if (!("topic" in $$source)) {
+            this["topic"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("selector" in $$source)) {
+            this["selector"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ActiveMQSubscriptionInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ActiveMQSubscriptionInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ActiveMQSubscriptionInput($$parsedSource as Partial<ActiveMQSubscriptionInput>);
+    }
+}
+
+/**
  * AutoClaimInput moves whatever has been idle too long, without naming ids.
  */
 export class AutoClaimInput {
