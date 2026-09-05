@@ -1,0 +1,54 @@
+name: mq-studio-e2e-activemq-classic
+
+# Classic, the other half of the same family.
+#
+# This is not a degraded environment - it is the second product. One MQKind
+# covers two brokers whose MBean trees share no ObjectName, no attribute name
+# and no message-map key, so a driver that passes against Artemis proves
+# nothing about Classic. Both run for every test run.
+#
+# Deliberately stock. The image's own conf/activemq.xml is what a user gets,
+# including its jolokia-access.xml with <strict-checking/> - which is what
+# makes the driver's Origin header a requirement rather than a nicety. Editing
+# the config here would hide that.
+
+services:
+  classic:
+    image: apache/activemq-classic:6.2.0
+    hostname: classic
+    ports:
+      # The console and its Jolokia agent at /api/jolokia - a different path
+      # from Artemis, which is one of the two things probe() uses to tell the
+      # products apart. 8162 because Artemis holds 8161.
+      - '127.0.0.1:8162:8161'
+      # OpenWire, which no Go client speaks. Published anyway so a failure to
+      # connect is a refused dial rather than a timeout on a closed port.
+      - '127.0.0.1:61617:61616'
+      # AMQP 1.0, for the driver's optional tier. Released Classic still ships
+      # this connector enabled; the commit that disables everything but
+      # OpenWire is on the upstream main branch and unreleased, which is
+      # precisely why the tier is probed rather than assumed.
+      - '127.0.0.1:5673:5672'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'curl',
+          '-fsS',
+          '-o',
+          '/dev/null',
+          '-u',
+          'admin:admin',
+          '-H',
+          'Origin: http://localhost',
+          'http://127.0.0.1:8161/api/jolokia/search/org.apache.activemq:type=Broker,brokerName=*',
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+    restart: unless-stopped
+    volumes:
+      - classic-data:/opt/apache-activemq/data
+
+volumes:
+  classic-data:
