@@ -73,6 +73,7 @@ import { ServersNats } from "./boards/cluster/ServersNats";
 import { MqttWorkbench } from "./boards/mqtt/MqttWorkbench";
 import { NatsWorkbench } from "./boards/nats/NatsWorkbench";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
+import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
 import { NotDesigned } from "./boards/misc/NotDesigned";
 
 /**
@@ -142,6 +143,7 @@ const BOARDS: Partial<
     pulsar: SubscriptionsPulsar,
     redis: ConsumersRedis,
     nats: ConsumersNats,
+    activemq: SubscriptionsActiveMQ,
   },
   subscribe: { mqtt: MqttWorkbench, nats: NatsWorkbench },
   clients: { mqtt: ClientsMqtt, redis: ClientsRedis, nats: ClientsNats },

@@ -74,3 +74,32 @@ func (s *ActiveMQService) CreateDestination(connID int, input ActiveMQDestinatio
 func (s *ActiveMQService) RemoveDestination(connID int, name string) error {
 	return s.service.RemoveDestination(context.Background(), connID, name)
 }
+
+// ActiveMQSubscriptionInput is a durable subscription as the ActiveMQ form
+// collects it.
+//
+// Deliberately not ConsumerInput's shape: that one carries a broker address, a
+// consume mode and a retry count, and carries no topic - which is the one
+// thing a durable subscription cannot be made without.
+type ActiveMQSubscriptionInput struct {
+	// Topic is what the subscription reads.
+	Topic string `json:"topic"`
+	// Name is the canonical ref. On Artemis it is the queue's name; on Classic
+	// it is the client id and the subscription name joined by a vertical bar,
+	// because a JMS client id routinely contains a slash or a colon.
+	Name string `json:"name"`
+	// Selector is a JMS selector expression, empty for everything. Classic
+	// rejects an empty string as an expression, so the driver sends null.
+	Selector string `json:"selector"`
+}
+
+// CreateSubscription registers a durable subscription on a topic.
+func (s *ActiveMQService) CreateSubscription(connID int, input ActiveMQSubscriptionInput) error {
+	return s.service.CreateSubscription(context.Background(), connID,
+		input.Topic, input.Name, input.Selector)
+}
+
+// RemoveSubscription unsubscribes, discarding whatever it was still owed.
+func (s *ActiveMQService) RemoveSubscription(connID int, name string) error {
+	return s.service.RemoveSubscription(context.Background(), connID, name)
+}

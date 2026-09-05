@@ -136,6 +136,11 @@ func capabilities() []model.Capability {
 		model.CapDestinationDelete,
 		model.CapDestinationPurge,
 		model.CapDestinationMove,
+
+		model.CapSubscriptionList,
+		model.CapSubscriptionCreate,
+		model.CapSubscriptionDelete,
+		model.CapSubscriptionLag,
 	}
 }
 

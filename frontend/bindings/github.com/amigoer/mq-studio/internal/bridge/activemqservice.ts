@@ -24,6 +24,13 @@ export function CreateDestination(connID: number, input: $models.ActiveMQDestina
 }
 
 /**
+ * CreateSubscription registers a durable subscription on a topic.
+ */
+export function CreateSubscription(connID: number, input: $models.ActiveMQSubscriptionInput): $CancellablePromise<void> {
+    return $Call.ByID(1443470090, connID, input);
+}
+
+/**
  * MoveMessages drains one destination into another and reports how many the
  * broker moved. The count is the broker's own, which is what separates a move
  * that matched nothing from one that moved everything.
@@ -48,4 +55,11 @@ export function PurgeQueue(connID: number, name: string): $CancellablePromise<vo
  */
 export function RemoveDestination(connID: number, name: string): $CancellablePromise<void> {
     return $Call.ByID(4184532121, connID, name);
+}
+
+/**
+ * RemoveSubscription unsubscribes, discarding whatever it was still owed.
+ */
+export function RemoveSubscription(connID: number, name: string): $CancellablePromise<void> {
+    return $Call.ByID(2685825414, connID, name);
 }

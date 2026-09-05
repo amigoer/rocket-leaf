@@ -3973,6 +3973,43 @@
         "moveHint": "The destination messages are moved into. ActiveMQ moves by name — there is no exchange or routing key in between.",
         "moveAction": "Move",
         "moved": "Moved {{count}} messages"
+      },
+      "subscriptions": {
+        "count": "{{count}} subscriptions · {{attached}} attached",
+        "search": "Filter by name or topic",
+        "name": "Subscription",
+        "topic": "Topic",
+        "topicPlaceholder": "Choose a topic",
+        "topicHint": "Only a topic can hold a durable subscription. A queue's consumers are connections — no name, no stored position, gone when the socket closes.",
+        "state": "State",
+        "attached": "Attached",
+        "waiting": "Waiting",
+        "slow": "Falling behind",
+        "backlog": "Owed",
+        "pendingAck": "In flight",
+        "dispatched": "Dispatched",
+        "consumed": "Consumed",
+        "members": "Consumers",
+        "clientId": "Client id",
+        "clientIdHint": "Classic identifies a durable subscription by the client that registered it, together with the subscription's own name.",
+        "selector": "Selector",
+        "selectorHint": "A JMS selector expression, or empty for everything. It is fixed when the subscription is created.",
+        "durable": "Durable",
+        "prefetch": "Prefetch",
+        "deadLetterAddress": "Dead letters to",
+        "unsubscribe": "Unsubscribe",
+        "create": "New subscription",
+        "createTitle": "New durable subscription",
+        "created": "Created {{name}}",
+        "deleteTitle": "Unsubscribe {{name}}?",
+        "deleteDesc": "Discards the {{count}} messages the broker is still holding for it. There is no undo.",
+        "deleted": "Unsubscribed {{name}}",
+        "deleteFailed": "Could not unsubscribe",
+        "section": {
+          "state": "Progress",
+          "identity": "Identity and rules"
+        },
+        "note": "A subscription with nothing attached is not a fault — the broker is holding messages for a client that has gone away, which is what durable means."
       }
     }
   }

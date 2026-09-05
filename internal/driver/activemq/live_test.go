@@ -604,3 +604,138 @@ func depthOf(t *testing.T, ctx context.Context, conn *Conn, queue string) int64 
 	}
 	return detail.Depth
 }
+
+// Durable subscriptions, which the two products keep in unrelated places:
+// Artemis as a queue bound to a multicast address, Classic as a consumer
+// registered against a topic and identified by a client id and a name.
+func TestLiveDurableSubscriptionsRoundTrip(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		require func(*testing.T)
+		profile model.ConnectionProfile
+		// The canonical ref name each product needs: Artemis takes the queue's
+		// name, Classic a client id joined to a subscription name.
+		subName string
+	}{
+		{"artemis", requireArtemis, artemisProfile(""), "MQS.TEST.sub.artemis"},
+		{"classic", requireClassic, classicProfile(""), "mqs-test-client|MQS.TEST.sub.classic"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.require(t)
+			ctx := liveContext(t)
+			conn, err := open(ctx, tc.profile)
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+
+			topic := "MQS.TEST.subtopic." + tc.name
+			if err := conn.CreateDestination(ctx, model.DestinationSpec{
+				Ref:        model.DestinationRef{Name: topic},
+				Attributes: map[string]string{AttrKind: string(topicKind)},
+			}); err != nil {
+				t.Fatalf("create topic: %v", err)
+			}
+			defer func() { _ = conn.RemoveDestination(ctx, model.DestinationRef{Name: topic}) }()
+
+			if err := conn.CreateSubscription(ctx, model.SubscriptionSpec{
+				Ref: model.SubscriptionRef{Namespace: topic, Name: tc.subName},
+			}); err != nil {
+				t.Fatalf("create subscription: %v", err)
+			}
+			defer func() {
+				_ = conn.RemoveSubscription(ctx, model.SubscriptionRef{Name: tc.subName})
+			}()
+
+			found, err := conn.ListSubscriptions(ctx)
+			if err != nil {
+				t.Fatalf("list: %v", err)
+			}
+			var made *model.Subscription
+			for _, subscription := range found {
+				if subscription.Ref.Name == tc.subName {
+					made = subscription
+				}
+			}
+			if made == nil {
+				t.Fatalf("the subscription this test created is not in the listing of %d", len(found))
+			}
+			if made.Ref.Namespace != topic {
+				t.Errorf("namespace = %q, want the topic %q", made.Ref.Namespace, topic)
+			}
+			// Nothing is connected to it, and that is the resting state of a
+			// durable subscription rather than a fault - the broker is holding
+			// messages for a client that is not there.
+			if made.Status != model.SubscriptionOffline {
+				t.Errorf("status = %q, want offline", made.Status)
+			}
+			if made.Members != 0 {
+				t.Errorf("members = %d, want 0", made.Members)
+			}
+			if made.Backlog != 0 {
+				t.Errorf("backlog = %d, want 0", made.Backlog)
+			}
+
+			if err := conn.RemoveSubscription(ctx, model.SubscriptionRef{Name: tc.subName}); err != nil {
+				t.Fatalf("remove: %v", err)
+			}
+			after, err := conn.ListSubscriptions(ctx)
+			if err != nil {
+				t.Fatalf("list after remove: %v", err)
+			}
+			for _, subscription := range after {
+				if subscription.Ref.Name == tc.subName {
+					t.Error("the subscription is still listed after being removed")
+				}
+			}
+		})
+	}
+}
+
+// A durable subscription accrues a backlog while nothing is connected to it,
+// which is the only reason it exists. Read from the seeded topic, so this is
+// the broker's own figure rather than one this test just created.
+func TestLiveSubscriptionBacklogGrowsWhileNothingIsConnected(t *testing.T) {
+	requireArtemis(t)
+	ctx := liveContext(t)
+	conn, err := open(ctx, artemisProfile(""))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	found, err := conn.ListSubscriptions(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	var analytics *model.Subscription
+	for _, subscription := range found {
+		if subscription.Ref.Name == "MQS.SEED.events.analytics" {
+			analytics = subscription
+		}
+	}
+	if analytics == nil {
+		t.Skip("the seed has not run")
+	}
+	before := analytics.Backlog
+
+	// Sent to the address, which fans out to every queue under it - that fan
+	// out is what a multicast address is for, and it is the thing a driver
+	// reading the address's own MessageCount would miss.
+	for i := range 4 {
+		if _, err := conn.jolokia.call(ctx, execOperation(
+			conn.names.artemisQueue("MQS.SEED.events", "MQS.SEED.events.analytics", multicast),
+			"sendMessage(java.util.Map,int,java.lang.String,boolean,java.lang.String,java.lang.String)",
+			nil, 3, fmt.Sprintf("fanout-%d", i), true, liveArtemisUser, liveArtemisPass)); err != nil {
+			t.Fatalf("send: %v", err)
+		}
+	}
+
+	after, err := conn.SubscriptionDetail(ctx, model.SubscriptionRef{Name: "MQS.SEED.events.analytics"})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if after.Backlog != before+4 {
+		t.Errorf("backlog = %d, want %d", after.Backlog, before+4)
+	}
+}

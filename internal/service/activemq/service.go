@@ -126,3 +126,33 @@ func (s *Service) RemoveDestination(ctx context.Context, connID int, name string
 	defer cancel()
 	return api.RemoveDestination(ctx, model.DestinationRef{Name: name})
 }
+
+// CreateSubscription registers a durable subscription on a topic.
+//
+// Beside the canonical create because ConsumerInput carries a broker address,
+// a consume mode and a retry count - RocketMQ's vocabulary - and carries no
+// topic at all. A durable subscription without the topic it reads is not a
+// thing either product can make.
+func (s *Service) CreateSubscription(ctx context.Context, connID int, topic, name, selector string) error {
+	api, err := port[driver.SubscriptionAdmin](s, connID, model.CapSubscriptionCreate)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.CreateSubscription(ctx, model.SubscriptionSpec{
+		Ref:        model.SubscriptionRef{Namespace: topic, Name: name},
+		Attributes: map[string]string{"topic": topic, "selector": selector},
+	})
+}
+
+// RemoveSubscription unsubscribes, discarding whatever it was still owed.
+func (s *Service) RemoveSubscription(ctx context.Context, connID int, name string) error {
+	api, err := port[driver.SubscriptionAdmin](s, connID, model.CapSubscriptionDelete)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.RemoveSubscription(ctx, model.SubscriptionRef{Name: name})
+}

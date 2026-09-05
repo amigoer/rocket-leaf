@@ -47,3 +47,21 @@ export const createDestination = (
 /** Delete a destination and everything it holds. */
 export const removeDestination = (connID: number, name: string): Promise<void> =>
   ActiveMQService.RemoveDestination(connID, name);
+
+/**
+ * Register a durable subscription on a topic.
+ *
+ * Not through the canonical create: that one carries a broker address, a
+ * consume mode and a retry count, and carries no topic - which is the one
+ * thing a durable subscription cannot be made without.
+ */
+export const createSubscription = (
+  connID: number,
+  topic: string,
+  name: string,
+  selector: string,
+): Promise<void> => ActiveMQService.CreateSubscription(connID, { topic, name, selector });
+
+/** Unsubscribe, discarding whatever the subscription was still owed. */
+export const removeSubscription = (connID: number, name: string): Promise<void> =>
+  ActiveMQService.RemoveSubscription(connID, name);

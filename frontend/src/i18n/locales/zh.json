@@ -3973,6 +3973,43 @@
         "moveHint": "消息将被移入的目的地。ActiveMQ 按名称移动——中间没有 exchange 或 routing key。",
         "moveAction": "移动",
         "moved": "已移动 {{count}} 条消息"
+      },
+      "subscriptions": {
+        "count": "{{count}} 个订阅 · {{attached}} 个已连接",
+        "search": "按名称或主题筛选",
+        "name": "订阅",
+        "topic": "主题",
+        "topicPlaceholder": "选择一个主题",
+        "topicHint": "只有主题能持有持久订阅。队列的消费者是连接——没有名字、不保存位置，socket 一断就没了。",
+        "state": "状态",
+        "attached": "已连接",
+        "waiting": "等待中",
+        "slow": "消费滞后",
+        "backlog": "待收",
+        "pendingAck": "投递中",
+        "dispatched": "已派发",
+        "consumed": "已消费",
+        "members": "消费者",
+        "clientId": "Client ID",
+        "clientIdHint": "Classic 用注册它的客户端加上订阅自身的名称来标识一个持久订阅。",
+        "selector": "选择器",
+        "selectorHint": "JMS selector 表达式，留空表示全部。创建之后不可更改。",
+        "durable": "持久",
+        "prefetch": "预取",
+        "deadLetterAddress": "死信去向",
+        "unsubscribe": "取消订阅",
+        "create": "新建订阅",
+        "createTitle": "新建持久订阅",
+        "created": "已创建 {{name}}",
+        "deleteTitle": "取消订阅 {{name}}？",
+        "deleteDesc": "将丢弃 broker 为它保留的 {{count}} 条消息，且无法撤销。",
+        "deleted": "已取消订阅 {{name}}",
+        "deleteFailed": "取消订阅失败",
+        "section": {
+          "state": "进度",
+          "identity": "身份与规则"
+        },
+        "note": "没有连接的订阅不是故障——broker 正在为一个已离开的客户端保留消息，这正是「持久」的含义。"
       }
     }
   }

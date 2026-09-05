@@ -331,6 +331,57 @@ export class ActiveMQMoveInput {
 }
 
 /**
+ * ActiveMQSubscriptionInput is a durable subscription as the ActiveMQ form
+ * collects it.
+ * 
+ * Deliberately not ConsumerInput's shape: that one carries a broker address, a
+ * consume mode and a retry count, and carries no topic - which is the one
+ * thing a durable subscription cannot be made without.
+ */
+export class ActiveMQSubscriptionInput {
+    /**
+     * Topic is what the subscription reads.
+     */
+    "topic": string;
+
+    /**
+     * Name is the canonical ref. On Artemis it is the queue's name; on Classic
+     * it is the client id and the subscription name joined by a vertical bar,
+     * because a JMS client id routinely contains a slash or a colon.
+     */
+    "name": string;
+
+    /**
+     * Selector is a JMS selector expression, empty for everything. Classic
+     * rejects an empty string as an expression, so the driver sends null.
+     */
+    "selector": string;
+
+    /** Creates a new ActiveMQSubscriptionInput instance. */
+    constructor($$source: Partial<ActiveMQSubscriptionInput> = {}) {
+        if (!("topic" in $$source)) {
+            this["topic"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("selector" in $$source)) {
+            this["selector"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ActiveMQSubscriptionInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ActiveMQSubscriptionInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ActiveMQSubscriptionInput($$parsedSource as Partial<ActiveMQSubscriptionInput>);
+    }
+}
+
+/**
  * AutoClaimInput moves whatever has been idle too long, without naming ids.
  */
 export class AutoClaimInput {
