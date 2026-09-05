@@ -13,6 +13,9 @@ website/node_modules/
 website/dist/
 website/.astro/
 
+# Go coverage profiles, written by `npm run test:cover` and by CI
+coverage*.out
+
 # Task's local checksum cache
 .task/
 

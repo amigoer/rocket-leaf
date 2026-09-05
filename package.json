@@ -19,6 +19,7 @@
     "website:build": "npm --prefix website run build",
     "test": "npm run test:go && npm run test:frontend",
     "test:go": "go test ./...",
+    "test:cover": "go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out | tail -n 1",
     "test:frontend": "npm --prefix frontend test",
     "test:e2e": "MQ_STUDIO_E2E=1 go test -count=1 -run 'TestLive|TestPlainBroker' ./internal/app/... ./internal/driver/rocketmq/... ./internal/driver/rabbitmq/... ./internal/driver/kafka/... ./internal/driver/pulsar/... ./internal/driver/redisstream/... ./internal/driver/mqtt/... ./internal/driver/nats/... ./internal/driver/activemq/...",
     "e2e:up": "docker compose -f tests/e2e/rocketmq/compose.yaml up -d --wait",
