@@ -606,6 +606,22 @@
       "caveat": {
         "browseCapped": "Classic returns at most maxBrowsePageSize messages per browse, 400 by default, however deep the destination is. The page shows what the broker sent — raise the limit in the destination's policy entry to see further."
       }
+    },
+    "nsq": {
+      "name": "NSQ",
+      "terms": {
+        "destination": "Topic",
+        "destinationPlural": "Topics",
+        "subscription": "Channel",
+        "subscriptionPlural": "Channels",
+        "node": "nsqd",
+        "nodePlural": "nsqd",
+        "backlog": "Depth"
+      },
+      "form": {
+        "nsqd": "nsqd addresses",
+        "lookupd": "nsqlookupd addresses"
+      }
     }
   },
   "shell": {
@@ -774,6 +790,15 @@
         "clients": "Connections",
         "alerts": "Alerts",
         "subscribe": "Watch"
+      },
+      "nsq": {
+        "overview": "Overview",
+        "topics": "Topics",
+        "consumers": "Channels",
+        "producer": "Publish",
+        "cluster": "Cluster",
+        "clients": "Clients",
+        "alerts": "Alerts"
       }
     }
   },
@@ -1064,6 +1089,14 @@
           "amqpPassword": "AMQP password",
           "note": "Classic and Artemis, told apart on connect",
           "consoleScheme": "The address needs an http:// or https:// scheme — this field takes the web console's URL, not a broker port."
+        },
+        "nsq": {
+          "nsqd": "nsqd addresses",
+          "nsqdHint": "Every nsqd's HTTP address, separated by commas. A topic lives on the daemon it was created on, so a depth here is the sum across this list and an address left out makes every figure quietly short. The HTTP port defaults to 4151; 4150 is the one producers dial.",
+          "lookupd": "nsqlookupd addresses (optional)",
+          "lookupdHint": "The discovery tier: it knows which nsqd holds what and holds nothing itself. Only the cluster's directory list needs it, and a single-node NSQ has none. The HTTP port defaults to 4161.",
+          "note": "Two daemons, and no credentials — nsqd's HTTP API takes none",
+          "nsqdRequired": "Name at least one nsqd address — a cluster here is the set of them, not one that speaks for the rest."
         }
       },
       "deleteTitle": "Delete connection",

@@ -177,6 +177,15 @@ export function draftInvalidReason(draft: ProtocolDraft, t: Translate): string |
     }
     return null;
   }
+  if (draft.protocol === "nsq") {
+    // The one rule this form has. nsqlookupd is genuinely optional - a
+    // single-node NSQ has none - and there is no credential to ask for, so an
+    // address list is the whole of what a profile needs.
+    if (draft.value.endpoints.trim() === "") {
+      return t("page.connections.form.nsq.nsqdRequired");
+    }
+    return null;
+  }
   if (draft.protocol === "rocketmq") {
     if (draft.value.endpoints.trim() === "") return t("page.connections.endpointsRequired");
     if (draft.value.version === "5.x" && draft.value.access === "proxy") {

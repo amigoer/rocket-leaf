@@ -606,6 +606,22 @@
       "caveat": {
         "browseCapped": "无论目的地有多深，Classic 一次浏览最多返回 maxBrowsePageSize 条消息，默认 400 条。页面显示的是 broker 实际返回的内容——要看得更远，请在目的地的 policyEntry 里调高这个上限。"
       }
+    },
+    "nsq": {
+      "name": "NSQ",
+      "terms": {
+        "destination": "主题",
+        "destinationPlural": "主题",
+        "subscription": "通道",
+        "subscriptionPlural": "通道",
+        "node": "nsqd",
+        "nodePlural": "nsqd",
+        "backlog": "堆积"
+      },
+      "form": {
+        "nsqd": "nsqd 地址",
+        "lookupd": "nsqlookupd 地址"
+      }
     }
   },
   "shell": {
@@ -774,6 +790,15 @@
         "clients": "连接",
         "alerts": "告警",
         "subscribe": "订阅台"
+      },
+      "nsq": {
+        "overview": "概览",
+        "topics": "主题",
+        "consumers": "通道",
+        "producer": "发送",
+        "cluster": "集群",
+        "clients": "客户端",
+        "alerts": "告警"
       }
     }
   },
@@ -1064,6 +1089,14 @@
           "amqpPassword": "AMQP 密码",
           "note": "Classic 与 Artemis，连接时自动区分",
           "consoleScheme": "地址需要带 http:// 或 https:// —— 这里填的是 Web 控制台 URL，不是 broker 端口。"
+        },
+        "nsq": {
+          "nsqd": "nsqd 地址",
+          "nsqdHint": "填每个 nsqd 的 HTTP 地址，用逗号分隔。主题只存在于创建它的那个 nsqd 上，所以这里的堆积量是这份清单的求和——漏掉一个地址，各项数字就会悄悄少算。HTTP 端口默认 4151；4150 是生产者连的那个。",
+          "lookupd": "nsqlookupd 地址（可选）",
+          "lookupdHint": "服务发现层：它知道哪个 nsqd 上有什么，自身不存任何消息。只有集群的目录列表需要它，单节点 NSQ 根本没有。HTTP 端口默认 4161。",
+          "note": "两种守护进程，且无需凭据——nsqd 的 HTTP API 不做认证",
+          "nsqdRequired": "至少填一个 nsqd 地址——这里的集群是它们的集合，而不是由某一个代表其余。"
         }
       },
       "deleteTitle": "删除连接",

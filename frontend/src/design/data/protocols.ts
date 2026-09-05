@@ -41,7 +41,8 @@ export type ProtocolId =
   | "redis"
   | "mqtt"
   | "nats"
-  | "activemq";
+  | "activemq"
+  | "nsq";
 
 export type PageId =
   | "overview"
@@ -341,6 +342,41 @@ export const PROTOCOLS: Record<ProtocolId, Protocol> = {
       },
     ],
   },
+  nsq: {
+    id: "nsq",
+    name: "NSQ",
+    badge: "NSQ",
+    badgeClass: "pNSQ",
+    /* Seven entries, and the four that are missing are the point. There is no
+       messages page, no dead letters and no access page, because nsqd keeps no
+       message it has already handed out, moves nothing aside when a consumer
+       gives up, and authenticates nobody over HTTP.
+
+       Topics and channels take the topics and consumers slots. A channel is
+       the durable consumer-group equivalent - every channel under a topic gets
+       a copy of every message, and its depth is the backlog - so it belongs in
+       the slot every other family puts its groups in rather than in one of its
+       own. */
+    nav: [
+      { items: [{ id: "overview", icon: House, label: "shell.nav.nsq.overview" }] },
+      {
+        label: BROWSE,
+        items: [
+          { id: "topics", icon: Layers, label: "shell.nav.nsq.topics" },
+          { id: "consumers", icon: Users, label: "shell.nav.nsq.consumers" },
+          { id: "producer", icon: Send, label: "shell.nav.nsq.producer" },
+        ],
+      },
+      {
+        label: OPS,
+        items: [
+          { id: "cluster", icon: Server, label: "shell.nav.nsq.cluster" },
+          { id: "clients", icon: Plug, label: "shell.nav.nsq.clients" },
+          { id: "alerts", icon: BellRing, label: "shell.nav.nsq.alerts" },
+        ],
+      },
+    ],
+  },
 };
 
 export const PROTOCOL_ORDER: ProtocolId[] = [
@@ -352,6 +388,7 @@ export const PROTOCOL_ORDER: ProtocolId[] = [
   "mqtt",
   "nats",
   "activemq",
+  "nsq",
 ];
 
 /** Every page the protocol's sidebar can reach, flattened. */
@@ -383,6 +420,7 @@ const READY: ReadonlySet<ProtocolId> = new Set<ProtocolId>([
   "mqtt",
   "nats",
   "activemq",
+  "nsq",
 ]);
 
 export function isProtocolReady(protocol: ProtocolId): boolean {

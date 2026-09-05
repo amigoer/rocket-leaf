@@ -23,6 +23,7 @@ import {
   ActiveMQForm,
   MqttForm,
   NatsForm,
+  NsqForm,
   PulsarForm,
   RabbitMQForm,
   RedisForm,
@@ -49,6 +50,7 @@ const TILE: Record<ProtocolId, { name: string; versions: string }> = {
   // One tile for two products. Which one is behind the console is the
   // driver's to work out, so asking here would only let a user get it wrong.
   activemq: { name: "ActiveMQ", versions: "Classic 5/6 · Artemis 2.x" },
+  nsq: { name: "NSQ", versions: "1.x" },
 };
 
 /** What the probe last reported, drawn in the footer beside the test button. */
@@ -226,6 +228,11 @@ export function NewConnectionDialog({
         <ActiveMQForm
           value={draft.value}
           onChange={(next) => setDraft({ protocol: "activemq", value: next })}
+        />
+      ) : draft.protocol === "nsq" ? (
+        <NsqForm
+          value={draft.value}
+          onChange={(next) => setDraft({ protocol: "nsq", value: next })}
         />
       ) : (
         <RocketMQForm

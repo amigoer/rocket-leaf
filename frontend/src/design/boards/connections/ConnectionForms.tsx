@@ -2418,3 +2418,161 @@ export function ActiveMQForm({
     </>
   );
 }
+
+/** Option keys the NSQ driver reads back off a stored profile. */
+export const OPTION_NSQ_LOOKUPD = "lookupdEndpoints";
+export const OPTION_NSQ_TLS_SKIP_VERIFY = "tlsSkipVerify";
+
+/**
+ * The one form here with no credential row, and it is not an omission.
+ *
+ * nsqd's HTTP API authenticates nobody. Its --auth-http-address delegates
+ * authorisation for clients arriving over the TCP protocol to a service
+ * outside NSQ and never touches these endpoints, so a username field would be
+ * a control that authenticates nothing.
+ */
+export interface NsqDraft {
+  name: string;
+  /** Every nsqd's HTTP address. A cluster is the set, not one of them. */
+  endpoints: string;
+  /** Optional. Without it everything works except the directory board. */
+  lookupdEndpoints: string;
+  tlsSkipVerify: boolean;
+  group: string;
+  remark: string;
+  timeoutSec: number;
+}
+
+export function emptyNsqDraft(): NsqDraft {
+  return {
+    name: "",
+    endpoints: "",
+    lookupdEndpoints: "",
+    tlsSkipVerify: false,
+    group: "",
+    remark: "",
+    timeoutSec: DEFAULT_TIMEOUT_SEC,
+  };
+}
+
+/**
+ * NSQ, addressed as a set of nsqd.
+ *
+ * The address field is a genuine list, unlike every other family's here. A
+ * topic exists on each nsqd that was asked to carry it and each daemon answers
+ * only for itself, so a depth on the topics board is a sum across the
+ * addresses in this field - and one left out is a figure that is quietly
+ * short rather than an error.
+ *
+ * nsqlookupd is asked for separately and is optional twice over: a single-node
+ * NSQ has none, and a cluster that has one still works here without it. It is
+ * the discovery tier, so it knows which nsqd holds what and holds nothing
+ * itself; leaving it blank costs the directory board and nothing else.
+ */
+export function NsqForm({
+  value,
+  onChange,
+}: {
+  value: NsqDraft;
+  onChange: (next: NsqDraft) => void;
+}) {
+  const { t } = useTranslation();
+  const set = <K extends keyof NsqDraft>(key: K, next: NsqDraft[K]) =>
+    onChange({ ...value, [key]: next });
+  const [advancedOpen, setAdvancedOpen] = useState(
+    value.timeoutSec !== DEFAULT_TIMEOUT_SEC || value.remark !== "" || value.tlsSkipVerify,
+  );
+
+  return (
+    <>
+      <div style={GRID}>
+        <Fld span label={t("page.connections.form.name")}>
+          <Input
+            value={value.name}
+            placeholder="nsq-prod"
+            onChange={(event) => set("name", event.target.value)}
+          />
+        </Fld>
+        <Fld
+          span
+          label={t("page.connections.form.nsq.nsqd")}
+          hint={t("page.connections.form.nsq.nsqdHint")}
+        >
+          <Input
+            className="mono3"
+            style={MONO}
+            value={value.endpoints}
+            placeholder="http://nsqd-1:4151, http://nsqd-2:4151"
+            onChange={(event) => set("endpoints", event.target.value)}
+          />
+        </Fld>
+        <Fld
+          span
+          label={t("page.connections.form.nsq.lookupd")}
+          hint={t("page.connections.form.nsq.lookupdHint")}
+        >
+          <Input
+            className="mono3"
+            style={MONO}
+            value={value.lookupdEndpoints}
+            placeholder="http://nsqlookupd:4161"
+            onChange={(event) => set("lookupdEndpoints", event.target.value)}
+          />
+        </Fld>
+      </div>
+
+      <FormNote
+        advanced={
+          <button
+            type="button"
+            className="mqs-disclosure"
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((open) => !open)}
+          >
+            <ChevronRight size={12} aria-hidden />
+            {t("page.connections.form.rocketmq.advanced")}
+          </button>
+        }
+        note={t("page.connections.form.nsq.note")}
+      />
+      {advancedOpen && (
+        <div style={GRID}>
+          <Fld
+            label={t("page.connections.form.rocketmq.timeout")}
+            hint={t("page.connections.form.rocketmq.timeoutHint")}
+          >
+            <Input
+              type="number"
+              value={value.timeoutSec > 0 ? String(value.timeoutSec) : ""}
+              onChange={(event) => {
+                const seconds = Number.parseInt(event.target.value, 10);
+                set("timeoutSec", Number.isNaN(seconds) ? 0 : seconds);
+              }}
+            />
+          </Fld>
+          <Fld
+            label={t("page.connections.form.remark")}
+            hint={t("page.connections.form.remarkHint")}
+          >
+            <Input value={value.remark} onChange={(event) => set("remark", event.target.value)} />
+          </Fld>
+          <Fld
+            span
+            label={t("page.connections.form.kafka.skipVerify")}
+            hint={t("page.connections.form.kafka.skipVerifyHint")}
+          >
+            <div style={SWITCH_ROW}>
+              <Switch
+                checked={value.tlsSkipVerify}
+                onCheckedChange={(next: boolean) => set("tlsSkipVerify", next)}
+              />
+              <span style={{ color: "var(--c-muted)" }}>
+                {t("page.connections.form.kafka.skipVerifyNote")}
+              </span>
+            </div>
+          </Fld>
+        </div>
+      )}
+    </>
+  );
+}
