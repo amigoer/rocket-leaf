@@ -1214,8 +1214,8 @@ func TestLiveListClientConnectionsFindsTheAttachedConsumer(t *testing.T) {
 		t.Fatalf("clients: %v", err)
 	}
 	if len(clients) == 0 {
-		e2e.Missing(t, "%s no consumer is attached; run `npm run e2e:nsq:seed` so the "+
-			"compose consumer has a topic to subscribe to", e2e.SkipMarker)
+		e2e.Missing(t, "no consumer is attached; run `npm run e2e:nsq:seed` so the "+
+			"compose consumer has a topic to subscribe to")
 	}
 
 	for _, client := range clients {

@@ -133,8 +133,8 @@ func requireNSQSeed(t *testing.T, stats probeStats) {
 			return
 		}
 	}
-	e2e.Missing(t, "%s the cluster holds no seeded topics; run `npm run e2e:nsq:seed` "+
-		"- comparing zero against zero would pass whatever the driver did", e2e.SkipMarker)
+	e2e.Missing(t, "the cluster holds no seeded topics; run `npm run e2e:nsq:seed` "+
+		"- comparing zero against zero would pass whatever the driver did")
 }
 
 // depthOf adds a topic up the way the boards say it is added up: the topic's
@@ -469,8 +469,8 @@ func TestCrossCheckNSQClients(t *testing.T) {
 		}
 	}
 	if len(wanted) == 0 {
-		e2e.Missing(t, "%s no consumer is attached; the compose file keeps one on "+
-			"%s, which the seed has to create first", e2e.SkipMarker, nsqSeedEvents)
+		e2e.Missing(t, "no consumer is attached; the compose file keeps one on %s, "+
+			"which the seed has to create first", nsqSeedEvents)
 	}
 
 	clients, err := stack.nsq.Connections(nsqContext(t), connID)
