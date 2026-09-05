@@ -573,6 +573,40 @@
         "systemAbsent": "This connection carries no system-account credentials, so the cluster can only be asked about the one server the monitoring endpoint belongs to. The system account is a separate account with its own user; its credentials go in the connection's advanced settings.",
         "systemForbidden": "The system-account credentials on this connection were refused. An ordinary account cannot reach $SYS however valid it is — these have to be a user inside the account named by system_account in the server's configuration."
       }
+    },
+    "activemq": {
+      "name": "ActiveMQ",
+      "terms": {
+        "destination": "Destination",
+        "destinationPlural": "Destinations",
+        "subscription": "Subscription",
+        "subscriptionPlural": "Subscriptions",
+        "node": "Broker",
+        "nodePlural": "Brokers",
+        "backlog": "Pending"
+      },
+      "form": {
+        "console": "Web console",
+        "mechanism": "Authentication",
+        "authPlain": "Username and password",
+        "username": "Console user",
+        "password": "Console password",
+        "jolokiaPath": "Jolokia path",
+        "brokerName": "Broker name",
+        "origin": "Origin header",
+        "amqpUrl": "AMQP address",
+        "amqpUsername": "AMQP user",
+        "amqpPassword": "AMQP password"
+      },
+      "degraded": {
+        "amqpAbsent": "This connection names no AMQP address, so there is no open socket to follow a destination on. Everything else works without one — browsing and sending both go through the console. Add the broker's AMQP acceptor to this connection to turn live following on.",
+        "amqpUnreachable": "The AMQP address was configured and nothing answered on it. Check that the broker declares an AMQP acceptor and that it is reachable from here: on Classic it is a transportConnector in activemq.xml, on Artemis an acceptor in broker.xml.",
+        "amqpForbidden": "The broker answered on AMQP and turned these credentials away. The console and the broker authenticate against different realms, so an account that opens the console need not open a connection — give this connection its own AMQP credentials.",
+        "classicNoDetail": "ActiveMQ Classic keeps this setting in activemq.xml rather than on the destination, so JMX can read the broker's behaviour and cannot change it. Artemis exposes the same thing as a queue attribute; on Classic it means editing the configuration and restarting."
+      },
+      "caveat": {
+        "browseCapped": "Classic returns at most maxBrowsePageSize messages per browse, 400 by default, however deep the destination is. The page shows what the broker sent — raise the limit in the destination's policy entry to see further."
+      }
     }
   },
   "shell": {
@@ -610,7 +644,7 @@
       "loading": "Reading the namespaces in use…",
       "empty": "No name on this cluster carries a namespace yet",
       "counts": "{{destinations}} topics · {{subscriptions}} groups",
-      "useTyped": "Switch to \u201c{{scope}}\u201d",
+      "useTyped": "Switch to “{{scope}}”",
       "more": "{{count}} more not shown",
       "switched": "Switched to {{scope}}",
       "switchedUnscoped": "Now reading the whole cluster",
@@ -729,6 +763,17 @@
         "clients": "Connections",
         "alerts": "Alerts",
         "vhosts": "Accounts"
+      },
+      "activemq": {
+        "overview": "Overview",
+        "topics": "Destinations",
+        "consumers": "Subscriptions",
+        "messages": "Messages",
+        "dlq": "Dead letters",
+        "producer": "Send",
+        "cluster": "Broker",
+        "clients": "Connections",
+        "alerts": "Alerts"
       }
     }
   },
@@ -999,7 +1044,27 @@
           "note": "The monitoring endpoint and the system account are both optional, and each widens what the cluster pages can show."
         },
         "secretStored": "Saved — leave blank to keep it",
-        "clearCredentials": "Clear credentials"
+        "clearCredentials": "Clear credentials",
+        "activemq": {
+          "mechanism": "Console authentication",
+          "mechanismPlain": "Username and password",
+          "mechanismNone": "None",
+          "console": "Web console address",
+          "consoleHint": "The console URL, not a broker port — Jolokia under it is this family's whole management plane. Classic and Artemis are told apart automatically.",
+          "jolokiaPath": "Jolokia path",
+          "jolokiaPathHint": "Leave empty to probe both: /api/jolokia on Classic, /console/jolokia on Artemis. Set it for a reverse proxy that mounts the agent elsewhere.",
+          "brokerName": "Broker name",
+          "brokerNameHint": "Read off the broker when left empty. Set it only where one JVM registers more than one broker, which is the case that cannot be resolved automatically.",
+          "origin": "Origin header",
+          "originHint": "Sent with every call, http://localhost when empty. Both brokers ship jolokia-access.xml with strict-checking, which refuses a call carrying no origin with a 403 that reads like a wrong password.",
+          "amqpUrl": "AMQP address (optional)",
+          "amqpUrlHint": "Only needed to follow a destination live or to send a body that is not text. Every other page works without it. Artemis multiplexes AMQP on 61616; Classic listens on 5672.",
+          "amqpUsername": "AMQP user",
+          "amqpUsernameHint": "Left blank the console credentials are reused, which is what most deployments want.",
+          "amqpPassword": "AMQP password",
+          "note": "Classic and Artemis, told apart on connect",
+          "consoleScheme": "The address needs an http:// or https:// scheme — this field takes the web console's URL, not a broker port."
+        }
       },
       "deleteTitle": "Delete connection",
       "deleteDesc": "This deletes “{{name}}” and the credentials stored with it, and cannot be undone.",

@@ -573,6 +573,40 @@
         "systemAbsent": "这个连接没有系统账户凭据，所以只能问到监控地址所属的那一台服务器。系统账户是另一个独立账户，有自己的用户，凭据填在连接的高级设置里。",
         "systemForbidden": "连接上的系统账户凭据被拒绝了。普通账户再怎么正确也到不了 $SYS——这里需要的是服务器配置里 system_account 指向的那个账户的用户。"
       }
+    },
+    "activemq": {
+      "name": "ActiveMQ",
+      "terms": {
+        "destination": "目的地",
+        "destinationPlural": "目的地",
+        "subscription": "订阅",
+        "subscriptionPlural": "订阅",
+        "node": "Broker",
+        "nodePlural": "Broker",
+        "backlog": "待处理"
+      },
+      "form": {
+        "console": "Web 控制台",
+        "mechanism": "认证方式",
+        "authPlain": "用户名与密码",
+        "username": "控制台用户",
+        "password": "控制台密码",
+        "jolokiaPath": "Jolokia 路径",
+        "brokerName": "Broker 名称",
+        "origin": "Origin 头",
+        "amqpUrl": "AMQP 地址",
+        "amqpUsername": "AMQP 用户",
+        "amqpPassword": "AMQP 密码"
+      },
+      "degraded": {
+        "amqpAbsent": "这个连接没有填 AMQP 地址，因而没有可用于实时跟随的连接。其余功能不受影响——浏览和发送都走控制台。想开启实时跟随，把 broker 的 AMQP 接入地址填进这个连接。",
+        "amqpUnreachable": "填了 AMQP 地址，但没有任何响应。请确认 broker 声明了 AMQP 接入点并且从这里可达：Classic 是 activemq.xml 里的 transportConnector，Artemis 是 broker.xml 里的 acceptor。",
+        "amqpForbidden": "broker 在 AMQP 上应答了，但拒绝了这组凭据。控制台和 broker 使用不同的认证域，能打开控制台的账号未必能建立连接——请为这个连接单独填写 AMQP 凭据。",
+        "classicNoDetail": "ActiveMQ Classic 把这项设置放在 activemq.xml 而不是目的地上，所以 JMX 只能读到 broker 的行为，改不了它。Artemis 把同样的东西暴露为队列属性；在 Classic 上这意味着改配置并重启。"
+      },
+      "caveat": {
+        "browseCapped": "无论目的地有多深，Classic 一次浏览最多返回 maxBrowsePageSize 条消息，默认 400 条。页面显示的是 broker 实际返回的内容——要看得更远，请在目的地的 policyEntry 里调高这个上限。"
+      }
     }
   },
   "shell": {
@@ -729,6 +763,17 @@
         "clients": "连接",
         "alerts": "告警",
         "vhosts": "账户"
+      },
+      "activemq": {
+        "overview": "概览",
+        "topics": "目的地",
+        "consumers": "订阅",
+        "messages": "消息",
+        "dlq": "死信",
+        "producer": "发送",
+        "cluster": "Broker",
+        "clients": "连接",
+        "alerts": "告警"
       }
     }
   },
@@ -999,7 +1044,27 @@
           "note": "监控地址和系统账户都是可选的，各自能让集群相关页面多显示一部分内容。"
         },
         "secretStored": "已保存，留空保持不变",
-        "clearCredentials": "清除凭证"
+        "clearCredentials": "清除凭证",
+        "activemq": {
+          "mechanism": "控制台认证",
+          "mechanismPlain": "用户名与密码",
+          "mechanismNone": "无",
+          "console": "Web 控制台地址",
+          "consoleHint": "填控制台 URL 而不是 broker 端口——它下面的 Jolokia 就是这个家族的整个管理面。Classic 与 Artemis 会自动区分。",
+          "jolokiaPath": "Jolokia 路径",
+          "jolokiaPathHint": "留空则两条都探：Classic 是 /api/jolokia，Artemis 是 /console/jolokia。只有反向代理把 agent 挂到别处时才需要填。",
+          "brokerName": "Broker 名称",
+          "brokerNameHint": "留空则从 broker 自身读取。只有一个 JVM 注册了多个 broker 时才需要填——那正是无法自动判定的情况。",
+          "origin": "Origin 头",
+          "originHint": "每次调用都会带上，留空则用 http://localhost。两个 broker 的 jolokia-access.xml 默认都开着 strict-checking，不带 origin 的调用会被 403 拒绝，而那个报错看起来就像密码错了。",
+          "amqpUrl": "AMQP 地址（可选）",
+          "amqpUrlHint": "只有实时跟随目的地、或发送非文本消息体时才需要。其余页面没有它照样工作。Artemis 在 61616 上复用 AMQP，Classic 监听 5672。",
+          "amqpUsername": "AMQP 用户",
+          "amqpUsernameHint": "留空则复用控制台凭据，这也是多数部署想要的。",
+          "amqpPassword": "AMQP 密码",
+          "note": "Classic 与 Artemis，连接时自动区分",
+          "consoleScheme": "地址需要带 http:// 或 https:// —— 这里填的是 Web 控制台 URL，不是 broker 端口。"
+        }
       },
       "deleteTitle": "删除连接",
       "deleteDesc": "将删除连接「{{name}}」及其保存的凭证，且无法撤销。",

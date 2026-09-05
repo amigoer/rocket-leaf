@@ -39,6 +39,11 @@ import {
   OPTION_MQTT_TRANSPORT,
   OPTION_MQTT_WS_PATH,
   OPTION_NAMESPACE,
+  OPTION_ACTIVEMQ_AMQP_URL,
+  OPTION_ACTIVEMQ_BROKER_NAME,
+  OPTION_ACTIVEMQ_JOLOKIA_PATH,
+  OPTION_ACTIVEMQ_ORIGIN,
+  OPTION_ACTIVEMQ_TLS_SKIP_VERIFY,
   OPTION_NATS_CREDS_FILE,
   OPTION_NATS_JS_DOMAIN,
   OPTION_NATS_MONITOR_URL,
@@ -65,6 +70,7 @@ import {
   OPTION_VHOST,
   emptyKafkaDraft,
   emptyMqttDraft,
+  emptyActiveMQDraft,
   emptyNatsDraft,
   emptyPulsarDraft,
   emptyRabbitMQDraft,
@@ -77,6 +83,8 @@ import {
   type MqttProtocol,
   type MqttTransport,
   type NatsDraft,
+  type ActiveMQDraft,
+  type ActiveMQMechanism,
   type NatsMechanism,
   type PulsarAuth,
   type PulsarDraft,
@@ -99,7 +107,8 @@ export type ProtocolDraft =
   | { protocol: "pulsar"; value: PulsarDraft }
   | { protocol: "redis"; value: RedisDraft }
   | { protocol: "mqtt"; value: MqttDraft }
-  | { protocol: "nats"; value: NatsDraft };
+  | { protocol: "nats"; value: NatsDraft }
+  | { protocol: "activemq"; value: ActiveMQDraft };
 
 /** The protocols this file can build a submission for. */
 export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
@@ -110,6 +119,7 @@ export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
   "redis",
   "mqtt",
   "nats",
+  "activemq",
 ];
 
 export function isDraftable(protocol: ProtocolId): protocol is ProtocolDraft["protocol"] {
@@ -130,6 +140,8 @@ export function emptyDraft(protocol: ProtocolDraft["protocol"]): ProtocolDraft {
       return { protocol, value: emptyMqttDraft() };
     case "nats":
       return { protocol, value: emptyNatsDraft() };
+    case "activemq":
+      return { protocol, value: emptyActiveMQDraft() };
     default:
       return { protocol, value: emptyRocketMQDraft() };
   }
@@ -149,6 +161,8 @@ export function toSubmission(draft: ProtocolDraft): Submission {
       return mqttSubmission(draft.value);
     case "nats":
       return natsSubmission(draft.value);
+    case "activemq":
+      return activeMQSubmission(draft.value);
     default:
       return rocketMQSubmission(draft.value);
   }
@@ -169,6 +183,8 @@ export function toDraft(profile: ConnectionProfile): ProtocolDraft {
       return { protocol: "mqtt", value: toMqttDraft(profile) };
     case MQKind.KindNATS:
       return { protocol: "nats", value: toNatsDraft(profile) };
+    case MQKind.KindActiveMQ:
+      return { protocol: "activemq", value: toActiveMQDraft(profile) };
     default:
       return { protocol: "rocketmq", value: toRocketMQDraft(profile) };
   }
@@ -700,3 +716,73 @@ function toRedisDraft(profile: ConnectionProfile): RedisDraft {
 }
 
 const REDIS_DEPLOYMENTS: readonly RedisDeployment[] = ["standalone", "sentinel", "cluster"];
+
+function activeMQSubmission(draft: ActiveMQDraft): Submission {
+  const mechanism = draft.mechanism;
+  const keepStored = draft.credentialsStored && !draft.clearCredentials;
+  const amqpUrl = draft.amqpUrl.trim();
+
+  return {
+    draft: {
+      name: draft.name.trim(),
+      group: draft.group,
+      kind: MQKind.KindActiveMQ,
+      endpoints: draft.endpoints.trim(),
+      timeoutSec: draft.timeoutSec,
+      authMechanism: ACTIVEMQ_MECHANISMS[mechanism],
+      options: {
+        [OPTION_ACTIVEMQ_JOLOKIA_PATH]: draft.jolokiaPath.trim(),
+        [OPTION_ACTIVEMQ_BROKER_NAME]: draft.brokerName.trim(),
+        [OPTION_ACTIVEMQ_ORIGIN]: draft.originHeader.trim(),
+        [OPTION_ACTIVEMQ_AMQP_URL]: amqpUrl,
+        [OPTION_ACTIVEMQ_TLS_SKIP_VERIFY]: String(draft.tlsSkipVerify),
+      },
+      secrets: {
+        username: mechanism === "plain" ? draft.username.trim() : "",
+        password: mechanism === "plain" ? draft.password.trim() : "",
+        // Dropped with the address they belong to: keeping them would
+        // re-apply them the day somebody fills the acceptor back in with a
+        // different account in mind.
+        amqpUsername: amqpUrl === "" ? "" : draft.amqpUsername.trim(),
+        amqpPassword: amqpUrl === "" ? "" : draft.amqpPassword.trim(),
+      },
+      remark: draft.remark,
+    },
+    // "preserve" rather than "replace", for the reason MQTT and NATS have it:
+    // with two credentials on one form, a user editing the console address
+    // would otherwise wipe whichever pair they did not retype.
+    credentialsMode: draft.clearCredentials ? "clear" : keepStored ? "preserve" : "replace",
+  };
+}
+
+const ACTIVEMQ_MECHANISMS: Record<ActiveMQMechanism, AuthMechanism> = {
+  none: AuthMechanism.AuthNone,
+  plain: AuthMechanism.AuthPlain,
+};
+
+function toActiveMQDraft(profile: ConnectionProfile): ActiveMQDraft {
+  const mechanism: ActiveMQMechanism =
+    profile.authMechanism === AuthMechanism.AuthNone ? "none" : "plain";
+
+  return {
+    name: profile.name,
+    endpoints: profile.endpoints,
+    mechanism,
+    // Secrets never come back from the store. Blank with credentialsStored set
+    // is what tells the form to say "kept" rather than "empty".
+    username: "",
+    password: "",
+    jolokiaPath: profile.options?.[OPTION_ACTIVEMQ_JOLOKIA_PATH] ?? "",
+    brokerName: profile.options?.[OPTION_ACTIVEMQ_BROKER_NAME] ?? "",
+    originHeader: profile.options?.[OPTION_ACTIVEMQ_ORIGIN] ?? "",
+    tlsSkipVerify: profile.options?.[OPTION_ACTIVEMQ_TLS_SKIP_VERIFY] === "true",
+    amqpUrl: profile.options?.[OPTION_ACTIVEMQ_AMQP_URL] ?? "",
+    amqpUsername: "",
+    amqpPassword: "",
+    group: profile.group,
+    remark: profile.remark,
+    timeoutSec: profile.timeoutSec,
+    credentialsStored: profile.secretsConfigured.length > 0,
+    clearCredentials: false,
+  };
+}

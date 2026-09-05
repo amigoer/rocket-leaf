@@ -43,6 +43,30 @@ const REASONS: Record<string, string[]> = {
     "systemAbsent",
     "systemForbidden",
   ],
+  // internal/driver/activemq/conn.go
+  //
+  // Four for one optional tier, because AMQP can be missing three ways that
+  // lead three places - the connection form, the broker's acceptor list, the
+  // broker's authentication realm - plus the one thing Artemis exposes as a
+  // queue attribute and Classic keeps in a file.
+  activemq: ["amqpAbsent", "amqpUnreachable", "amqpForbidden", "classicNoDetail"],
+};
+
+/**
+ * Caveats have the same problem and needed the same list.
+ *
+ * A caveat is not a degraded reason: the capability works, and doing it has a
+ * consequence worth saying out loud. But it crosses the bridge as a key
+ * exactly the way a reason does, so it is invisible to keys.test.ts for
+ * exactly the same reason - and mq.rabbitmq.caveat.browseAltersQueue sat
+ * unguarded here until ActiveMQ needed a second one.
+ */
+const CAVEATS: Record<string, string[]> = {
+  // internal/driver/rabbitmq - browsing goes through basic.get, which alters
+  // the queue even when what it read is put back.
+  rabbitmq: ["browseAltersQueue"],
+  // internal/driver/activemq/conn.go - Classic stops at maxBrowsePageSize.
+  activemq: ["browseCapped"],
 };
 
 type Bundle = Record<string, unknown>;
@@ -77,6 +101,17 @@ describe.each([
     for (const [kind, reasons] of Object.entries(REASONS)) {
       for (const reason of reasons) {
         const key = `mq.${kind}.degraded.${reason}`;
+        if (typeof resolve(bundle, key) !== "string") missing.push(key);
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it("has a sentence for every caveat a driver attaches", () => {
+    const missing: string[] = [];
+    for (const [kind, caveats] of Object.entries(CAVEATS)) {
+      for (const caveat of caveats) {
+        const key = `mq.${kind}.caveat.${caveat}`;
         if (typeof resolve(bundle, key) !== "string") missing.push(key);
       }
     }

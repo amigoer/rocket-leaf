@@ -20,6 +20,7 @@ import type { ConnectionDraft, CredentialsMode } from "@/api/connection";
 import type { Connection as ConnectionProfile } from "@/api/models";
 import {
   KafkaForm,
+  ActiveMQForm,
   MqttForm,
   NatsForm,
   PulsarForm,
@@ -44,6 +45,9 @@ const TILE: Record<ProtocolId, { name: string; versions: string }> = {
   redis: { name: "Redis Stream", versions: "6.0+" },
   mqtt: { name: "MQTT", versions: "3.1 / 5.0" },
   nats: { name: "NATS", versions: "2.x" },
+  // One tile for two products. Which one is behind the console is the
+  // driver's to work out, so asking here would only let a user get it wrong.
+  activemq: { name: "ActiveMQ", versions: "Classic 5/6 · Artemis 2.x" },
 };
 
 /** What the probe last reported, drawn in the footer beside the test button. */
@@ -242,6 +246,15 @@ export function NewConnectionDialog({
       }
       return null;
     }
+    if (draft.protocol === "activemq") {
+      if (draft.value.endpoints.trim() === "") return t("page.connections.endpointsRequired");
+      // A broker port here is the commonest way to get this wrong: every other
+      // family's endpoint is one, and this one's is the console over HTTP.
+      if (!/^https?:\/\//i.test(draft.value.endpoints.trim())) {
+        return t("page.connections.form.activemq.consoleScheme");
+      }
+      return null;
+    }
     if (draft.value.endpoints.trim() === "") return t("page.connections.endpointsRequired");
     if (draft.value.version === "5.x" && draft.value.access === "proxy") {
       return t("page.connections.form.rocketmq.proxyNote");
@@ -366,6 +379,11 @@ export function NewConnectionDialog({
         <NatsForm
           value={draft.value}
           onChange={(next) => setDraft({ protocol: "nats", value: next })}
+        />
+      ) : draft.protocol === "activemq" ? (
+        <ActiveMQForm
+          value={draft.value}
+          onChange={(next) => setDraft({ protocol: "activemq", value: next })}
         />
       ) : (
         <RocketMQForm
