@@ -1,5 +1,6 @@
 import { NSQService } from "@bindings/bridge";
 import type { NSQPublishInput, NSQPublishResult } from "@bindings/bridge/models";
+import type { ClientConnection } from "@bindings/model/models";
 import { present, required } from "./client";
 
 export type { NSQPublishInput };
@@ -105,3 +106,7 @@ export const publish = (connID: number, input: NSQPublishInput): Promise<NSQPubl
 /** The daemons the send console can address, as the profile names them. */
 export const nodes = (connID: number): Promise<string[]> =>
   NSQService.Nodes(connID).then(present);
+
+/** Every consumer holding a subscription open on the cluster. */
+export const connections = (connID: number): Promise<ClientConnection[]> =>
+  NSQService.Connections(connID).then(present);

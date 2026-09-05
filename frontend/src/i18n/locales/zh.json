@@ -621,6 +621,9 @@
       "form": {
         "nsqd": "nsqd 地址",
         "lookupd": "nsqlookupd 地址"
+      },
+      "degraded": {
+        "lookupdAbsent": "这个连接没有填 nsqlookupd，所以没有服务发现层可展示。其余功能都不依赖它——单节点 NSQ 本来就没有。想看它对外通告了哪些 nsqd、知道哪些主题，请在连接里补上 nsqlookupd 地址。"
       }
     }
   },
@@ -4341,6 +4344,68 @@
         "sent": "已发送 {{count}} 条",
         "sentTo": "已向 {{node}} 发送 {{count}} 条",
         "failed": "发送失败"
+      },
+      "cluster": {
+        "subtitle": "{{nodes}} 个 nsqd，{{directory}} 个 nsqlookupd",
+        "nsqd": "nsqd",
+        "lookupd": "nsqlookupd",
+        "noLookupd": "这个连接没有填 nsqlookupd。单节点 NSQ 本来就没有，其余功能也都不依赖它——想看服务发现层对外通告了什么，请在连接里补上地址。",
+        "address": "地址",
+        "version": "版本",
+        "nodes": "nsqd",
+        "online": "健康",
+        "topics": "主题",
+        "channels": "通道",
+        "clients": "消费者",
+        "depth": "堆积",
+        "producers": "已注册 nsqd",
+        "knownTopics": "已知主题",
+        "advertises": "对外通告",
+        "unhealthy": "不健康",
+        "hostname": "主机名",
+        "broadcast": "广播地址",
+        "tcpPort": "TCP 端口",
+        "httpPort": "HTTP 端口",
+        "health": "健康状态",
+        "heapInUse": "堆内存占用",
+        "heapObjects": "堆对象数",
+        "gcRuns": "GC 次数",
+        "section": {
+          "identity": "身份",
+          "memory": "内存",
+          "config": "配置"
+        },
+        "configNote": "这个守护进程实际运行的配置，由它自己上报。nsqd 只暴露这些——启动时的其它参数它一概不上报。",
+        "advertiseMismatch": "nsqlookupd 正在通告 {{addresses}}，而这个连接访问不到。通过服务发现查找 nsqd 的消费者会被指到那里；请检查各个守护进程的 --broadcast-address。"
+      },
+      "clients": {
+        "count": "{{count}} 个消费者",
+        "search": "按消费者、主题、通道或 nsqd 筛选",
+        "peer": "消费者",
+        "topic": "主题",
+        "channel": "通道",
+        "ready": "可接收",
+        "inFlight": "投递中",
+        "messages": "已收到",
+        "finished": "已完成",
+        "requeued": "重新入队",
+        "node": "nsqd",
+        "clientId": "客户端 ID",
+        "hostname": "主机名",
+        "userAgent": "客户端库",
+        "protocol": "协议",
+        "state": "状态",
+        "connectedAt": "连接时间",
+        "tls": "TLS",
+        "snappy": "Snappy",
+        "notReadyBadge": "可接收 0",
+        "section": {
+          "identity": "身份",
+          "work": "工作",
+          "transport": "传输"
+        },
+        "notReady": "该消费者已告诉 nsqd 它不再接收任何消息。连接还在、通道也还占着，但在它重新请求消息之前堆积不会下降——通常是处理函数卡住了。",
+        "note": "这里只列消费者。客户端只会出现在它所订阅通道的统计里，所以尚未订阅的连接看不到，生产者则永远看不到。一个消费者进程连了几个 nsqd 就会出现几行：那是各自持有不同消息的独立连接。"
       }
     }
   }

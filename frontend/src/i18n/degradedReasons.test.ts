@@ -49,6 +49,13 @@ const REASONS: Record<string, string[]> = {
   // lead three different places: the connection form, the broker's acceptor
   // list, and the broker's authentication realm.
   activemq: ["amqpAbsent", "amqpUnreachable", "amqpForbidden"],
+  // internal/driver/nsq/cluster.go
+  //
+  // One, and only one way to be missing: nsqlookupd is a separate daemon a
+  // profile either names or does not. There is no "it did not answer" here -
+  // an address that answers nothing fails the connection at open rather than
+  // leaving a tier degraded.
+  nsq: ["lookupdAbsent"],
 };
 
 /**

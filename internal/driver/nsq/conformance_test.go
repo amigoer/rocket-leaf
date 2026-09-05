@@ -170,6 +170,32 @@ func TestConnDeclaresNoConceptNSQDoesNotHave(t *testing.T) {
 				"channel, which stops delivery to every consumer of it, and that is a " +
 				"different gesture from closing one connection.",
 		},
+		{
+			model.CapClusterCensus,
+			"half of a census is rates, and nsqd reports none - it counts messages " +
+				"since it started and nothing else. The counts it could fill are already " +
+				"on the cluster overview, so declaring this would add a panel whose " +
+				"every rate is a zero nobody measured.",
+		},
+		{
+			model.CapClusterHealth,
+			"nsqd's health is one word about itself, set to whatever error broke it " +
+				"and otherwise OK. There are no separate checks, no resource alarms and " +
+				"no feature flags, and the one word is already the node's status on the " +
+				"cluster board.",
+		},
+		{
+			model.CapLogDirs,
+			"nsqd reports no disk figure at all - not free space, not used, not a " +
+				"percentage. A topic's overflow file sits wherever --data-path points " +
+				"and the daemon never looks at it.",
+		},
+		{
+			model.CapNodeMaintenance,
+			"there is no housekeeping to run. nsqd has no retention sweep to bring " +
+				"forward: a message is held until a consumer takes it, and the disk " +
+				"overflow shrinks as that happens.",
+		},
 	}
 
 	live := offlineConn().Capabilities()
@@ -254,5 +280,59 @@ func TestDescriptorIsSelfConsistent(t *testing.T) {
 			continue
 		}
 		t.Errorf("descriptor promises %s but a connection neither supports nor degrades it", capability)
+	}
+}
+
+// The reasons cross a language boundary as keys and are resolved by the
+// sidebar at runtime, so a sentence here reaches the screen as a sentence in
+// the wrong language - and the renderer's own key test cannot see them,
+// because it only scans literal t("...") calls in the frontend source.
+func TestDegradedReasonsAreTranslationKeys(t *testing.T) {
+	for _, reason := range []string{lookupdAbsent} {
+		if reason == "" {
+			t.Error("a reason is empty")
+			continue
+		}
+		if !isTranslationKey(reason) {
+			t.Errorf("%q is a sentence, not an i18n key", reason)
+		}
+	}
+}
+
+func isTranslationKey(reason string) bool {
+	const prefix = "mq.nsq."
+	if len(reason) < len(prefix) || reason[:len(prefix)] != prefix {
+		return false
+	}
+	for _, r := range reason {
+		if r == ' ' {
+			return false
+		}
+	}
+	return true
+}
+
+// A connection with no nsqlookupd has to say so rather than drawing an empty
+// directory board. It is the one capability this family's connection can be
+// without, and the reason is a configuration a user can act on.
+func TestADirectorylessConnectionExplainsItself(t *testing.T) {
+	conn := &Conn{closed: make(chan struct{})}
+	declared := conn.declare()
+
+	if declared.Has(model.CapDirectory) {
+		t.Error("a connection naming no nsqlookupd still claims a discovery tier")
+	}
+	reason, degraded := declared.DegradedReason(model.CapDirectory)
+	if !degraded {
+		t.Fatal("the missing discovery tier is neither supported nor explained")
+	}
+	if reason != lookupdAbsent {
+		t.Errorf("reason = %q, want %q", reason, lookupdAbsent)
+	}
+
+	// With one configured it comes back, and nothing else moves.
+	withTier := &Conn{closed: make(chan struct{}), config: clientConfig{lookupd: []string{"http://x:4161"}}}
+	if !withTier.declare().Has(model.CapDirectory) {
+		t.Error("a connection naming an nsqlookupd does not claim a discovery tier")
 	}
 }

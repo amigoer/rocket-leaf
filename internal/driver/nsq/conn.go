@@ -120,6 +120,16 @@ func capabilities() []model.Capability {
 
 		model.CapPublish,
 		model.CapDelayedDelivery,
+
+		model.CapClusterTopology,
+		model.CapClusterMetrics,
+		model.CapNodeConfig,
+		model.CapClientInspect,
+
+		// The optional tier's, and the only capability here a connection can
+		// be without: nsqlookupd is a separate daemon and a single-node NSQ
+		// runs with none.
+		model.CapDirectory,
 	}
 }
 
@@ -145,12 +155,34 @@ func open(ctx context.Context, profile model.ConnectionProfile) (*Conn, error) {
 }
 
 // declare turns what answered into the capability set the pages gate on.
+//
+// One thing varies, and it varies by configuration rather than by what the
+// cluster turned out to be: nsqlookupd is a separate daemon, and a profile
+// that names none has no discovery tier to describe. Degraded rather than
+// dropped, because the family has one and this connection does not - which is
+// the difference between a page that explains itself and a page that is simply
+// missing.
 func (c *Conn) declare() model.Capabilities {
-	return model.Capabilities{
+	declared := model.Capabilities{
 		Supported: capabilities(),
 		Degraded:  map[model.Capability]string{},
 		Caveats:   map[model.Capability]string{},
 	}
+	if len(c.config.lookupd) == 0 {
+		declared.Supported = without(declared.Supported, model.CapDirectory)
+		declared.Degraded[model.CapDirectory] = lookupdAbsent
+	}
+	return declared
+}
+
+func without(capabilities []model.Capability, unwanted model.Capability) []model.Capability {
+	kept := make([]model.Capability, 0, len(capabilities))
+	for _, capability := range capabilities {
+		if capability != unwanted {
+			kept = append(kept, capability)
+		}
+	}
+	return kept
 }
 
 // probeNSQD reads /info off every configured address.

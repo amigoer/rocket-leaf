@@ -5,6 +5,7 @@ import (
 	"time"
 
 	nsqdriver "github.com/amigoer/mq-studio/internal/driver/nsq"
+	"github.com/amigoer/mq-studio/internal/model"
 	nsqservice "github.com/amigoer/mq-studio/internal/service/nsq"
 )
 
@@ -127,4 +128,14 @@ func (s *NSQService) Publish(connID int, input NSQPublishInput) (*NSQPublishResu
 // Nodes lists the daemons the send console can address.
 func (s *NSQService) Nodes(connID int) ([]string, error) {
 	return s.service.Nodes(context.Background(), connID)
+}
+
+// Connections lists every consumer holding a subscription open on the cluster.
+//
+// Consumers only. A client appears in the stats of the channel it subscribed
+// to and nowhere else, so a connection that has not subscribed yet and a
+// producer are both absent - which is why the page is titled for what it
+// shows rather than for every socket the daemons hold.
+func (s *NSQService) Connections(connID int) ([]*model.ClientConnection, error) {
+	return s.service.Connections(context.Background(), connID)
 }

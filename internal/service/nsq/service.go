@@ -221,3 +221,22 @@ func (s *Service) Nodes(_ context.Context, connID int) ([]string, error) {
 	}
 	return api.Nodes(), nil
 }
+
+// Connections lists every consumer connected to the cluster.
+//
+// Beside the canonical services rather than inside them because no canonical
+// service owns a client list, and because what NSQ can answer is narrower than
+// the name suggests: a client appears in the stats of the channel it
+// subscribed to and nowhere else, so a connection that has not subscribed and
+// a producer are both invisible.
+func (s *Service) Connections(ctx context.Context, connID int) ([]*model.ClientConnection, error) {
+	api, err := port[driver.ClientInspector](s, connID, model.CapClientInspect)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	// No namespace: NSQ has no vhost, tenant or account for a connection to
+	// belong to.
+	return api.ListClientConnections(ctx, "")
+}

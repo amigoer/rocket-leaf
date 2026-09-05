@@ -113,12 +113,16 @@ services:
   # provide would be gone by the time a test looked. Here it connects, holds a
   # ready count, and takes nothing.
   #
-  # It finds its nsqd through nsqlookupd rather than being pointed at one, so
-  # it also proves discovery works: until the seed creates the topic there is
-  # nothing to connect to, and go-nsq keeps polling rather than exiting.
+  # It is pointed at an nsqd rather than at nsqlookupd, and it has to be. The
+  # daemons broadcast 127.0.0.1 so the app on the host can use discovery, and
+  # inside another container that address is the container itself - so a
+  # consumer resolving nsqd through the directory would dial its own loopback
+  # and be refused. Subscribing creates the topic and the channel if they are
+  # not there yet, so this works before the seed has run and after it has
+  # deleted and remade them.
   consumer:
     image: nsqio/nsq:v1.3.0
-    command: /nsq_tail --lookupd-http-address=nsqlookupd:4161 --topic=MQS.SEED.events --channel=watchers
+    command: /nsq_tail --nsqd-tcp-address=nsqd:4150 --topic=MQS.SEED.events --channel=watchers
     depends_on:
       nsqd:
         condition: service_healthy

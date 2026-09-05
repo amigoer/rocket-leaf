@@ -1026,3 +1026,227 @@ func TestLiveSendMessageRefusesWhatNSQCannotCarry(t *testing.T) {
 		t.Error("an empty body was accepted, and nsqd answers MSG_EMPTY")
 	}
 }
+
+/*
+ * The node list is the profile's, not the cluster's, and that is the decision
+ * worth pinning.
+ *
+ * There is no nsqd that knows about the others. nsqlookupd knows which daemons
+ * registered with it, and those need not be the ones this connection speaks
+ * for - so a driver that built the list from discovery would report figures
+ * that are not the sum the rest of the app shows.
+ */
+func TestLiveListNodesIsWhatTheProfileNames(t *testing.T) {
+	conn := liveConn(t)
+
+	nodes, err := conn.ListNodes(liveContext(t))
+	if err != nil {
+		t.Fatalf("list nodes: %v", err)
+	}
+	if len(nodes) != 2 {
+		t.Fatalf("listed %d nodes, want the 2 the profile names", len(nodes))
+	}
+
+	addresses := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		addresses = append(addresses, node.Address)
+		if node.Version == "" {
+			t.Errorf("%s reported no version", node.Address)
+		}
+		if node.Status != model.NodeOnline {
+			t.Errorf("%s is %q with health %q, want online",
+				node.Address, node.Status, node.Attribute(AttrHealth))
+		}
+		if node.DiskUsage != model.UnknownMetric {
+			t.Errorf("%s reports a disk figure, and nsqd has none", node.Address)
+		}
+		if node.RateIn != model.UnknownMetric || node.RateOut != model.UnknownMetric {
+			t.Errorf("%s reports a rate, and nsqd has none", node.Address)
+		}
+	}
+	if !contains(addresses, hostPort(liveNSQD1)) || !contains(addresses, hostPort(liveNSQD2)) {
+		t.Errorf("nodes = %v, want both addresses in the profile", addresses)
+	}
+
+	detail, err := conn.NodeDetail(liveContext(t), hostPort(liveNSQD2))
+	if err != nil {
+		t.Fatalf("node detail: %v", err)
+	}
+	if detail.Address != hostPort(liveNSQD2) {
+		t.Errorf("detail = %q, want %q", detail.Address, hostPort(liveNSQD2))
+	}
+	if _, err := conn.NodeDetail(liveContext(t), "127.0.0.1:9999"); err == nil {
+		t.Error("a node outside the connection was described")
+	}
+}
+
+// The overview counts distinct objects across the cluster, not per daemon:
+// a topic on both nsqd is one topic, and a driver that added the daemons'
+// counts would double it.
+func TestLiveClusterOverviewCountsDistinctObjects(t *testing.T) {
+	conn := liveConn(t)
+	const topic = "MQS.TEST.overview"
+
+	before, err := conn.ClusterOverview(liveContext(t))
+	if err != nil {
+		t.Fatalf("overview: %v", err)
+	}
+
+	testTopic(t, conn, topic)
+	if err := conn.CreateSubscription(liveContext(t), model.SubscriptionSpec{
+		Ref: model.SubscriptionRef{Namespace: topic, Name: "one"},
+	}); err != nil {
+		t.Fatalf("creating a channel: %v", err)
+	}
+
+	after, err := conn.ClusterOverview(liveContext(t))
+	if err != nil {
+		t.Fatalf("overview: %v", err)
+	}
+	if after.Destinations != before.Destinations+1 {
+		t.Errorf("destinations went %d -> %d for one topic on two daemons",
+			before.Destinations, after.Destinations)
+	}
+	if after.Subscriptions != before.Subscriptions+1 {
+		t.Errorf("subscriptions went %d -> %d for one channel on two daemons",
+			before.Subscriptions, after.Subscriptions)
+	}
+	if after.TotalNodes != 2 || after.OnlineNodes != 2 {
+		t.Errorf("nodes = %d of %d, want 2 of 2", after.OnlineNodes, after.TotalNodes)
+	}
+	if after.AvgDiskUsage != model.UnknownMetric {
+		t.Errorf("disk = %d, and nsqd reports no disk figure", after.AvgDiskUsage)
+	}
+}
+
+/*
+ * The directory tier reports what a consumer would be told, which is not the
+ * same as what this connection can reach.
+ *
+ * nsqlookupd hands back whatever each nsqd broadcast about itself. The e2e
+ * cluster is deliberately set up so the two agree - a broadcast address only
+ * the compose network could resolve would make every consumer using discovery
+ * fail - and this is what asserts they still do.
+ */
+func TestLiveDirectoryReportsWhatEachDaemonAdvertises(t *testing.T) {
+	conn := liveConn(t)
+
+	directory, err := conn.ListDirectoryNodes(liveContext(t))
+	if err != nil {
+		t.Fatalf("directory: %v", err)
+	}
+	if len(directory) != 2 {
+		t.Fatalf("listed %d nsqlookupd, want the 2 the profile names", len(directory))
+	}
+	for _, node := range directory {
+		if node.Version == "" {
+			t.Errorf("%s reported no version", node.Address)
+		}
+		advertised := node.Attribute(AttrNodes)
+		for _, wanted := range []string{hostPort(liveNSQD1), hostPort(liveNSQD2)} {
+			if !strings.Contains(advertised, wanted) {
+				t.Errorf("%s advertises %q, which does not include %q",
+					node.Address, advertised, wanted)
+			}
+		}
+	}
+
+	// A profile with no discovery tier says so rather than drawing an empty
+	// board, and the capability is degraded rather than absent.
+	profile := liveProfile()
+	profile.Options[OptionLookupd] = ""
+	bare, err := open(liveContext(t), profile)
+	if err != nil {
+		t.Fatalf("open without a directory: %v", err)
+	}
+	defer func() { _ = bare.Close() }()
+
+	if bare.Capabilities().Has(model.CapDirectory) {
+		t.Error("a connection naming no nsqlookupd claims a discovery tier")
+	}
+	if _, err := bare.ListDirectoryNodes(liveContext(t)); err == nil {
+		t.Error("a connection naming no nsqlookupd listed a discovery tier anyway")
+	}
+}
+
+// The settings a daemon reports about itself, and the one that matters most:
+// a consumer that cannot find a topic which plainly exists is usually looking
+// at an nsqd registered with a different nsqlookupd.
+func TestLiveNodeConfigReportsTheLookupdItRegistersWith(t *testing.T) {
+	conn := liveConn(t)
+
+	config, err := conn.NodeConfig(liveContext(t), hostPort(liveNSQD1))
+	if err != nil {
+		t.Fatalf("node config: %v", err)
+	}
+	if config["version"] == "" {
+		t.Error("the config reports no version")
+	}
+	if config["nsqlookupd_tcp_addresses"] == "" {
+		t.Error("the config does not say which nsqlookupd this daemon registers with")
+	}
+	if config["tcp_port"] == "" || config["http_port"] == "" {
+		t.Error("the config reports no ports")
+	}
+
+	directory, err := conn.DirectoryConfig(liveContext(t))
+	if err != nil {
+		t.Fatalf("directory config: %v", err)
+	}
+	if len(directory) != 2 {
+		t.Errorf("directory config has %d entries, want one per nsqlookupd", len(directory))
+	}
+}
+
+/*
+ * The clients board's whole data source, and the one figure only it can show.
+ *
+ * A ready count of zero is a consumer that is connected, holding its channel,
+ * and asking for nothing - a backlog that will not move while every other
+ * figure looks healthy. The compose file keeps one consumer attached for
+ * exactly this, on a topic nothing publishes to so it drains nothing.
+ */
+func TestLiveListClientConnectionsFindsTheAttachedConsumer(t *testing.T) {
+	conn := liveConn(t)
+
+	clients, err := conn.ListClientConnections(liveContext(t), "")
+	if err != nil {
+		t.Fatalf("clients: %v", err)
+	}
+	if len(clients) == 0 {
+		e2e.Missing(t, "%s no consumer is attached; run `npm run e2e:nsq:seed` so the "+
+			"compose consumer has a topic to subscribe to", e2e.SkipMarker)
+	}
+
+	for _, client := range clients {
+		if client.Attribute(AttrClientTopic) == "" || client.Attribute(AttrClientChannel) == "" {
+			t.Errorf("%s names no topic or channel, and a client exists only inside one",
+				client.Name)
+		}
+		if client.Node == "" {
+			t.Errorf("%s names no daemon; one consumer holds a connection per nsqd", client.Name)
+		}
+		if client.Channels != 1 {
+			t.Errorf("%s reports %d channels; an nsq connection reads exactly one",
+				client.Name, client.Channels)
+		}
+		if client.State != "subscribed" {
+			t.Errorf("%s is %q; a client in a channel's list has subscribed",
+				client.Name, client.State)
+		}
+		if client.ConnectedAtMs == 0 {
+			t.Errorf("%s reports no connect time", client.Name)
+		}
+	}
+
+	// There is no session layer under an NSQ connection, so the channel half
+	// of the port is empty rather than absent - and it must stay empty rather
+	// than growing rows that are the connections again.
+	channels, err := conn.ListClientChannels(liveContext(t), "")
+	if err != nil {
+		t.Fatalf("client channels: %v", err)
+	}
+	if len(channels) != 0 {
+		t.Errorf("listed %d client channels; an nsq connection cannot multiplex", len(channels))
+	}
+}

@@ -84,6 +84,8 @@ import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
 import { DlqActiveMQ } from "./boards/dlq/DlqActiveMQ";
 import { TopicsNsq } from "./boards/topics/TopicsNsq";
 import { ChannelsNsq } from "./boards/consumers/ChannelsNsq";
+import { ClientsNsq } from "./boards/consumers/ClientsNsq";
+import { ClusterNsq } from "./boards/cluster/ClusterNsq";
 import { NotDesigned } from "./boards/misc/NotDesigned";
 
 /**
@@ -159,7 +161,13 @@ const BOARDS: Partial<
     nsq: ChannelsNsq,
   },
   subscribe: { mqtt: MqttWorkbench, nats: NatsWorkbench, activemq: ActiveMQWorkbench },
-  clients: { mqtt: ClientsMqtt, redis: ClientsRedis, nats: ClientsNats, activemq: ClientsActiveMQ },
+  clients: {
+    mqtt: ClientsMqtt,
+    redis: ClientsRedis,
+    nats: ClientsNats,
+    activemq: ClientsActiveMQ,
+    nsq: ClientsNsq,
+  },
   messages: {
     rocketmq: MessagesRocketMQ,
     kafka: MessagesKafka,
@@ -185,6 +193,7 @@ const BOARDS: Partial<
     mqtt: NodesMqtt,
     nats: ServersNats,
     activemq: BrokerActiveMQ,
+    nsq: ClusterNsq,
   },
 };
 

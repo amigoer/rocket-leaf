@@ -621,6 +621,9 @@
       "form": {
         "nsqd": "nsqd addresses",
         "lookupd": "nsqlookupd addresses"
+      },
+      "degraded": {
+        "lookupdAbsent": "This connection names no nsqlookupd, so there is no discovery tier to describe. Everything else works without one — a single-node NSQ has none at all. Add the nsqlookupd addresses to this connection to see which daemons it is advertising and which topics it knows."
       }
     }
   },
@@ -4341,6 +4344,68 @@
         "sent": "Sent {{count}} messages",
         "sentTo": "Sent {{count}} to {{node}}",
         "failed": "Could not send"
+      },
+      "cluster": {
+        "subtitle": "{{nodes}} nsqd, {{directory}} nsqlookupd",
+        "nsqd": "nsqd",
+        "lookupd": "nsqlookupd",
+        "noLookupd": "This connection names no nsqlookupd. A single-node NSQ has none, and everything else works without one — add the addresses to the connection to see what the discovery tier is advertising.",
+        "address": "Address",
+        "version": "Version",
+        "nodes": "nsqd",
+        "online": "Healthy",
+        "topics": "Topics",
+        "channels": "Channels",
+        "clients": "Consumers",
+        "depth": "Depth",
+        "producers": "Registered nsqd",
+        "knownTopics": "Topics known",
+        "advertises": "Advertises",
+        "unhealthy": "Unhealthy",
+        "hostname": "Hostname",
+        "broadcast": "Broadcast address",
+        "tcpPort": "TCP port",
+        "httpPort": "HTTP port",
+        "health": "Health",
+        "heapInUse": "Heap in use",
+        "heapObjects": "Heap objects",
+        "gcRuns": "GC runs",
+        "section": {
+          "identity": "Identity",
+          "memory": "Memory",
+          "config": "Settings"
+        },
+        "configNote": "What this daemon is running with, as it reports itself. nsqd exposes only these — everything else it was started with is a flag it does not report.",
+        "advertiseMismatch": "nsqlookupd is advertising {{addresses}}, which this connection cannot reach. Consumers that find their nsqd through discovery are being sent there; check each daemon's --broadcast-address."
+      },
+      "clients": {
+        "count": "{{count}} consumers",
+        "search": "Filter by consumer, topic, channel or nsqd",
+        "peer": "Consumer",
+        "topic": "Topic",
+        "channel": "Channel",
+        "ready": "Ready",
+        "inFlight": "In flight",
+        "messages": "Messages",
+        "finished": "Finished",
+        "requeued": "Requeued",
+        "node": "nsqd",
+        "clientId": "Client id",
+        "hostname": "Hostname",
+        "userAgent": "Library",
+        "protocol": "Protocol",
+        "state": "State",
+        "connectedAt": "Connected",
+        "tls": "TLS",
+        "snappy": "Snappy",
+        "notReadyBadge": "Ready 0",
+        "section": {
+          "identity": "Identity",
+          "work": "Work",
+          "transport": "Transport"
+        },
+        "notReady": "This consumer has told nsqd it will accept nothing. It is connected and holding its channel, and the backlog will not move until it asks for messages again — usually a handler that has stopped returning.",
+        "note": "Consumers only. A client appears in the stats of the channel it subscribed to and nowhere else, so a connection that has not subscribed yet is invisible and a producer is invisible always. One consumer process appears once per nsqd it found: those are separate connections holding separate messages."
       }
     }
   }

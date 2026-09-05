@@ -14,7 +14,25 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as model$0 from "../model/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
+
+/**
+ * Connections lists every consumer holding a subscription open on the cluster.
+ * 
+ * Consumers only. A client appears in the stats of the channel it subscribed
+ * to and nowhere else, so a connection that has not subscribed yet and a
+ * producer are both absent - which is why the page is titled for what it
+ * shows rather than for every socket the daemons hold.
+ */
+export function Connections(connID: number): $CancellablePromise<(model$0.ClientConnection | null)[]> {
+    return $Call.ByID(734404310, connID).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
 
 /**
  * CreateChannel declares a channel on every nsqd carrying its topic.
@@ -58,7 +76,7 @@ export function EmptyTopic(connID: number, name: string): $CancellablePromise<vo
  */
 export function Nodes(connID: number): $CancellablePromise<string[]> {
     return $Call.ByID(3925263922, connID).then(($result: any) => {
-        return $$createType0($result);
+        return $$createType3($result);
     });
 }
 
@@ -67,7 +85,7 @@ export function Nodes(connID: number): $CancellablePromise<string[]> {
  */
 export function Publish(connID: number, input: $models.NSQPublishInput): $CancellablePromise<$models.NSQPublishResult | null> {
     return $Call.ByID(3159053456, connID, input).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType5($result);
     });
 }
 
@@ -106,6 +124,9 @@ export function SetTopicPaused(connID: number, name: string, paused: boolean): $
 }
 
 // Private type creation functions
-const $$createType0 = $Create.Array($Create.Any);
-const $$createType1 = $models.NSQPublishResult.createFrom;
-const $$createType2 = $Create.Nullable($$createType1);
+const $$createType0 = model$0.ClientConnection.createFrom;
+const $$createType1 = $Create.Nullable($$createType0);
+const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = $Create.Array($Create.Any);
+const $$createType4 = $models.NSQPublishResult.createFrom;
+const $$createType5 = $Create.Nullable($$createType4);
