@@ -200,6 +200,12 @@ func (c *Conn) ListBindings(ctx context.Context, _ string) ([]*model.Binding, er
 		}
 		return bindings[a].PropertiesKey < bindings[b].PropertiesKey
 	})
+	// The list key the renderer needs. Numbered here rather than by the
+	// routing service, which numbers exchanges and leaves bindings to the
+	// driver - a row with a zero key is one React re-mounts on every refresh.
+	for index, binding := range bindings {
+		binding.ID = index + 1
+	}
 	return bindings, nil
 }
 
@@ -234,7 +240,11 @@ func (c *Conn) listRules(ctx context.Context, topic, subscription string) ([]*mo
  */
 func bindingOf(topic, subscription string, rule admin.RuleProperties) *model.Binding {
 	arguments := map[string]string{ArgFilterType: FilterTrue}
-	routingKey := ""
+	// A rule with no filter kind below is the one that matches everything,
+	// which is what $Default is - and the service spells it "1=1" in its own
+	// Atom document. Saying so beats an empty cell, which would read as a rule
+	// whose condition could not be shown.
+	routingKey := "1=1"
 
 	switch filter := rule.Filter.(type) {
 	case *admin.SQLFilter:
