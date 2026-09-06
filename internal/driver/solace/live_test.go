@@ -1376,3 +1376,169 @@ func TestLiveDeclareAndRemoveTopicEndpoint(t *testing.T) {
 		t.Error("removed a topic endpoint that was already gone")
 	}
 }
+
+/*
+ * The broker page, which is one row and says so.
+ *
+ * The figure worth asserting is the spool percentage, because getting it wrong
+ * is silent: a Message VPN reports msgSpoolUsage in bytes and
+ * maxMsgSpoolUsage in megabytes on the same object, so an unscaled division
+ * reports a broker at its limit as using nothing. Both raw numbers are carried
+ * on the attributes and are checked against the raw API here.
+ */
+func TestLiveClusterReportsTheBrokerAndItsSpool(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	nodes, err := conn.ListNodes(ctx)
+	if err != nil {
+		t.Fatalf("list nodes: %v", err)
+	}
+	if len(nodes) != 1 {
+		t.Fatalf("listed %d nodes; a redundancy pair shares one virtual router and only "+
+			"one half answers", len(nodes))
+	}
+	node := nodes[0]
+	if node.Status != model.NodeOnline {
+		t.Errorf("the broker is %q while answering every other call", node.Status)
+	}
+	if node.Version == "" {
+		t.Error("the broker reports no version")
+	}
+	if node.Address != liveSEMP {
+		t.Errorf("node address = %q, want %q; semp reports no broker name anywhere, "+
+			"so the address dialled is the only honest identifier", node.Address, liveSEMP)
+	}
+
+	used, err := sempField("/monitor/msgVpns/"+livePath(liveVPN)+"?select=msgSpoolUsage",
+		"msgSpoolUsage")
+	if err != nil {
+		t.Fatalf("reading the spool over http: %v", err)
+	}
+	if got := node.Attributes[AttrSpoolUsedByte]; got != used {
+		t.Errorf("spool used = %q, want %q", got, used)
+	}
+	// A percentage rather than the raw ratio, and never above 100.
+	if node.DiskUsage < 0 || node.DiskUsage > 100 {
+		t.Errorf("spool usage = %d%%", node.DiskUsage)
+	}
+
+	overview, err := conn.ClusterOverview(ctx)
+	if err != nil {
+		t.Fatalf("cluster overview: %v", err)
+	}
+	if overview.TotalNodes != 1 || overview.OnlineNodes != 1 {
+		t.Errorf("overview reports %d of %d nodes", overview.OnlineNodes, overview.TotalNodes)
+	}
+	if overview.Attributes[AttrMsgVPN] != liveVPN {
+		t.Errorf("overview is for %q, want %q", overview.Attributes[AttrMsgVPN], liveVPN)
+	}
+	wantQueues, err := rawCollectionCount(liveVPN, "queues")
+	if err != nil {
+		t.Fatalf("counting queues over http: %v", err)
+	}
+	if overview.Destinations != wantQueues {
+		t.Errorf("overview counts %d queues, want %d", overview.Destinations, wantQueues)
+	}
+	if overview.Subscriptions < 1 {
+		t.Errorf("overview counts %d topic endpoints, and the seed makes one",
+			overview.Subscriptions)
+	}
+}
+
+/*
+ * The spool percentage, checked at the boundary rather than only against a
+ * live broker that happens to be nearly empty.
+ *
+ * A live assertion cannot tell a correct calculation from one that is out by a
+ * factor of a million when the true answer is 0%, which is what a development
+ * broker always reports.
+ */
+func TestSpoolPercentScalesMegabytesAgainstBytes(t *testing.T) {
+	const mb = 1024 * 1024
+	for _, test := range []struct {
+		used int64
+		max  int64
+		want int
+	}{
+		{used: 0, max: 1500, want: 0},
+		{used: 750 * mb, max: 1500, want: 50},
+		{used: 1500 * mb, max: 1500, want: 100},
+		// Over the cap, which happens while the broker is rejecting: a
+		// percentage above 100 would break every meter that draws it.
+		{used: 3000 * mb, max: 1500, want: 100},
+		// No cap at all is not a cap of zero, and dividing by it would panic.
+		{used: 1572, max: 0, want: model.UnknownMetric},
+	} {
+		if got := spoolPercent(test.used, test.max); got != test.want {
+			t.Errorf("spoolPercent(%d bytes, %d MB) = %d, want %d",
+				test.used, test.max, got, test.want)
+		}
+	}
+}
+
+/*
+ * The clients list, including the ones that are the broker itself.
+ *
+ * Nothing here asserts a count. The broker holds sessions of its own that come
+ * and go - the REST listener opens one per request and drops it - so a test
+ * that pinned how many clients there are would be pinning a number the broker
+ * is moving while it runs. What is asserted is that the connection this test
+ * just made shows up, and that the internal ones are marked rather than hidden.
+ */
+func TestLiveClientsAreListedAndInternalOnesMarked(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	// A send opens a REST session, which is the one client this test can be
+	// sure of. It is read back within the same call rather than counted.
+	if _, err := conn.Publish(ctx, PublishRequest{
+		Target: TargetTopic, Destination: "mqstudio/test/clients/ping", Body: "ping",
+	}); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+
+	clients, err := conn.ListClientConnections(ctx, "")
+	if err != nil {
+		t.Fatalf("list clients: %v", err)
+	}
+	if len(clients) == 0 {
+		t.Fatal("no clients at all, and the broker holds sessions of its own")
+	}
+
+	internal := 0
+	for _, client := range clients {
+		if client.Name == "" {
+			t.Error("a client has no name, which is what a close would address")
+		}
+		if client.Namespace != liveVPN {
+			t.Errorf("%s is in %q, want %q", client.Name, client.Namespace, liveVPN)
+		}
+		if client.Attributes[AttrInternal] == "true" {
+			internal++
+			if !strings.HasPrefix(client.Name, "#") {
+				t.Errorf("%s is marked internal and is not named with the broker's prefix",
+					client.Name)
+			}
+		}
+	}
+	if internal == 0 {
+		t.Error("no client is marked internal, and the broker's own message bus is always " +
+			"connected; hiding those would hide real connections")
+	}
+}
+
+// There is no channel layer here, and the driver says so rather than inventing
+// one out of flows.
+func TestLiveClientChannelsAreEmptyByDesign(t *testing.T) {
+	conn := liveConn(t)
+
+	channels, err := conn.ListClientChannels(liveContext(t), "")
+	if err != nil {
+		t.Fatalf("list client channels: %v", err)
+	}
+	if len(channels) != 0 {
+		t.Errorf("listed %d channels; this protocol has flows, which are per endpoint "+
+			"rather than a multiplexing layer on the connection", len(channels))
+	}
+}

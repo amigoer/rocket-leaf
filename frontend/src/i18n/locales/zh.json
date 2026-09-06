@@ -5932,6 +5932,56 @@
           "endpoints": "主题端点"
         },
         "note": "发布者只指定主题，从不指定队列。没有订阅的队列只能收到按名称直接发送的消息。主题端点的名称就是它的订阅。"
+      },
+      "clients": {
+        "count": "{{applications}} 个应用 · 共 {{total}} 个会话",
+        "search": "按名称、地址或用户筛选",
+        "name": "客户端",
+        "address": "地址",
+        "username": "客户端用户名",
+        "binds": "绑定数",
+        "uptime": "在线",
+        "msgVpn": "Message VPN",
+        "internalBadge": "Broker",
+        "platform": "运行平台",
+        "softwareVersion": "客户端库版本",
+        "description": "描述",
+        "clientProfile": "客户端配置",
+        "aclProfile": "ACL 配置",
+        "recv": "已接收",
+        "send": "已发送",
+        "slowNote": "Broker 已将该客户端标记为跟不上推送速度。",
+        "downgradedNote": "该会话以 TLS 建立，但被允许回退到明文。",
+        "section": {
+          "library": "客户端库",
+          "limits": "配置与流量"
+        },
+        "note": "标记为「Broker」的会话是设备自身的连接。它们占用真实资源，因此列出而不隐藏。绑定数指到端点的 flow，不是 channel：该协议没有 channel。"
+      },
+      "cluster": {
+        "nothing": "Broker 没有返回自身信息。",
+        "online": "服务中",
+        "degraded": "未服务",
+        "version": "SolOS 版本",
+        "redundancy": "冗余",
+        "redundancyOn": "已配置",
+        "redundancyOff": "关闭",
+        "rateIn": "入/秒",
+        "rateOut": "出/秒",
+        "brokerSpoolMax": "Broker 存储上限",
+        "msgVpn": "Message VPN",
+        "msgVpnState": "状态",
+        "spoolUsed": "存储占用",
+        "spoolBytes": "存储字节数",
+        "spoolMax": "存储配额",
+        "spoolMessages": "已存储消息数",
+        "maxConnections": "连接数上限",
+        "notServing": "该 Message VPN 当前为 {{state}}。Broker 本身可响应，但发往该 VPN 的消息不会被处理。",
+        "section": {
+          "broker": "Broker",
+          "msgVpn": "Message VPN"
+        },
+        "note": "这里只有一个 Broker，而且永远只有一个：冗余对共享同一个虚拟路由器，只有活动的一半会响应；组网中的其他 Broker 各自是一个独立连接。SEMP 不提供 Broker 名称，因此以连接地址作为标识。"
       }
     }
   }

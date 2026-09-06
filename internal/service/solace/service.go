@@ -14,6 +14,7 @@ package solace
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -212,4 +213,28 @@ func (s *Service) RemoveTopicEndpoint(ctx context.Context, connID int, name stri
 	ctx, cancel := s.withTimeout(ctx)
 	defer cancel()
 	return api.RemoveExchange(ctx, "", name)
+}
+
+/*
+ * Clients lists what is holding a session open on this Message VPN.
+ *
+ * Beside the canonical services because no canonical service owns this: the
+ * cluster service answers the topology and the destination service answers the
+ * endpoints, and neither has a place for the sessions underneath them.
+ *
+ * A connection that has dropped yields no list rather than an error, matching
+ * every other client page: the sidebar entry stays and the board says the
+ * connection is offline instead of reporting a failure.
+ */
+func (s *Service) Clients(ctx context.Context, connID int) ([]*model.ClientConnection, error) {
+	api, err := s.solaceConn(connID, model.CapClientInspect)
+	if err != nil {
+		if errors.Is(err, driver.ErrNotConnected) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.ListClientConnections(ctx, "")
 }

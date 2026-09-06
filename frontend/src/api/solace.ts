@@ -1,6 +1,6 @@
 import { SolaceService } from "@bindings/bridge";
 import { present, required } from "./client";
-import type { DeadLetterQueue } from "@bindings/model/models";
+import type { ClientConnection, DeadLetterQueue } from "@bindings/model/models";
 import type {
   SolacePublishInput,
   SolacePublishResult,
@@ -103,3 +103,13 @@ export const createTopicEndpoint = (connID: number, name: string): Promise<void>
 /** Delete a topic endpoint, and whatever it was holding. */
 export const removeTopicEndpoint = (connID: number, name: string): Promise<void> =>
   SolaceService.RemoveTopicEndpoint(connID, name);
+
+/**
+ * What is holding a session open on this Message VPN.
+ *
+ * The broker's own machinery is in the list rather than filtered out of it: a
+ * client named with a leading "#" is the broker talking to itself, and it is
+ * marked so a reader counting applications can leave it out.
+ */
+export const clients = async (connID: number): Promise<ClientConnection[]> =>
+  present(await SolaceService.Clients(connID));

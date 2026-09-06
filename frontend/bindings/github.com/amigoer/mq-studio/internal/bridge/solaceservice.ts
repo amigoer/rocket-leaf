@@ -21,6 +21,20 @@ import * as model$0 from "../model/models.js";
 import * as $models from "./models.js";
 
 /**
+ * Clients lists what is holding a session open on this Message VPN.
+ * 
+ * The broker's own machinery is in the list rather than filtered out of it: a
+ * client named with a leading "#" is the broker talking to itself, and it is
+ * marked so a reader counting applications can leave it out. Hiding them would
+ * hide connections that hold real resources.
+ */
+export function Clients(connID: number): $CancellablePromise<(model$0.ClientConnection | null)[]> {
+    return $Call.ByID(4050881010, connID).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
+
+/**
  * CreateQueue declares a queue in this connection's Message VPN.
  */
 export function CreateQueue(connID: number, input: $models.SolaceQueueInput): $CancellablePromise<void> {
@@ -49,7 +63,7 @@ export function CreateTopicEndpoint(connID: number, name: string): $CancellableP
  */
 export function DeadMsgQueues(connID: number): $CancellablePromise<(model$0.DeadLetterQueue | null)[]> {
     return $Call.ByID(2394503593, connID).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType5($result);
     });
 }
 
@@ -65,7 +79,7 @@ export function MsgVPN(connID: number): $CancellablePromise<string> {
  */
 export function Publish(connID: number, input: $models.SolacePublishInput): $CancellablePromise<$models.SolacePublishResult | null> {
     return $Call.ByID(2722482709, connID, input).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType7($result);
     });
 }
 
@@ -110,8 +124,11 @@ export function Unsubscribe(connID: number, queue: string, topic: string): $Canc
 }
 
 // Private type creation functions
-const $$createType0 = model$0.DeadLetterQueue.createFrom;
+const $$createType0 = model$0.ClientConnection.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
 const $$createType2 = $Create.Array($$createType1);
-const $$createType3 = $models.SolacePublishResult.createFrom;
+const $$createType3 = model$0.DeadLetterQueue.createFrom;
 const $$createType4 = $Create.Nullable($$createType3);
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = $models.SolacePublishResult.createFrom;
+const $$createType7 = $Create.Nullable($$createType6);

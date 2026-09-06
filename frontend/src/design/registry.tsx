@@ -57,6 +57,7 @@ import { ProducerRedis } from "./boards/producer/ProducerRedis";
 import { ProducerNats } from "./boards/producer/ProducerNats";
 import { ProducerActiveMQ } from "./boards/producer/ProducerActiveMQ";
 import { ProducerNsq } from "./boards/producer/ProducerNsq";
+import { BrokerSolace } from "./boards/cluster/BrokerSolace";
 import { BrokerActiveMQ } from "./boards/cluster/BrokerActiveMQ";
 import { OverviewActiveMQ } from "./boards/overview/OverviewActiveMQ";
 import { ClientsActiveMQ } from "./boards/consumers/ClientsActiveMQ";
@@ -121,6 +122,7 @@ import { DlqIbmMq } from "./boards/dlq/DlqIbmMq";
 import { TopicsNsq } from "./boards/topics/TopicsNsq";
 import { ChannelsNsq } from "./boards/consumers/ChannelsNsq";
 import { ClientsNsq } from "./boards/consumers/ClientsNsq";
+import { ClientsSolace } from "./boards/consumers/ClientsSolace";
 import { ClusterNsq } from "./boards/cluster/ClusterNsq";
 import { OverviewNsq } from "./boards/overview/OverviewNsq";
 import { NotDesigned } from "./boards/misc/NotDesigned";
@@ -234,6 +236,7 @@ const BOARDS: Partial<
     nats: ClientsNats,
     activemq: ClientsActiveMQ,
     nsq: ClientsNsq,
+    solace: ClientsSolace,
   },
   messages: {
     rocketmq: MessagesRocketMQ,
@@ -272,6 +275,7 @@ const BOARDS: Partial<
     nats: ServersNats,
     activemq: BrokerActiveMQ,
     nsq: ClusterNsq,
+    solace: BrokerSolace,
   },
 };
 

@@ -200,3 +200,13 @@ func (s *SolaceService) CreateTopicEndpoint(connID int, name string) error {
 func (s *SolaceService) RemoveTopicEndpoint(connID int, name string) error {
 	return s.service.RemoveTopicEndpoint(context.Background(), connID, name)
 }
+
+// Clients lists what is holding a session open on this Message VPN.
+//
+// The broker's own machinery is in the list rather than filtered out of it: a
+// client named with a leading "#" is the broker talking to itself, and it is
+// marked so a reader counting applications can leave it out. Hiding them would
+// hide connections that hold real resources.
+func (s *SolaceService) Clients(connID int) ([]*model.ClientConnection, error) {
+	return s.service.Clients(context.Background(), connID)
+}

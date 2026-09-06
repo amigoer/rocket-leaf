@@ -5932,6 +5932,56 @@
           "endpoints": "Topic endpoints"
         },
         "note": "A publisher names a topic, never a queue. A queue with no subscriptions receives only what is sent to it by name. A topic endpoint's name is its subscription."
+      },
+      "clients": {
+        "count": "{{applications}} applications · {{total}} sessions",
+        "search": "Filter by name, address or user",
+        "name": "Client",
+        "address": "Address",
+        "username": "Client username",
+        "binds": "Binds",
+        "uptime": "Up",
+        "msgVpn": "Message VPN",
+        "internalBadge": "broker",
+        "platform": "Platform",
+        "softwareVersion": "Library version",
+        "description": "Description",
+        "clientProfile": "Client profile",
+        "aclProfile": "ACL profile",
+        "recv": "Received",
+        "send": "Sent",
+        "slowNote": "The broker has marked this client as unable to keep up with what is being pushed to it.",
+        "downgradedNote": "This session started as TLS and was allowed to fall back to plain text.",
+        "section": {
+          "library": "Client library",
+          "limits": "Profiles and traffic"
+        },
+        "note": "Sessions marked \"broker\" are the appliance talking to itself. They hold real resources, so they are listed rather than hidden. Binds are flows to endpoints, not channels: this protocol has none."
+      },
+      "cluster": {
+        "nothing": "The broker did not answer for itself.",
+        "online": "serving",
+        "degraded": "not serving",
+        "version": "SolOS version",
+        "redundancy": "Redundancy",
+        "redundancyOn": "configured",
+        "redundancyOff": "off",
+        "rateIn": "In/s",
+        "rateOut": "Out/s",
+        "brokerSpoolMax": "Broker spool limit",
+        "msgVpn": "Message VPN",
+        "msgVpnState": "State",
+        "spoolUsed": "Spool used",
+        "spoolBytes": "Spool bytes",
+        "spoolMax": "Spool quota",
+        "spoolMessages": "Messages spooled",
+        "maxConnections": "Connection limit",
+        "notServing": "This Message VPN is {{state}}. The broker is answering; nothing published to this VPN is being handled.",
+        "section": {
+          "broker": "Broker",
+          "msgVpn": "Message VPN"
+        },
+        "note": "One broker, and there will never be more here: a redundancy pair shares a virtual router and only the active half answers, and a meshed broker is its own connection. SEMP reports no broker name, so the address dialled is the identifier."
       }
     }
   }
