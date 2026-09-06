@@ -9,16 +9,24 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-## [0.0.9] - 2026-09-06
+## [0.1.0] - 2026-09-07
 
-ActiveMQ is the eighth driver, and the first family here that is two products
-rather than one. Classic 5.x / 6.x and Artemis 2.x share a name and nothing
-else underneath, and which of them answered when the connection opened decides
-every call made after it.
+Seven drivers land together, and with them the last families the roadmap named:
+NSQ, Amazon SQS, Google Cloud Pub/Sub, Azure Service Bus, Amazon Kinesis, IBM MQ
+and Solace PubSub+. Fifteen brokers can be connected now, across self-hosted,
+hosted and enterprise.
 
-Alongside it, a RocketMQ namespace can be picked from the sidebar rather than
-carried on every name by hand, and a driver setting changed while a connection
-was open now redials instead of going on with the old one in silence.
+Three of them — SQS, Pub/Sub and Kinesis — are reached by a region and a
+credential with no broker address at all, and that is what had to be built
+before any of them could be: four layers between the dialog and the driver
+assumed every connection has something to dial. A family now declares whether it
+needs an address, and the answer is derived from the driver's own descriptor
+rather than kept in a list beside it. Service Bus is why that question is asked
+per family rather than per category: it is hosted, and its namespace is still a
+real host that both halves of its driver connect to.
+
+The dialog collecting all this was rebuilt around the same number. Fifteen tiles
+and a form no longer share one column.
 
 ### Added
 
@@ -403,6 +411,57 @@ was open now redials instead of going on with the old one in silence.
   consumer looking it up still finds it. And emptying a topic has to empty its
   channels: nsqd copies each message into every channel as it arrives, so
   emptying the topic alone answers 200 and moves nothing anyone can see.
+
+### Changed
+
+- The new-connection dialog asks which broker first, and shows that family's
+  form second. Fifteen tiles and the fields being filled in had been sharing one
+  column, so every vendor added pushed the form further down, and the tiles were
+  squeezed to 10.5px across six columns to fit at all — two of the names still
+  wrapped. They are separate questions, so they are now separate steps: the
+  first lists the protocols, grouped into the three families the roadmap already
+  sorts drivers into and filtered by a search box; the second is the form and
+  nothing else. Editing a connection opens on the form with no way back, because
+  the protocol is what a stored profile is. (#95)
+
+- A protocol tile's subtitle says which releases the driver targets, and nothing
+  else. The line had carried three kinds of fact and run from three to
+  twenty-five characters: ActiveMQ fitted two products and their versions into
+  it, while IBM MQ and Solace named the API they connect over — which the form
+  on the next step explains anyway. ActiveMQ keeps both product names and drops
+  the versions, because one tile covering Classic and Artemis is the thing a
+  reader would otherwise get wrong. (#98)
+
+### Fixed
+
+- A field's explanation ran into the label it followed, and made the row as tall
+  as the longest explanation in it — so the shorter field beside it carried an
+  empty band where its own label belonged. On the SQS form that left the
+  connection name four lines clear of the box it names. The explanation now sits
+  under the control it explains, and every label and input in a row lines up.
+  (#97, #99)
+
+- Switching pages flashed a spinner. Most reads finish well inside the time it
+  takes to register one — 18ms for a project's topics, 21ms for a queue listing,
+  36ms for a stream listing — so it appeared and was gone again, which the eye
+  reads as a flicker rather than as loading. It now waits 200ms before appearing
+  and stays 300ms once it has, and a board that has not answered yet holds its
+  space and draws nothing. The fade a page arrives with also rises 6px, so the
+  same 180ms reads as the page arriving rather than blinking. (#96)
+
+
+## [0.0.9] - 2026-09-06
+
+ActiveMQ is the eighth driver, and the first family here that is two products
+rather than one. Classic 5.x / 6.x and Artemis 2.x share a name and nothing
+else underneath, and which of them answered when the connection opened decides
+every call made after it.
+
+Alongside it, a RocketMQ namespace can be picked from the sidebar rather than
+carried on every name by hand, and a driver setting changed while a connection
+was open now redials instead of going on with the old one in silence.
+
+### Added
 
 - ActiveMQ is the eighth driver, and one connection type covers both products:
   Classic 5.x / 6.x and Artemis 2.x are told apart when the connection opens,
