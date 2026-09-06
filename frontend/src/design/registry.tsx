@@ -79,10 +79,16 @@ import { MqttWorkbench } from "./boards/mqtt/MqttWorkbench";
 import { NatsWorkbench } from "./boards/nats/NatsWorkbench";
 import { ActiveMQWorkbench } from "./boards/activemq/ActiveMQWorkbench";
 import { QueuesSqs } from "./boards/topics/QueuesSqs";
+import { TopicsGooglePubSub } from "./boards/topics/TopicsGooglePubSub";
+import { SubscriptionsGooglePubSub } from "./boards/consumers/SubscriptionsGooglePubSub";
 import { MessagesSqs } from "./boards/messages/MessagesSqs";
+import { MessagesGooglePubSub } from "./boards/messages/MessagesGooglePubSub";
 import { ProducerSqs } from "./boards/producer/ProducerSqs";
+import { ProducerGooglePubSub } from "./boards/producer/ProducerGooglePubSub";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
+import { DlqGooglePubSub } from "./boards/dlq/DlqGooglePubSub";
 import { OverviewSqs } from "./boards/overview/OverviewSqs";
+import { OverviewGooglePubSub } from "./boards/overview/OverviewGooglePubSub";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
 import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
@@ -140,6 +146,7 @@ const BOARDS: Partial<
     activemq: OverviewActiveMQ,
     nsq: OverviewNsq,
     sqs: OverviewSqs,
+    "google-pubsub": OverviewGooglePubSub,
   },
   topics: {
     rocketmq: TopicsRocketMQ,
@@ -152,6 +159,7 @@ const BOARDS: Partial<
     activemq: DestinationsActiveMQ,
     nsq: TopicsNsq,
     sqs: QueuesSqs,
+    "google-pubsub": TopicsGooglePubSub,
   },
   exchanges: { rabbitmq: ExchangesRabbitMQ },
   vhosts: { rabbitmq: VhostsRabbitMQ, pulsar: NamespacesPulsar, nats: AccountsNats },
@@ -168,6 +176,7 @@ const BOARDS: Partial<
     nats: ConsumersNats,
     activemq: SubscriptionsActiveMQ,
     nsq: ChannelsNsq,
+    "google-pubsub": SubscriptionsGooglePubSub,
   },
   subscribe: { mqtt: MqttWorkbench, nats: NatsWorkbench, activemq: ActiveMQWorkbench },
   clients: {
@@ -186,6 +195,7 @@ const BOARDS: Partial<
     nats: MessagesNats,
     activemq: MessagesActiveMQ,
     sqs: MessagesSqs,
+    "google-pubsub": MessagesGooglePubSub,
   },
   dlq: {
     rocketmq: DlqRocketMQ,
@@ -194,6 +204,7 @@ const BOARDS: Partial<
     redis: PelRedis,
     activemq: DlqActiveMQ,
     sqs: DlqSqs,
+    "google-pubsub": DlqGooglePubSub,
   },
   cluster: {
     rocketmq: ClusterRocketMQ,
@@ -250,6 +261,13 @@ export function renderBoard(
        message is ordered within and the id it is deduplicated by - which
        appear and disappear with the queue's name. */
     if (protocol === "sqs") return <ProducerSqs />;
+    /* Pub/Sub's own too: the shared console collects tags and a RocketMQ delay
+       level, and this family has neither - there is no tag on a message and no
+       way anywhere in the service to hold one back. What it needs instead is
+       the attribute table a subscription filter selects on, and a warning the
+       other consoles have no use for: a topic with no subscription accepts
+       every publish and discards it. */
+    if (protocol === "google-pubsub") return <ProducerGooglePubSub />;
     return <Producer protocol={protocol} nav={nav} />;
   }
   /* Alerts is one board for every family: the rules are numeric comparisons

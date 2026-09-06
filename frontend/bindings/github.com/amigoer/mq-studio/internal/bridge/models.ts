@@ -1069,6 +1069,312 @@ export class ExchangeInput {
 }
 
 /**
+ * GooglePubSubPublishInput is a send as the Pub/Sub console collects it.
+ * 
+ * Deliberately not MessageService.Send's shape. That one takes a topic, tags,
+ * keys and a delay level - RocketMQ's vocabulary, of which a Pub/Sub message
+ * has only the topic. There is no tag and no delay anywhere in the service.
+ */
+export class GooglePubSubPublishInput {
+    "topic": string;
+    "body": string;
+
+    /**
+     * Count sends the same body more than once. One when left at zero.
+     */
+    "count": number;
+
+    /**
+     * Attributes are the publisher's own, and the only thing a subscription
+     * filter can select on - so a send meant for a filtered subscription has
+     * to set them.
+     */
+    "attributes": { [_ in string]?: string };
+
+    /**
+     * OrderingKey groups messages that must arrive in order relative to each
+     * other. It only has an effect on a subscription created with ordering on.
+     */
+    "orderingKey": string;
+
+    /** Creates a new GooglePubSubPublishInput instance. */
+    constructor($$source: Partial<GooglePubSubPublishInput> = {}) {
+        if (!("topic" in $$source)) {
+            this["topic"] = "";
+        }
+        if (!("body" in $$source)) {
+            this["body"] = "";
+        }
+        if (!("count" in $$source)) {
+            this["count"] = 0;
+        }
+        if (!("attributes" in $$source)) {
+            this["attributes"] = {};
+        }
+        if (!("orderingKey" in $$source)) {
+            this["orderingKey"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GooglePubSubPublishInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GooglePubSubPublishInput {
+        const $$createField3_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("attributes" in $$parsedSource) {
+            $$parsedSource["attributes"] = $$createField3_0($$parsedSource["attributes"]);
+        }
+        return new GooglePubSubPublishInput($$parsedSource as Partial<GooglePubSubPublishInput>);
+    }
+}
+
+/**
+ * GooglePubSubPublishResult is what the send did.
+ */
+export class GooglePubSubPublishResult {
+    "sent": number;
+
+    /**
+     * MessageID is the first message's. It addresses nothing - no Pub/Sub call
+     * takes a message id - and is shown so a page can name what it produced.
+     */
+    "messageId": string;
+
+    /** Creates a new GooglePubSubPublishResult instance. */
+    constructor($$source: Partial<GooglePubSubPublishResult> = {}) {
+        if (!("sent" in $$source)) {
+            this["sent"] = 0;
+        }
+        if (!("messageId" in $$source)) {
+            this["messageId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GooglePubSubPublishResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GooglePubSubPublishResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GooglePubSubPublishResult($$parsedSource as Partial<GooglePubSubPublishResult>);
+    }
+}
+
+/**
+ * GooglePubSubSnapshot is a restore point taken from one subscription.
+ */
+export class GooglePubSubSnapshot {
+    "name": string;
+
+    /**
+     * Topic is what the subscription it was taken from reads. A snapshot can
+     * only be sought to from a subscription on the same topic.
+     */
+    "topic": string;
+
+    /**
+     * ExpiresAtMs is when the service will delete it. A snapshot lives seven
+     * days, and until then the topic keeps everything it could restore.
+     */
+    "expiresAtMs": number;
+
+    /** Creates a new GooglePubSubSnapshot instance. */
+    constructor($$source: Partial<GooglePubSubSnapshot> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("topic" in $$source)) {
+            this["topic"] = "";
+        }
+        if (!("expiresAtMs" in $$source)) {
+            this["expiresAtMs"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GooglePubSubSnapshot instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GooglePubSubSnapshot {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GooglePubSubSnapshot($$parsedSource as Partial<GooglePubSubSnapshot>);
+    }
+}
+
+/**
+ * GooglePubSubSubscriptionInput is a subscription as its form collects it.
+ * 
+ * Deliberately not ConsumerService.Create's shape. That one takes a cluster, a
+ * broker address, a consume mode and a retry count - RocketMQ's vocabulary, of
+ * which a Pub/Sub subscription has none. What it has instead is the whole of
+ * the delivery configuration, because on this family that belongs to the
+ * subscription rather than to the topic it reads.
+ * 
+ * Every duration is zero when the form left it alone, which on an edit means
+ * "keep what is stored": the update mask is built from what is set, so an
+ * omitted setting survives.
+ */
+export class GooglePubSubSubscriptionInput {
+    "name": string;
+
+    /**
+     * Topic is required on a create and ignored on an update: a subscription
+     * reads exactly one topic, chosen when it is made.
+     */
+    "topic": string;
+    "ackDeadlineSec": number;
+    "retentionSec": number;
+    "retainAcked": boolean;
+    "exactlyOnce": boolean;
+
+    /**
+     * Filter and Ordering are fixed at creation. They are sent on an update
+     * too and ignored there, so a form can round-trip one object.
+     */
+    "filter": string;
+    "ordering": boolean;
+
+    /**
+     * PushEndpoint makes this a push subscription, which Pub/Sub POSTs to
+     * rather than holding for a reader.
+     */
+    "pushEndpoint": string;
+
+    /**
+     * DeadLetterTopic is another topic's name; the driver resolves its path.
+     * Empty on an update removes the policy, which is the only way to.
+     */
+    "deadLetterTopic": string;
+    "maxAttempts": number;
+    "retryMinBackoffSec": number;
+    "retryMaxBackoffSec": number;
+
+    /**
+     * Labels are set at creation only: the emulator refuses them in an update
+     * mask, and a control that fails against the reference environment is
+     * worse than one that is not offered.
+     */
+    "labels": { [_ in string]?: string };
+
+    /** Creates a new GooglePubSubSubscriptionInput instance. */
+    constructor($$source: Partial<GooglePubSubSubscriptionInput> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("topic" in $$source)) {
+            this["topic"] = "";
+        }
+        if (!("ackDeadlineSec" in $$source)) {
+            this["ackDeadlineSec"] = 0;
+        }
+        if (!("retentionSec" in $$source)) {
+            this["retentionSec"] = 0;
+        }
+        if (!("retainAcked" in $$source)) {
+            this["retainAcked"] = false;
+        }
+        if (!("exactlyOnce" in $$source)) {
+            this["exactlyOnce"] = false;
+        }
+        if (!("filter" in $$source)) {
+            this["filter"] = "";
+        }
+        if (!("ordering" in $$source)) {
+            this["ordering"] = false;
+        }
+        if (!("pushEndpoint" in $$source)) {
+            this["pushEndpoint"] = "";
+        }
+        if (!("deadLetterTopic" in $$source)) {
+            this["deadLetterTopic"] = "";
+        }
+        if (!("maxAttempts" in $$source)) {
+            this["maxAttempts"] = 0;
+        }
+        if (!("retryMinBackoffSec" in $$source)) {
+            this["retryMinBackoffSec"] = 0;
+        }
+        if (!("retryMaxBackoffSec" in $$source)) {
+            this["retryMaxBackoffSec"] = 0;
+        }
+        if (!("labels" in $$source)) {
+            this["labels"] = {};
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GooglePubSubSubscriptionInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GooglePubSubSubscriptionInput {
+        const $$createField13_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("labels" in $$parsedSource) {
+            $$parsedSource["labels"] = $$createField13_0($$parsedSource["labels"]);
+        }
+        return new GooglePubSubSubscriptionInput($$parsedSource as Partial<GooglePubSubSubscriptionInput>);
+    }
+}
+
+/**
+ * GooglePubSubTopicInput is a topic as the topic form collects it.
+ * 
+ * Deliberately not TopicService.Create's shape. That one takes a broker
+ * address, two queue counts and a permission string - RocketMQ's vocabulary,
+ * of which a Pub/Sub topic has none. What a topic has instead is almost
+ * nothing, because everything about delivery belongs to the subscription.
+ */
+export class GooglePubSubTopicInput {
+    "name": string;
+
+    /**
+     * RetentionSec keeps published messages available for a subscription to
+     * seek back into. Zero leaves it alone, which on an edit means "keep what
+     * is stored" and on a create takes the service's default.
+     */
+    "retentionSec": number;
+
+    /**
+     * Labels replace the topic's whole set rather than merging into it, which
+     * is the API's own behaviour: the update mask names the field, not one key.
+     */
+    "labels": { [_ in string]?: string };
+
+    /** Creates a new GooglePubSubTopicInput instance. */
+    constructor($$source: Partial<GooglePubSubTopicInput> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("retentionSec" in $$source)) {
+            this["retentionSec"] = 0;
+        }
+        if (!("labels" in $$source)) {
+            this["labels"] = {};
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GooglePubSubTopicInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GooglePubSubTopicInput {
+        const $$createField2_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("labels" in $$parsedSource) {
+            $$parsedSource["labels"] = $$createField2_0($$parsedSource["labels"]);
+        }
+        return new GooglePubSubTopicInput($$parsedSource as Partial<GooglePubSubTopicInput>);
+    }
+}
+
+/**
  * GroupInput is a consumer group as the form collects it.
  * 
  * The stream is a field rather than part of the name because a group's name is

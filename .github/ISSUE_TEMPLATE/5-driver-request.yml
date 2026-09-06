@@ -27,7 +27,6 @@ body:
     attributes:
       label: Which broker
       options:
-        - Google Pub/Sub
         - Azure Service Bus
         - Amazon Kinesis
         - IBM MQ
@@ -46,7 +45,7 @@ body:
     id: deployment
     attributes:
       label: Version and how you run it
-      placeholder: Google Cloud Pub/Sub in europe-west1, with a dead-letter topic
+      placeholder: Azure Service Bus premium in West Europe, with topic subscriptions
     validations:
       required: true
 

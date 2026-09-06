@@ -21,6 +21,7 @@ import {
   emptyRedisDraft,
   emptyRocketMQDraft,
   emptySqsDraft,
+  emptyGooglePubSubDraft,
 } from "./ConnectionForms";
 import { emptyDraft, toSubmission, type ProtocolDraft } from "./connectionDraft";
 import { countAddresses, draftInvalidReason } from "./connectionValidation";
@@ -136,6 +137,19 @@ const RULES: Record<ProtocolDraft["protocol"], Rules> = {
     bare: { protocol: "sqs", value: { ...emptySqsDraft(), name: NAME } },
     firstAsk: "page.connections.form.sqs.regionRequired",
   },
+  /*
+   * The second draft with no address, and no field it could have gone in
+   * either. A project is what says where the topics are, and the credential is
+   * optional because a blank one means the machine's own Google identity.
+   */
+  "google-pubsub": {
+    saveable: {
+      protocol: "google-pubsub",
+      value: { ...emptyGooglePubSubDraft(), name: NAME, projectId: "orders-prod" },
+    },
+    bare: { protocol: "google-pubsub", value: { ...emptyGooglePubSubDraft(), name: NAME } },
+    firstAsk: "page.connections.form.google-pubsub.projectRequired",
+  },
 };
 
 const PROTOCOLS = Object.keys(RULES) as ProtocolDraft["protocol"][];
@@ -244,6 +258,67 @@ describe("the connection draft's validity", () => {
     expect(
       draftInvalidReason(
         { protocol: "sqs", value: { ...base, endpointUrl: "https://vpce-0abc.example" } },
+        key,
+      ),
+    ).toBeNull();
+  });
+
+  /*
+   * The same pair of assertions for the second addressless family, and it is
+   * not a copy: its Go half is internal/driver/googlepubsub's
+   * TestDescriptorAsksForNoAddress, and a draft carrying only a name and a
+   * project has to be saveable with an empty address rather than an invented
+   * one.
+   */
+  it("saves a Pub/Sub draft that names no address at all", () => {
+    const draft: ProtocolDraft = {
+      protocol: "google-pubsub",
+      value: { ...emptyGooglePubSubDraft(), name: NAME, projectId: "orders-prod" },
+    };
+    expect(draftInvalidReason(draft, key)).toBeNull();
+    expect(toSubmission(draft).draft.endpoints).toBe("");
+    expect(toSubmission(draft).draft.options?.projectId).toBe("orders-prod");
+  });
+
+  /*
+   * Blank is Application Default Credentials and is a real choice. A path is
+   * not: the client library reports one as having no credentials at all, which
+   * reads as "this machine has no Google identity" - the opposite of what
+   * happened.
+   */
+  it("refuses a Pub/Sub credential that is a path rather than the key", () => {
+    const base = { ...emptyGooglePubSubDraft(), name: NAME, projectId: "orders-prod" };
+    expect(draftInvalidReason({ protocol: "google-pubsub", value: base }, key)).toBeNull();
+    expect(
+      draftInvalidReason(
+        { protocol: "google-pubsub", value: { ...base, credentialsJson: "~/key.json" } },
+        key,
+      ),
+    ).toBe("page.connections.form.google-pubsub.credentialsNotJson");
+    expect(
+      draftInvalidReason(
+        {
+          protocol: "google-pubsub",
+          value: { ...base, credentialsJson: '{"type":"service_account"}' },
+        },
+        key,
+      ),
+    ).toBeNull();
+  });
+
+  // gRPC dials a host and a port. A scheme in front becomes part of the
+  // hostname, and the failure names neither the field nor why.
+  it("holds the Pub/Sub emulator host to a host and a port", () => {
+    const base = { ...emptyGooglePubSubDraft(), name: NAME, projectId: "orders-prod" };
+    expect(
+      draftInvalidReason(
+        { protocol: "google-pubsub", value: { ...base, emulatorHost: "http://127.0.0.1:8085" } },
+        key,
+      ),
+    ).toBe("page.connections.form.google-pubsub.emulatorHostNoScheme");
+    expect(
+      draftInvalidReason(
+        { protocol: "google-pubsub", value: { ...base, emulatorHost: "127.0.0.1:8085" } },
         key,
       ),
     ).toBeNull();

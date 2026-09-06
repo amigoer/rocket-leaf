@@ -2788,3 +2788,208 @@ export function SqsForm({
     </>
   );
 }
+
+/** Option keys the Google Pub/Sub driver reads back off a stored profile. */
+export const OPTION_PUBSUB_PROJECT_ID = "projectId";
+export const OPTION_PUBSUB_EMULATOR_HOST = "emulatorHost";
+export const OPTION_PUBSUB_RESOURCE_PREFIX = "resourcePrefix";
+
+/**
+ * The second form here with no address field, and the first whose credential
+ * is a document rather than a string.
+ *
+ * There is no broker to dial. A topic is reached by naming a project and
+ * authenticating, and the client resolves pubsub.googleapis.com for every
+ * project there is - so the project is what every other family's endpoint row
+ * is, and the connection row shows it in the address column for the same
+ * reason.
+ *
+ * The credential is a service account key pasted whole, which is why it is a
+ * textarea and not an input. Taking a path instead would have been the smaller
+ * field and the worse one: it points at a file this app does not own, so the
+ * key stays in plain text where it was downloaded and the profile breaks the
+ * moment it moves. Left blank the driver uses Application Default Credentials
+ * - a gcloud login, GOOGLE_APPLICATION_CREDENTIALS, or the metadata server on
+ * a workload already inside Google Cloud - which is how this app is expected
+ * to run there.
+ *
+ * The emulator host is named for the emulator rather than as a general
+ * endpoint override, because that is the only thing it can be: the real
+ * service has one address for every project. A connection that names a host is
+ * by definition not talking to it, and the driver reads exactly that to report
+ * what the emulator cannot do.
+ */
+export interface GooglePubSubDraft {
+  name: string;
+  /** Required. What an endpoint field is on every other family. */
+  projectId: string;
+  /** The whole service account key. Blank uses the machine's own identity. */
+  credentialsJson: string;
+  /** Narrows every listing. A project's topics are not one team's. */
+  resourcePrefix: string;
+  /** host:port of a Pub/Sub emulator. Blank is the real service. */
+  emulatorHost: string;
+  group: string;
+  remark: string;
+  timeoutSec: number;
+  credentialsStored: boolean;
+  clearCredentials: boolean;
+}
+
+export function emptyGooglePubSubDraft(): GooglePubSubDraft {
+  return {
+    name: "",
+    projectId: "",
+    credentialsJson: "",
+    resourcePrefix: "",
+    emulatorHost: "",
+    group: "",
+    remark: "",
+    timeoutSec: DEFAULT_TIMEOUT_SEC,
+    credentialsStored: false,
+    clearCredentials: false,
+  };
+}
+
+/** Google Cloud Pub/Sub, addressed by a project rather than by an address. */
+export function GooglePubSubForm({
+  value,
+  onChange,
+}: {
+  value: GooglePubSubDraft;
+  onChange: (next: GooglePubSubDraft) => void;
+}) {
+  const { t } = useTranslation();
+  const set = <K extends keyof GooglePubSubDraft>(key: K, next: GooglePubSubDraft[K]) =>
+    onChange({ ...value, [key]: next });
+  const [advancedOpen, setAdvancedOpen] = useState(
+    value.timeoutSec !== DEFAULT_TIMEOUT_SEC ||
+      value.remark !== "" ||
+      value.resourcePrefix !== "" ||
+      value.emulatorHost !== "",
+  );
+  const stored = value.credentialsStored && !value.clearCredentials;
+
+  return (
+    <>
+      <div style={GRID}>
+        <Fld label={t("page.connections.form.name")}>
+          <Input
+            value={value.name}
+            placeholder="pubsub-prod"
+            onChange={(event) => set("name", event.target.value)}
+          />
+        </Fld>
+        <Fld
+          label={t("page.connections.form.google-pubsub.projectId")}
+          hint={t("page.connections.form.google-pubsub.projectIdHint")}
+        >
+          <Input
+            className="mono3"
+            style={MONO}
+            value={value.projectId}
+            placeholder="my-project"
+            onChange={(event) => set("projectId", event.target.value)}
+          />
+        </Fld>
+        <Fld
+          span
+          label={t("page.connections.form.google-pubsub.credentialsJson")}
+          hint={
+            stored ? (
+              <button
+                type="button"
+                className="mqs-linkbtn"
+                onClick={() => set("clearCredentials", true)}
+              >
+                {t("page.connections.form.clearCredentials")}
+              </button>
+            ) : (
+              t("page.connections.form.google-pubsub.credentialsJsonHint")
+            )
+          }
+        >
+          {/* A textarea rather than an input: a service account key is a
+              JSON document of a dozen lines, and a single-line password
+              field would show four characters of it. */}
+          <textarea
+            className="mono3 min-h-20 rounded-md border border-(--c-line) bg-(--c-surface) px-2.5 py-2 outline-none focus-visible:border-(--c-accent)"
+            style={MONO}
+            spellCheck={false}
+            value={value.credentialsJson}
+            placeholder={
+              stored
+                ? t("page.connections.form.secretStored")
+                : '{"type":"service_account", ...}'
+            }
+            onChange={(event) => set("credentialsJson", event.target.value)}
+          />
+        </Fld>
+      </div>
+
+      <FormNote
+        advanced={
+          <button
+            type="button"
+            className="mqs-disclosure"
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((open) => !open)}
+          >
+            <ChevronRight size={12} aria-hidden />
+            {t("page.connections.form.rocketmq.advanced")}
+          </button>
+        }
+        note={t("page.connections.form.google-pubsub.note")}
+      />
+      {advancedOpen && (
+        <div style={GRID}>
+          <Fld
+            label={t("page.connections.form.google-pubsub.resourcePrefix")}
+            hint={t("page.connections.form.google-pubsub.resourcePrefixHint")}
+          >
+            <Input
+              className="mono3"
+              style={MONO}
+              value={value.resourcePrefix}
+              placeholder="team-orders-"
+              onChange={(event) => set("resourcePrefix", event.target.value)}
+            />
+          </Fld>
+          <Fld
+            label={t("page.connections.form.rocketmq.timeout")}
+            hint={t("page.connections.form.rocketmq.timeoutHint")}
+          >
+            <Input
+              type="number"
+              value={value.timeoutSec > 0 ? String(value.timeoutSec) : ""}
+              onChange={(event) => {
+                const seconds = Number.parseInt(event.target.value, 10);
+                set("timeoutSec", Number.isNaN(seconds) ? 0 : seconds);
+              }}
+            />
+          </Fld>
+          <Fld
+            span
+            label={t("page.connections.form.google-pubsub.emulatorHost")}
+            hint={t("page.connections.form.google-pubsub.emulatorHostHint")}
+          >
+            <Input
+              className="mono3"
+              style={MONO}
+              value={value.emulatorHost}
+              placeholder="127.0.0.1:8085"
+              onChange={(event) => set("emulatorHost", event.target.value)}
+            />
+          </Fld>
+          <Fld
+            span
+            label={t("page.connections.form.remark")}
+            hint={t("page.connections.form.remarkHint")}
+          >
+            <Input value={value.remark} onChange={(event) => set("remark", event.target.value)} />
+          </Fld>
+        </div>
+      )}
+    </>
+  );
+}

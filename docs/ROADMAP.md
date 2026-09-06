@@ -206,7 +206,49 @@ This is the delivery plan. The contract it delivers against is
   is IAM's, one service further out, and a page editing the queue policy alone would claim to
   control access it cannot see.
 
-- **Designed, not yet implemented** — the five families below.
+- **Shipped** — Google Cloud Pub/Sub through the Pub/Sub API. The second family with no
+  broker address - a connection is a project and a Google credential - and the first whose
+  objects come in two kinds. Topics with the count of what reads each; creating, editing and
+  deleting them; subscriptions as objects in their own right, created, listed and deleted
+  independently of the topic; browsing a subscription; publishing with attributes and an
+  ordering key; restore points and both kinds of seek; and dead letters found by inverting
+  every subscription's dead-letter policy.
+
+  The split between the two objects is what this phase was for. A Pub/Sub topic holds nothing:
+  a publish is fanned out to whatever subscriptions exist at that instant and discarded if none
+  do, and the service reports success either way. So the topics board leads with a subscription
+  count where every other family leads with a depth, and a topic with none is the fault the
+  alerts page raises - it is the one failure with no other symptom, because a discarded message
+  leaves no backlog behind it. The mirror image gets a rule of its own: deleting a topic does
+  not delete its subscriptions, and one left pointing at `_deleted-topic_` holds what it had,
+  is billed for it, and will never receive again.
+
+  The backlog is the one figure this family cannot report, and it is degraded with a reason
+  rather than invented. `num_undelivered_messages` is a Cloud Monitoring metric: it is not a
+  field on the subscription the admin API returns, and no call anywhere in Pub/Sub reports it.
+  The only way to produce a number would be to pull the backlog and count it, which would
+  deliver every message counted.
+
+  The browse carries a caveat for the same reason SQS's does. Pull is the only read there is
+  and it is the call a consumer makes: what it returns is held away from every other reader for
+  the subscription's ack deadline, and its delivery attempt goes up - which is what a
+  dead-letter policy compares against, so a message browsed often enough is dead-lettered with
+  nothing having failed. The driver hands every message straight back and cannot undo the
+  attempt.
+
+  Seek is declared both ways, which took a correction. Moving to a moment and moving to a named
+  snapshot are different gestures with different guarantees, and the emulator refuses the first
+  one only for a subscription created with message ordering on - one subscription's setting
+  rather than anything about the endpoint. So both capabilities stay declared and the refusal is
+  an error at the call that names ordering.
+
+  What it deliberately does not have follows from Google running the service: no cluster, no
+  node, no disk figure and no rate - the rates are Cloud Monitoring's, like the backlog. There
+  is no access page, because who may call what is IAM's, one service further out. And there is
+  no message-by-id lookup: an id is assigned on publish and echoed on delivery, and nothing
+  indexes one.
+
+- **Designed, not yet implemented** — the four families below.
 
 ## Delivery order
 
@@ -223,7 +265,7 @@ This is the delivery plan. The contract it delivers against is
 | 11 | **Connection shape** — the seam, not a driver | A family can declare it needs no address, and the connection form, the profile store and the probe path all honour that. The driver's own descriptor is what says so |
 | 12 | **NSQ** | Done. Topics and channels, with no message history and therefore no browse - confirmed. The management plane is the HTTP API of the daemons themselves, so the driver needs no wire client; what it had to get right instead is that every figure is a sum across daemons that each know only their own, that a delete has to reach the discovery tier, and that emptying a topic has to empty its channels |
 | 13 | **Amazon SQS** | Done. The seam phase 11 built, used: a descriptor with no endpoint field, a profile that saves with an empty `Endpoints`, and a connection row that shows the region where every other family shows an address. Confirmed: no subscriptions, so no consumers page and no lag; no cluster, because AWS runs the service; and one read, which is the one a consumer makes - so the browse carries a caveat rather than pretending to be non-destructive |
-| 14 | **Google Cloud Pub/Sub** | Subscriptions are objects in their own right rather than a reader's position, and their backlog maps onto lag |
+| 14 | **Google Cloud Pub/Sub** | Done. Subscriptions are objects in their own right rather than a reader's position - created, listed and deleted independently of the topic, and carrying the whole of the delivery configuration. Their backlog does not map onto lag after all: `num_undelivered_messages` is a Cloud Monitoring metric and no call in the Pub/Sub API reports it, so the capability is degraded with a reason rather than filled in with a number that would have to be produced by pulling the backlog to count it |
 | 15 | **Azure Service Bus** | Peek is non-destructive, so this is the one hosted family whose messages page needs no caveat, and subscription rules reach the routing page |
 | 16 | **Amazon Kinesis** | Shards are not partitions: they get their own columns instead of borrowing the canonical ones |
 | 17 | **IBM MQ** | Channels are first-class and have no counterpart among the canonical pages, so they get a page of their own |
@@ -277,7 +319,7 @@ and `Access`.
 | Driver | Management plane | Pages it lights up | Notable gaps |
 | --- | --- | --- | --- |
 | **Amazon SQS** | SQS API | Destinations, Messages, Publish, Dead letters, Alerts | Done. Confirmed: no consumer groups and no cluster, and receiving starts a visibility timeout so browsing carries a caveat. Two the estimate missed: the receive also raises the message's receive count, which a redrive policy compares against, so browsing can dead-letter a message with nothing having failed; and the dead-letter page is answerable after all, by walking every queue's redrive policy backwards |
-| **Google Cloud Pub/Sub** | Publisher and Subscriber admin APIs | Destinations, Subscriptions, Publish | Subscriptions are real objects and backlog maps cleanly to lag; pulling consumes, so browse needs a snapshot or a caveat |
+| **Google Cloud Pub/Sub** | Publisher and Subscriber admin APIs | Overview, Destinations, Subscriptions, Messages, Publish, Dead letters, Alerts | Done. Confirmed: subscriptions are real objects, and pulling consumes - so the browse carries a caveat. The estimate got the backlog wrong: it does not map onto lag at all, because `num_undelivered_messages` is a Cloud Monitoring metric rather than a field on the subscription, so the capability is degraded with a reason. Two the estimate missed: a topic holds nothing, so a publish to one with no subscription is accepted and discarded with no symptom anywhere; and a subscription outlives the topic it reads, which is a leak nothing else would show |
 | **Azure Service Bus** | Service Bus management API | Destinations, Subscriptions, Messages, Publish, plus rules on the routing page | No cluster; peek is non-destructive, so browse needs no caveat |
 | **Amazon Kinesis** | Kinesis API | Destinations, Subscriptions, Messages, Publish | No cluster; shards are not partitions and need their own column set |
 

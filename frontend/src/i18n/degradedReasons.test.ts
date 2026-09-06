@@ -56,6 +56,14 @@ const REASONS: Record<string, string[]> = {
   // an address that answers nothing fails the connection at open rather than
   // leaving a tier degraded.
   nsq: ["lookupdAbsent"],
+  // internal/driver/googlepubsub/conn.go
+  //
+  // One, and it is not about the endpoint at all: a subscription's backlog is
+  // a Cloud Monitoring metric, so no Pub/Sub connection anywhere can report it.
+  // Degraded rather than absent because the family does have the concept - and
+  // a page that said nothing would leave a reader looking for a column that is
+  // never coming.
+  "google-pubsub": ["lagInMonitoring"],
 };
 
 /**
@@ -76,6 +84,10 @@ const CAVEATS: Record<string, string[]> = {
   // internal/driver/sqs/conn.go - the only read SQS has is the one a consumer
   // makes, so a browse hides what it read and raises its receive count.
   sqs: ["receiveHides"],
+  // internal/driver/googlepubsub/conn.go - Pull is the only read Pub/Sub has,
+  // so a browse holds what it read away from consumers and raises its delivery
+  // attempt, which counts towards being dead-lettered.
+  "google-pubsub": ["pullDelivers"],
 };
 
 type Bundle = Record<string, unknown>;

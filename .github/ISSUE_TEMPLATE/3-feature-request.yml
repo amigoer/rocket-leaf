@@ -53,6 +53,7 @@ body:
         - ActiveMQ
         - NSQ
         - Amazon SQS
+        - Google Pub/Sub
     validations:
       required: true
 

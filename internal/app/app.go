@@ -8,6 +8,7 @@ import (
 	"github.com/amigoer/mq-studio/internal/crypto"
 	"github.com/amigoer/mq-studio/internal/driver"
 	"github.com/amigoer/mq-studio/internal/driver/activemq"
+	googlepubsubdriver "github.com/amigoer/mq-studio/internal/driver/googlepubsub"
 	"github.com/amigoer/mq-studio/internal/driver/kafka"
 	"github.com/amigoer/mq-studio/internal/driver/mqtt"
 	natsdriver "github.com/amigoer/mq-studio/internal/driver/nats"
@@ -24,6 +25,7 @@ import (
 	"github.com/amigoer/mq-studio/internal/service/configuration"
 	"github.com/amigoer/mq-studio/internal/service/connection"
 	"github.com/amigoer/mq-studio/internal/service/destination"
+	googlepubsubservice "github.com/amigoer/mq-studio/internal/service/googlepubsub"
 	kafkaservice "github.com/amigoer/mq-studio/internal/service/kafka"
 	"github.com/amigoer/mq-studio/internal/service/message"
 	mqttservice "github.com/amigoer/mq-studio/internal/service/mqtt"
@@ -42,24 +44,25 @@ import (
 
 // Services aggregates business services required by the HTTP transport layer.
 type Services struct {
-	Connections *connection.Service
-	Cluster     *cluster.Service
-	Topics      *destination.Service
-	Consumers   *subscription.Service
-	Messages    *message.Service
-	Settings    *configuration.Service
-	ACL         *access.Service
-	Routing     *routing.Service
-	Scopes      *scope.Service
-	RabbitMQ    *rabbitmqservice.Service
-	Kafka       *kafkaservice.Service
-	MQTT        *mqttservice.Service
-	Pulsar      *pulsarservice.Service
-	RedisStream *redisstreamservice.Service
-	NATS        *natsservice.Service
-	ActiveMQ    *activemqservice.Service
-	NSQ         *nsqservice.Service
-	SQS         *sqsservice.Service
+	Connections  *connection.Service
+	Cluster      *cluster.Service
+	Topics       *destination.Service
+	Consumers    *subscription.Service
+	Messages     *message.Service
+	Settings     *configuration.Service
+	ACL          *access.Service
+	Routing      *routing.Service
+	Scopes       *scope.Service
+	RabbitMQ     *rabbitmqservice.Service
+	Kafka        *kafkaservice.Service
+	MQTT         *mqttservice.Service
+	Pulsar       *pulsarservice.Service
+	RedisStream  *redisstreamservice.Service
+	NATS         *natsservice.Service
+	ActiveMQ     *activemqservice.Service
+	NSQ          *nsqservice.Service
+	SQS          *sqsservice.Service
+	GooglePubSub *googlepubsubservice.Service
 
 	// Conns resolves a profile id to a live connection. The bridge needs it to
 	// answer capability questions without going through a domain service.
@@ -94,6 +97,7 @@ func New() (*Services, error) {
 	driver.Register(activemq.New())
 	driver.Register(nsqdriver.New())
 	driver.Register(sqsdriver.New())
+	driver.Register(googlepubsubdriver.New())
 
 	registry := driver.NewRegistry()
 	settingsService := settings.New(paths.SettingsFile)
@@ -103,27 +107,28 @@ func New() (*Services, error) {
 	conns := newConnSource(registry)
 	clusterService := cluster.New(paths.TPSHistoryFile, conns, settingsService)
 	services := &Services{
-		Connections: connections,
-		Cluster:     clusterService,
-		Topics:      destination.New(conns, settingsService),
-		Consumers:   subscription.New(conns, settingsService),
-		Messages:    message.New(conns, settingsService),
-		Settings:    configurationService,
-		ACL:         access.New(conns, settingsService),
-		Routing:     routing.New(conns, settingsService),
-		Scopes:      scope.New(conns, settingsService),
-		RabbitMQ:    rabbitmqservice.New(conns, settingsService),
-		Kafka:       kafkaservice.New(conns, settingsService),
-		MQTT:        mqttservice.New(conns, settingsService),
-		Pulsar:      pulsarservice.New(conns, settingsService),
-		RedisStream: redisstreamservice.New(conns, settingsService),
-		NATS:        natsservice.New(conns, settingsService),
-		ActiveMQ:    activemqservice.New(conns, settingsService),
-		NSQ:         nsqservice.New(conns, settingsService),
-		SQS:         sqsservice.New(conns, settingsService),
-		Conns:       conns,
-		Collector:   collector.New(sampleActiveConnection(clusterService, registry), registry.HasActive),
-		registry:    registry,
+		Connections:  connections,
+		Cluster:      clusterService,
+		Topics:       destination.New(conns, settingsService),
+		Consumers:    subscription.New(conns, settingsService),
+		Messages:     message.New(conns, settingsService),
+		Settings:     configurationService,
+		ACL:          access.New(conns, settingsService),
+		Routing:      routing.New(conns, settingsService),
+		Scopes:       scope.New(conns, settingsService),
+		RabbitMQ:     rabbitmqservice.New(conns, settingsService),
+		Kafka:        kafkaservice.New(conns, settingsService),
+		MQTT:         mqttservice.New(conns, settingsService),
+		Pulsar:       pulsarservice.New(conns, settingsService),
+		RedisStream:  redisstreamservice.New(conns, settingsService),
+		NATS:         natsservice.New(conns, settingsService),
+		ActiveMQ:     activemqservice.New(conns, settingsService),
+		NSQ:          nsqservice.New(conns, settingsService),
+		SQS:          sqsservice.New(conns, settingsService),
+		GooglePubSub: googlepubsubservice.New(conns, settingsService),
+		Conns:        conns,
+		Collector:    collector.New(sampleActiveConnection(clusterService, registry), registry.HasActive),
+		registry:     registry,
 	}
 	services.Collector.Start()
 

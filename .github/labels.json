@@ -107,7 +107,8 @@
     { "name": "driver:mqtt", "color": "BFDADC", "description": "MQTT" },
     { "name": "driver:activemq", "color": "BFDADC", "description": "ActiveMQ Classic and Artemis" },
     { "name": "driver:nsq", "color": "BFDADC", "description": "NSQ" },
-    { "name": "driver:sqs", "color": "BFDADC", "description": "Amazon SQS" }
+    { "name": "driver:sqs", "color": "BFDADC", "description": "Amazon SQS" },
+    { "name": "driver:google-pubsub", "color": "BFDADC", "description": "Google Cloud Pub/Sub" }
   ],
 
   "workflow": [

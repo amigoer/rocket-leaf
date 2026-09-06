@@ -4,6 +4,7 @@ import {
   SiApachekafka,
   SiApachepulsar,
   SiApacherocketmq,
+  SiGooglepubsub,
   SiMqtt,
   SiNatsdotio,
   SiRabbitmq,
@@ -95,6 +96,9 @@ const GLYPH: Record<ProtocolId, { icon: IconType; color: string }> = {
   activemq: { icon: SiApache, color: "#D22128" },
   nsq: { icon: NsqGlyph, color: "var(--c-brand-nsq)" },
   sqs: { icon: SqsGlyph, color: "var(--c-brand-sqs)" },
+  // Simple Icons does carry this one, in a pale blue meant for a dark
+  // ground, so the token is what keeps it legible on a light one.
+  "google-pubsub": { icon: SiGooglepubsub, color: "var(--c-brand-google-pubsub)" },
 };
 
 export function ProtocolIcon({

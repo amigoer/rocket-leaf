@@ -84,6 +84,7 @@ internal/
     activemq/            ActiveMQ driver: Classic and Artemis over Jolokia
     nsq/                 NSQ driver: nsqd and nsqlookupd over HTTP
     sqs/                 Amazon SQS driver: the AWS API, with no address to dial
+    googlepubsub/        Google Pub/Sub driver: topics and subscriptions, no address
   model/                 Domain models and the capability vocabulary
   crypto/                Local encryption helpers
   storage/               On-disk layout and atomic writes
@@ -120,6 +121,7 @@ tests/
   e2e/activemq-classic/  ActiveMQ Classic, the family's other product
   e2e/nsq/               Two nsqd and two nsqlookupd, with a consumer attached
   e2e/sqs/               LocalStack running sqs, reached through the endpoint override
+  e2e/google-pubsub/     Google's own Pub/Sub emulator, reached through the host option
   throughput-load/       Load generator for the throughput charts (own module)
 ```
 

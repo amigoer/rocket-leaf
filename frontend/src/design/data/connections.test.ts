@@ -45,12 +45,12 @@ describe("the kind-to-protocol map", () => {
 });
 
 /**
- * What the address column shows for a family that has no address.
+ * What the address column shows for the two families that have no address.
  *
- * Every other protocol's row prints the profile's endpoints, and an SQS
- * profile's is deliberately empty - there is nothing to dial. Printed as-is
- * that leaves the column blank on a perfectly good connection, and two SQS
- * connections to different regions look identical.
+ * Every other protocol's row prints the profile's endpoints, and an SQS or
+ * Pub/Sub profile's is deliberately empty - there is nothing to dial. Printed
+ * as-is that leaves the column blank on a perfectly good connection, and two
+ * connections to different regions, or different projects, look identical.
  */
 describe("the address a connection row shows", () => {
   const profileOf = (extra: Partial<ConnectionProfile>) =>
@@ -74,6 +74,14 @@ describe("the address a connection row shows", () => {
     );
     expect(row.address).toBe("eu-west-1");
     expect(row.protocol).toBe("sqs");
+  });
+
+  it("shows the project for Pub/Sub, which has no address either", () => {
+    const row = toShellConnection(
+      profileOf({ kind: MQKind.KindGooglePubSub, options: { projectId: "orders-prod" } }),
+    );
+    expect(row.address).toBe("orders-prod");
+    expect(row.protocol).toBe("google-pubsub");
   });
 
   it("still shows the endpoints for a family that dials one", () => {

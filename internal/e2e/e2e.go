@@ -58,12 +58,19 @@ const (
 	ActiveMQ Family = "activemq"
 	NSQ      Family = "nsq"
 	SQS      Family = "sqs"
+	// GooglePubSub is spelled with the vendor because "pubsub" alone names
+	// the pattern rather than the product, and two other families here are
+	// publish/subscribe too.
+	GooglePubSub Family = "google-pubsub"
 )
 
 // AllFamilies is the list every other place derives from - the CI shard matrix
 // included, which a test in this package pins against it. Enumerating families
 // twice is how the lists drift apart.
-var AllFamilies = []Family{RocketMQ, RabbitMQ, Kafka, Pulsar, Redis, MQTT, NATS, ActiveMQ, NSQ, SQS}
+var AllFamilies = []Family{
+	RocketMQ, RabbitMQ, Kafka, Pulsar, Redis, MQTT, NATS, ActiveMQ, NSQ, SQS,
+	GooglePubSub,
+}
 
 // Env is one broker environment a live test needs.
 type Env struct {

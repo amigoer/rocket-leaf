@@ -43,7 +43,8 @@ export type ProtocolId =
   | "nats"
   | "activemq"
   | "nsq"
-  | "sqs";
+  | "sqs"
+  | "google-pubsub";
 
 export type PageId =
   | "overview"
@@ -412,6 +413,47 @@ export const PROTOCOLS: Record<ProtocolId, Protocol> = {
       },
     ],
   },
+  "google-pubsub": {
+    id: "google-pubsub",
+    name: "Google Pub/Sub",
+    badge: "PUB/SUB",
+    badgeClass: "pGPS",
+    /* Six entries, and the one that came back is the point. SQS, the other
+       family with no address, draws no consumers page because it has no
+       subscription of any kind; a Pub/Sub subscription is a real object -
+       created, listed and deleted on its own - and it is where the whole of
+       the delivery configuration lives, so it takes the consumers slot.
+
+       Topics take the topics slot, and a topic here holds nothing: it fans a
+       publish out to whatever subscriptions exist at that moment and discards
+       it if none do. That is why the topics board leads with a subscription
+       count rather than a depth, and why a topic with none is the fault the
+       alerts page raises.
+
+       There is no cluster page and no clients page, because Google runs the
+       service and shows no node or session. There is no access page, because
+       who may call what is IAM's, one service further out. */
+    nav: [
+      { items: [{ id: "overview", icon: House, label: "shell.nav.google-pubsub.overview" }] },
+      {
+        label: BROWSE,
+        items: [
+          { id: "topics", icon: Layers, label: "shell.nav.google-pubsub.topics" },
+          { id: "consumers", icon: Users, label: "shell.nav.google-pubsub.consumers" },
+          { id: "messages", icon: Mail, label: "shell.nav.google-pubsub.messages" },
+          /* An ordinary topic a subscription's dead-letter policy points at.
+             The policy sits on the subscription rather than on the topic,
+             which is why each source names both. */
+          { id: "dlq", icon: TriangleAlert, label: "shell.nav.google-pubsub.dlq" },
+          { id: "producer", icon: Send, label: "shell.nav.google-pubsub.producer" },
+        ],
+      },
+      {
+        label: OPS,
+        items: [{ id: "alerts", icon: BellRing, label: "shell.nav.google-pubsub.alerts" }],
+      },
+    ],
+  },
 };
 
 export const PROTOCOL_ORDER: ProtocolId[] = [
@@ -425,6 +467,7 @@ export const PROTOCOL_ORDER: ProtocolId[] = [
   "activemq",
   "nsq",
   "sqs",
+  "google-pubsub",
 ];
 
 /** Every page the protocol's sidebar can reach, flattened. */
@@ -458,6 +501,7 @@ const READY: ReadonlySet<ProtocolId> = new Set<ProtocolId>([
   "activemq",
   "nsq",
   "sqs",
+  "google-pubsub",
 ]);
 
 export function isProtocolReady(protocol: ProtocolId): boolean {

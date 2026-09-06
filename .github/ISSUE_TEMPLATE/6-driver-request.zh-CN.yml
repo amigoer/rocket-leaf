@@ -26,7 +26,6 @@ body:
     attributes:
       label: 哪个消息队列
       options:
-        - Google Pub/Sub
         - Azure Service Bus
         - Amazon Kinesis
         - IBM MQ
@@ -45,7 +44,7 @@ body:
     id: deployment
     attributes:
       label: 版本与部署方式
-      placeholder: europe-west1 的 Google Cloud Pub/Sub，配了死信主题
+      placeholder: 西欧区域的 Azure Service Bus 高级版，用了主题订阅
     validations:
       required: true
 

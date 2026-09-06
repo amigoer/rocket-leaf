@@ -32,13 +32,14 @@ const requires: Record<string, Capability | Capability[]> = {
   // that promises history. MQTT, NATS and ActiveMQ draw it - and the last of
   // those only when its AMQP acceptor is reachable, because JMX cannot push.
   subscribe: Capability.CapLiveStream,
-  // Three means for five families, because none can answer the page another's
-  // way. RocketMQ reads a dead-letter topic per consumer group; RabbitMQ,
-  // Pulsar and ActiveMQ all go looking for what something else dead-letters
-  // into - the first through the topology, the second by the naming
-  // convention the client libraries use, and the third by reading the
-  // dead-letter address every queue declares; Redis moves nothing at all and
-  // keeps, per group, a record of every delivery it has not had acknowledged.
+  // Three means for seven families, because none can answer the page
+  // another's way. RocketMQ reads a dead-letter topic per consumer group;
+  // RabbitMQ, Pulsar, ActiveMQ, SQS and Pub/Sub all go looking for what
+  // something else dead-letters into - through the topology, by the naming
+  // convention the client libraries use, by the dead-letter address a queue
+  // declares, by a queue's redrive policy, and by a subscription's; Redis
+  // moves nothing at all and keeps, per group, a record of every delivery it
+  // has not had acknowledged.
   dlq: [
     Capability.CapDLQ,
     Capability.CapDeadLetterTopology,
@@ -80,9 +81,10 @@ const requires: Record<string, Capability | Capability[]> = {
    * Alerts needs no particular capability, only a connection with figures to
    * compare - which the connected check below already covers. What the two
    * entries settle is where those figures come from: most families report
-   * cluster metrics, and a hosted one has no cluster at all. Every figure SQS
-   * reports belongs to a queue, so its rules read the queue listing, and
-   * gating on a metric it can never declare would hide a page that works.
+   * cluster metrics, and a hosted one has no cluster at all. Everything SQS
+   * and Pub/Sub report belongs to a queue or a topic, so their rules read the
+   * destination listing, and gating on a metric neither can ever declare
+   * would hide a page that works.
    */
   alerts: [Capability.CapClusterMetrics, Capability.CapDestinationList],
 };

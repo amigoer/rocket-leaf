@@ -206,7 +206,9 @@
       "streamNoLeader": "Stream with no leader",
       "streamUnderReplicated": "Stream replica behind or offline",
       "deliveryPaused": "Delivery paused",
-      "slowConsumer": "Clients dropped for falling behind"
+      "slowConsumer": "Clients dropped for falling behind",
+      "topicUnsubscribed": "Topic with no subscription",
+      "subscriptionOrphaned": "Subscription whose topic is gone"
     },
     "tabs": {
       "active": "Active",
@@ -260,7 +262,9 @@
       "streamNoLeader": "{{stream}} · {{replicas}} replica(s), none leading — the stream takes no publishes and answers no reads",
       "streamUnderReplicated": "{{stream}} · not all {{replicas}} replicas are current",
       "deliveryPaused": "{{target}} · {{lag}} waiting; publishing carries on and nothing is delivered while it is paused",
-      "slowConsumer": "{{broker}} · {{count}} client(s) disconnected since the server started; what they missed is gone"
+      "slowConsumer": "{{broker}} · {{count}} client(s) disconnected since the server started; what they missed is gone",
+      "topicUnsubscribed": "{{topic}} · nothing subscribes; every message published here is accepted and discarded",
+      "subscriptionOrphaned": "{{subscription}} · its topic has been deleted; it will never receive another message and still holds what it has"
     },
     "duration": {
       "minutes": "for {{count}} min",
@@ -646,6 +650,28 @@
       "caveat": {
         "receiveHides": "Browsing goes through ReceiveMessage, which is the same call a consumer makes: what it reads is hidden from other consumers until this app hands it back, and its receive count goes up for good. On a queue with a redrive policy, that counts towards being dead-lettered."
       }
+    },
+    "google-pubsub": {
+      "name": "Google Pub/Sub",
+      "terms": {
+        "destination": "Topic",
+        "destinationPlural": "Topics",
+        "subscription": "Subscription",
+        "subscriptionPlural": "Subscriptions",
+        "backlog": "Backlog"
+      },
+      "form": {
+        "projectId": "Google Cloud project",
+        "credentialsJson": "Service account key",
+        "resourcePrefix": "Name prefix",
+        "emulatorHost": "Emulator host"
+      },
+      "degraded": {
+        "lagInMonitoring": "A subscription's backlog is num_undelivered_messages, which is a Cloud Monitoring metric rather than a field on the subscription — no call in the Pub/Sub API reports it. Read it in Cloud Monitoring, or give the subscription a dead-letter topic so what is failing is somewhere countable."
+      },
+      "caveat": {
+        "pullDelivers": "Browsing goes through Pull, which is the same call a consumer makes: what it reads is held away from other consumers until this app hands it back, and its delivery attempt goes up for good. On a subscription with a dead-letter topic, that counts towards being moved there."
+      }
     }
   },
   "shell": {
@@ -830,6 +856,15 @@
         "messages": "Messages",
         "dlq": "Dead letters",
         "producer": "Send",
+        "alerts": "Alerts"
+      },
+      "google-pubsub": {
+        "overview": "Overview",
+        "topics": "Topics",
+        "consumers": "Subscriptions",
+        "messages": "Messages",
+        "dlq": "Dead letters",
+        "producer": "Publish",
         "alerts": "Alerts"
       }
     }
@@ -1146,6 +1181,20 @@
           "regionRequired": "Name an AWS region — it is what says where the queues are, and the request is signed with it.",
           "credentialPairRequired": "An AWS credential needs both halves. Leave both blank to use this machine's own identity instead.",
           "endpointScheme": "The endpoint override is a full URL — start it with https:// or http://."
+        },
+        "google-pubsub": {
+          "projectId": "Google Cloud project",
+          "projectIdHint": "Where the topics are. There is no address to type: every project is reached at pubsub.googleapis.com, and this is what names the resources inside it.",
+          "credentialsJson": "Service account key (optional)",
+          "credentialsJsonHint": "Paste the whole key file, braces included — a path would leave the key in plain text where it was downloaded. Leave it blank to use this machine's own Google identity: a gcloud login, GOOGLE_APPLICATION_CREDENTIALS, or the metadata server inside Google Cloud.",
+          "resourcePrefix": "Name prefix (optional)",
+          "resourcePrefixHint": "Narrows every listing to topics and subscriptions whose name starts with this. A project's resources belong to everyone using it, and the API offers no filter of its own.",
+          "emulatorHost": "Emulator host (optional)",
+          "emulatorHostHint": "host:port of a Pub/Sub emulator, the same value PUBSUB_EMULATOR_HOST carries. No scheme — it is dialled, not fetched. A connection that names one authenticates with nothing, and reports what the emulator cannot do.",
+          "note": "A project and a credential — there is no broker to address",
+          "projectRequired": "Name a Google Cloud project — it is what every topic and subscription name is built from.",
+          "credentialsNotJson": "Paste the service account key itself, not the path to it — it starts with a brace. Leave the field blank to use this machine's own Google identity instead.",
+          "emulatorHostNoScheme": "The emulator host is a host and a port, with no https:// in front — 127.0.0.1:8085."
         }
       },
       "deleteTitle": "Delete connection",
@@ -1353,7 +1402,7 @@
         "aheadOfRelease": "Local v{{current}} is newer than published v{{latest}}",
         "upToDate": "You are on the latest version v{{version}}",
         "updateCheckFailed": "Could not check for updates",
-        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, and Amazon SQS without deploying a separate console."
+        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, and Google Pub/Sub without deploying a separate console."
       }
     }
   },
@@ -4630,6 +4679,200 @@
         "stateStalled": "all in flight",
         "stateDeadLetter": "dead letters",
         "note": "Every count is approximate and comes from the queue listing — the whole of what SQS reports. Rates, ages and per-queue history live in CloudWatch, under a different permission."
+      }
+    },
+    "google-pubsub": {
+      "topics": {
+        "count": "{{count}} topics",
+        "search": "Filter by name",
+        "name": "Topic",
+        "subscribers": "Subscriptions",
+        "subscriptionNames": "Read by",
+        "retention": "Retention",
+        "path": "Resource name",
+        "state": "State",
+        "schema": "Schema",
+        "schemaEncoding": "Encoding",
+        "kmsKey": "Encryption key",
+        "storageRegions": "Storage regions",
+        "noSubscriberBadge": "no subscription",
+        "noSubscriberNote": "Nothing subscribes to this topic, so every message published to it is accepted and then discarded. Nothing downstream records that it happened.",
+        "note": "A topic stores nothing: a publish reaches whatever subscriptions exist at that instant, and the backlog belongs to each of them.",
+        "section": {
+          "delivery": "Delivery",
+          "identity": "Identity",
+          "labels": "Labels"
+        },
+        "create": "New topic",
+        "createTitle": "New topic",
+        "editTitle": "Edit {{name}}",
+        "created": "Created {{name}}",
+        "updated": "Saved {{name}}",
+        "deleted": "Deleted {{name}}",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "The topic goes and its {{count}} subscription(s) do not. They keep whatever they have not delivered, report their topic as _deleted-topic_, and can never receive another message.",
+        "deleteFailed": "Could not delete the topic",
+        "nameHint": "Three to 255 characters, starting with a letter. A name cannot be changed afterwards: there is no rename call in the API.",
+        "nameProblem": {
+          "empty": "A topic needs a name.",
+          "tooShort": "A name is at least three characters long.",
+          "tooLong": "A name is at most 255 characters long.",
+          "charset": "A name starts with a letter and holds only letters, digits and - _ . ~ + %.",
+          "reserved": "Google keeps names beginning with \"goog\" for its own resources."
+        },
+        "retentionHint": "Seconds to keep a published message available for a subscription to seek back into. Zero keeps it only until every subscription has acknowledged it.",
+        "retentionRange": "Retention is between 600 seconds and 31 days, or zero to leave it unset.",
+        "labels": "Labels",
+        "labelsHint": "One key=value per line. The whole set is replaced on save, because the API replaces the field rather than one key."
+      },
+      "subscriptions": {
+        "count": "{{count}} subscriptions",
+        "search": "Filter by name or topic",
+        "create": "New subscription",
+        "createTitle": "New subscription",
+        "editTitle": "Edit {{name}}",
+        "created": "Created {{name}}",
+        "updated": "Saved {{name}}",
+        "deleted": "Deleted {{name}}",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "Everything it has not acknowledged goes with it. Those messages were never the topic's to hand out again, so there is no way back.",
+        "deleteFailed": "Could not delete the subscription",
+        "name": "Subscription",
+        "nameHint": "Three to 255 characters, starting with a letter. A name cannot be changed afterwards.",
+        "topic": "Topic",
+        "topicHint": "The one topic it reads, chosen now and fixed: there is no call that moves a subscription to another.",
+        "delivery": "Delivery",
+        "deliveryKind": {
+          "pull": "Pull",
+          "push": "Push",
+          "bigquery": "BigQuery",
+          "cloudStorage": "Cloud Storage",
+          "bigtable": "Bigtable"
+        },
+        "pushEndpoint": "Push endpoint",
+        "ackDeadline": "Ack deadline",
+        "ackDeadlineHint": "Seconds a delivered message is held before Pub/Sub offers it again. Between 10 and 600.",
+        "retention": "Retention",
+        "retentionHint": "Seconds an unacknowledged message is kept. Between 10 minutes and 31 days; the default is seven days.",
+        "retainAcked": "Keep acknowledged messages",
+        "retainAckedHint": "Without this a seek can only skip forward: there is nothing behind the acknowledgement point to go back to.",
+        "exactlyOnce": "Exactly-once delivery",
+        "exactlyOnceHint": "The stronger guarantee, which also makes acknowledging something that can fail and be retried.",
+        "ordering": "Message ordering",
+        "orderingHint": "Delivers messages sharing an ordering key in order. Fixed at creation.",
+        "orderingFixed": "Fixed at creation. Changing it means a new subscription.",
+        "filter": "Filter",
+        "filterHint": "A Pub/Sub filter over message attributes, such as attributes.kind = \"order\". Fixed at creation.",
+        "filterFixed": "Fixed at creation: the service refuses to change a filter, and so does the emulator.",
+        "deadLetterTopic": "Dead-letter topic",
+        "deadLetterTopicHint": "Another topic in this project. Clear it to remove the policy — there is no separate call for that.",
+        "maxAttempts": "Delivery attempts",
+        "maxAttemptsHint": "How many attempts before a message is moved to the dead-letter topic. Between 5 and 100.",
+        "retryBackoff": "Retry backoff",
+        "retryBackoffMax": "Maximum retry backoff, in seconds",
+        "retryBackoffHint": "Minimum and maximum seconds between redeliveries. Both or neither: the service refuses a policy with one.",
+        "expiration": "Idle expiry",
+        "state": "State",
+        "path": "Resource name",
+        "orphanedBadge": "topic deleted",
+        "orphanedNote": "Its topic has been deleted, so it will never receive another message. It still holds what it had not delivered, and is still billed for it.",
+        "detachedBadge": "detached",
+        "detachedNote": "It has been detached, so publishing carries on and nothing is delivered to it. Only an operator can attach it again.",
+        "noSnapshots": "No restore points on this topic.",
+        "snapshotAction": "Take a restore point",
+        "snapshotTitle": "Take {{name}}?",
+        "snapshotDesc": "It copies this subscription's acknowledgement state, not its messages. While it exists the topic keeps everything the restore point could bring back, which costs storage until it is deleted or expires after seven days.",
+        "snapshotTaken": "Took {{name}}",
+        "snapshotFailed": "Could not take the restore point",
+        "snapshotDeleted": "Deleted {{name}}",
+        "snapshotDeleteFailed": "Could not delete the restore point",
+        "restoreAction": "Restore",
+        "restoreTitle": "Move {{subscription}} to {{name}}?",
+        "restoreDesc": "The subscription starts again from the acknowledgement state the restore point captured. Anything acknowledged since is delivered again, and only as far back as the retention still reaches.",
+        "restored": "Moved to {{name}}",
+        "restoreFailed": "Could not move the subscription",
+        "note": "There is no backlog column: num_undelivered_messages is a Cloud Monitoring metric, and no call in the Pub/Sub API reports it.",
+        "section": {
+          "delivery": "Delivery",
+          "failures": "Failures",
+          "identity": "Identity",
+          "labels": "Labels",
+          "snapshots": "Restore points"
+        }
+      },
+      "messages": {
+        "title": "Messages",
+        "subtitle": "Pulled from one subscription. A topic holds nothing to browse.",
+        "pickSubscription": "Pick a pull subscription",
+        "pull": "Pull",
+        "found": "{{count}} pulled",
+        "pullNote": "This is a real delivery, not a look. Pull is the only read Pub/Sub has and it is the call a consumer makes: what appears here was held away from live consumers until it was handed back, and every message's delivery attempt has gone up for good. On a subscription with a dead-letter topic, that counts towards being moved there.",
+        "startHere": "Pick a subscription and pull to see what it is holding.",
+        "nothingHeld": "This subscription is holding nothing, or a consumer took it first.",
+        "messageId": "Message ID",
+        "published": "Published",
+        "deliveryAttempt": "Attempt",
+        "orderingKey": "Ordering key",
+        "subscription": "Read from",
+        "body": "Body",
+        "noAttemptCount": "Pub/Sub counts delivery attempts only on a subscription with a dead-letter topic. This one has none, so there is no count to show.",
+        "section": {
+          "attributes": "Attributes"
+        }
+      },
+      "producer": {
+        "title": "Publish",
+        "subtitle": "One topic, and whatever subscribes to it at that instant",
+        "topic": "Topic",
+        "topicHint": "Where the message goes. It is fanned out to every subscription that exists when it arrives, and discarded if there are none.",
+        "topicRequired": "Pick a topic to publish to.",
+        "body": "Body",
+        "bodyHint": "Sent verbatim. It may be left empty as long as there is at least one attribute.",
+        "emptyMessage": "A message needs a body or at least one attribute — Pub/Sub refuses one with neither.",
+        "count": "Copies",
+        "countHint": "Sends the same message this many times, up to {{max}}.",
+        "countRange": "Send between 1 and {{max}} copies.",
+        "orderingKey": "Ordering key",
+        "orderingKeyHint": "Messages sharing a key arrive in order — but only on a subscription created with message ordering on. Elsewhere it is carried and ignored.",
+        "attributes": "Attributes",
+        "attributesHint": "String key/value pairs beside the body. They are also the only thing a subscription filter can select on.",
+        "attributeName": "Name",
+        "attributeValue": "Value",
+        "attributeNameRequired": "An attribute with a value needs a name.",
+        "addAttribute": "Add attribute",
+        "send": "Publish",
+        "sent": "Published {{count}} message(s)",
+        "sentAs": "Published {{count}} — first id {{id}}",
+        "failed": "Could not publish",
+        "noSubscriberWarning": "Nothing subscribes to this topic. The publish will be accepted and reported as sent, and the message discarded on the spot."
+      },
+      "dlq": {
+        "count": "{{count}} dead-letter topics",
+        "name": "Dead-letter topic",
+        "readers": "Subscriptions",
+        "sources": "Given up by",
+        "sourceCount": "Sources",
+        "noSources": "nothing points here",
+        "givesUpFrom": "gives up messages from {{topic}}",
+        "noReaderBadge": "no subscription",
+        "noReaderNote": "Nothing subscribes to this topic, so every dead letter that arrives is discarded on the spot. The messages a system gave up on are the ones nobody notices disappearing.",
+        "orphaned": "No subscription points here any more. It will never receive another dead letter, and whatever it holds is waiting on subscriptions that no longer exist.",
+        "note": "A dead-letter topic is an ordinary topic a subscription's policy points at. The policy is on the subscription, so each source names both the topic and the reader that stopped trying."
+      },
+      "overview": {
+        "subtitle": "{{project}} · {{topics}} topics",
+        "topics": "Topics",
+        "topicsHint": "In this project, narrowed by the connection's name prefix.",
+        "subscriptions": "Subscriptions",
+        "subscriptionsHint": "Each with its own backlog. Two on one topic fall behind separately.",
+        "unsubscribed": "Nothing reads",
+        "unsubscribedHint": "Topics with no subscription. Every message published to one is accepted and discarded.",
+        "orphaned": "Topic deleted",
+        "orphanedHint": "Subscriptions whose topic is gone. They hold what they have and will never receive more.",
+        "withDeadLetters": "With dead letters",
+        "withDeadLettersHint": "Subscriptions that give up into another topic after a set number of attempts.",
+        "busiest": "Most-read topics",
+        "note": "No backlog and no throughput here: both are Cloud Monitoring metrics, under a different API and a different credential."
       }
     }
   }
