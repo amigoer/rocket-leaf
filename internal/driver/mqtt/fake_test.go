@@ -110,11 +110,53 @@ func startBroker(t *testing.T, kind string, hook mochi.Hook, config any) (*mochi
 	if err := server.Serve(); err != nil {
 		t.Fatalf("serve: %v", err)
 	}
-	t.Cleanup(func() { _ = server.Close() })
+	t.Cleanup(func() { closeBroker(server, listener.ID()) })
 
 	address := listener.Address()
 	waitForListener(t, address)
 	return server, address
+}
+
+/*
+ * closeBroker shuts a fake broker down once its listener is empty.
+ *
+ * mochi's Clients.GetByListener takes a read lock and then calls Len, which
+ * takes the same lock again. Go's RWMutex does not allow that safely: a writer
+ * arriving between the two - Clients.Delete, which is what a disconnecting
+ * client runs - makes the second read lock wait behind it and it never
+ * returns. Server.Close walks exactly that path, so closing while a client is
+ * still going away hangs the whole package until the binary's own timeout,
+ * naming whichever test happened to be running.
+ *
+ * Waiting for the listener to be empty is what keeps the suite off it: with
+ * nothing left to disconnect, no writer arrives while Close is walking.
+ * mochi-mqtt v2.7.9 is the newest release and none carries a fix.
+ *
+ * The inline client is deliberately not counted. It is the broker's own, it
+ * sits on LocalListener rather than this one, and it never disconnects - so
+ * waiting for the map itself to empty would wait forever.
+ */
+func closeBroker(server *mochi.Server, listenerID string) {
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if !listenerHasClients(server, listenerID) {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	_ = server.Close()
+}
+
+// listenerHasClients reports whether anything is still attached to one
+// listener. GetAll copies the map under a single read lock, which is the part
+// of this API that is safe to call.
+func listenerHasClients(server *mochi.Server, listenerID string) bool {
+	for _, client := range server.Clients.GetAll() {
+		if client.Net.Listener == listenerID && !client.Closed() {
+			return true
+		}
+	}
+	return false
 }
 
 // freePort finds an address nothing is using, by taking it and giving it back.
