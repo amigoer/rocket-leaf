@@ -83,6 +83,7 @@ internal/
     nats/                NATS driver, JetStream and the $SYS account
     activemq/            ActiveMQ driver: Classic and Artemis over Jolokia
     nsq/                 NSQ driver: nsqd and nsqlookupd over HTTP
+    sqs/                 Amazon SQS driver: the AWS API, with no address to dial
   model/                 Domain models and the capability vocabulary
   crypto/                Local encryption helpers
   storage/               On-disk layout and atomic writes
@@ -118,6 +119,7 @@ tests/
   e2e/activemq/          ActiveMQ Artemis with its console and AMQP acceptor
   e2e/activemq-classic/  ActiveMQ Classic, the family's other product
   e2e/nsq/               Two nsqd and two nsqlookupd, with a consumer attached
+  e2e/sqs/               LocalStack running sqs, reached through the endpoint override
   throughput-load/       Load generator for the throughput charts (own module)
 ```
 

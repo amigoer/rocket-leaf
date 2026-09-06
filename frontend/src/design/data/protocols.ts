@@ -42,7 +42,8 @@ export type ProtocolId =
   | "mqtt"
   | "nats"
   | "activemq"
-  | "nsq";
+  | "nsq"
+  | "sqs";
 
 export type PageId =
   | "overview"
@@ -377,6 +378,40 @@ export const PROTOCOLS: Record<ProtocolId, Protocol> = {
       },
     ],
   },
+  sqs: {
+    id: "sqs",
+    name: "Amazon SQS",
+    badge: "SQS",
+    badgeClass: "pSQS",
+    /* Five entries, and the six that are missing are the point. There is no
+       consumers page, because SQS has no subscription of any kind: a consumer
+       is whoever calls ReceiveMessage, and the service keeps no record of who
+       that was. There is no cluster page and no clients page, because AWS runs
+       the service and shows no node or session. There is no access page,
+       because who may call what is IAM's, one service further out.
+
+       Queues take the topics slot, which is every family's destination list.
+       There is no second object here to put anywhere else. */
+    nav: [
+      { items: [{ id: "overview", icon: House, label: "shell.nav.sqs.overview" }] },
+      {
+        label: BROWSE,
+        items: [
+          { id: "topics", icon: Layers, label: "shell.nav.sqs.topics" },
+          { id: "messages", icon: Mail, label: "shell.nav.sqs.messages" },
+          /* An ordinary queue another queue's redrive policy points at, found
+             by walking the topology rather than named after a group - because
+             there are no groups to name one after. */
+          { id: "dlq", icon: TriangleAlert, label: "shell.nav.sqs.dlq" },
+          { id: "producer", icon: Send, label: "shell.nav.sqs.producer" },
+        ],
+      },
+      {
+        label: OPS,
+        items: [{ id: "alerts", icon: BellRing, label: "shell.nav.sqs.alerts" }],
+      },
+    ],
+  },
 };
 
 export const PROTOCOL_ORDER: ProtocolId[] = [
@@ -389,6 +424,7 @@ export const PROTOCOL_ORDER: ProtocolId[] = [
   "nats",
   "activemq",
   "nsq",
+  "sqs",
 ];
 
 /** Every page the protocol's sidebar can reach, flattened. */
@@ -421,6 +457,7 @@ const READY: ReadonlySet<ProtocolId> = new Set<ProtocolId>([
   "nats",
   "activemq",
   "nsq",
+  "sqs",
 ]);
 
 export function isProtocolReady(protocol: ProtocolId): boolean {

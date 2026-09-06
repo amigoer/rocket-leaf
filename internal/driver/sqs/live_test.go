@@ -1,0 +1,1127 @@
+package sqs
+
+import (
+	"context"
+	"fmt"
+	"slices"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awssqs "github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
+
+	"github.com/amigoer/mq-studio/internal/e2e"
+	"github.com/amigoer/mq-studio/internal/model"
+)
+
+// The live environment, as tests/e2e/sqs/compose.yaml publishes it.
+//
+// LocalStack, reached through the endpoint override. That is not a testing
+// shortcut around the real code path: a VPC interface endpoint is configured
+// with the same field, so every test here exercises it.
+const (
+	liveEndpoint  = "http://127.0.0.1:4566"
+	liveRegion    = "eu-west-1"
+	liveAccessKey = "test"
+	liveSecretKey = "test"
+)
+
+// The queues scripts/e2e-sqs-seed.sh creates. Tests read these and never write
+// to them; anything a test needs to change it creates for itself.
+const (
+	seedOrders  = "MQS-SEED-orders"
+	seedDLQ     = "MQS-SEED-orders-dlq"
+	seedDelayed = "MQS-SEED-delayed"
+	seedEmpty   = "MQS-SEED-empty"
+	seedFIFO    = "MQS-SEED-orders.fifo"
+)
+
+func requireRegion(t *testing.T) {
+	t.Helper()
+	e2e.Require(t, e2e.Env{
+		Family: e2e.SQS,
+		Name:   "the sqs environment",
+		Start:  "npm run e2e:sqs:up",
+		Probe:  e2e.HTTPGet(liveEndpoint + "/_localstack/health"),
+	})
+}
+
+// liveProfile is the environment as a user would configure it: a region, a
+// credential, and no address anywhere on the form.
+func liveProfile() model.ConnectionProfile {
+	profile := model.ConnectionProfile{
+		ID:         1,
+		Name:       "sqs e2e",
+		Kind:       model.KindSQS,
+		TimeoutSec: 10,
+		Auth:       model.AuthConfig{Mechanism: model.AuthPlain},
+		Options: map[string]string{
+			OptionRegion:      liveRegion,
+			OptionEndpointURL: liveEndpoint,
+		},
+	}
+	profile.SetSecret(SecretAccessKeyID, liveAccessKey)
+	profile.SetSecret(SecretSecretAccessKey, liveSecretKey)
+	return profile
+}
+
+func liveContext(t *testing.T) context.Context {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	t.Cleanup(cancel)
+	return ctx
+}
+
+func liveConn(t *testing.T) *Conn {
+	t.Helper()
+	requireRegion(t)
+	conn, err := open(liveContext(t), liveProfile())
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	return conn
+}
+
+/*
+ * The point of this family, exercised end to end.
+ *
+ * A profile whose Endpoints is empty opens, which nothing else in this app can
+ * do. It is asserted here rather than only in the descriptor test because the
+ * descriptor only says the form asks for no address - this proves the driver
+ * needs none either.
+ */
+func TestLiveOpenNeedsNoAddress(t *testing.T) {
+	requireRegion(t)
+
+	profile := liveProfile()
+	if profile.Endpoints != "" {
+		t.Fatalf("the live profile carries an address %q; this family has none", profile.Endpoints)
+	}
+
+	conn, err := open(liveContext(t), profile)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
+	if conn.Region() != liveRegion {
+		t.Errorf("region = %q, want %q", conn.Region(), liveRegion)
+	}
+	if err := conn.Ping(liveContext(t)); err != nil {
+		t.Errorf("ping: %v", err)
+	}
+}
+
+// Nothing is dialled, so a wrong region, a wrong credential and a wrong
+// endpoint all look identical until a request is signed and sent. Open has to
+// send one, or every one of them opens and then reports an empty account.
+func TestLiveOpenProvesTheCredentialReachesSQS(t *testing.T) {
+	requireRegion(t)
+
+	t.Run("an endpoint with nothing behind it", func(t *testing.T) {
+		profile := liveProfile()
+		profile.TimeoutSec = 2
+		profile.Options[OptionEndpointURL] = "http://127.0.0.1:4599"
+		if _, err := open(liveContext(t), profile); err == nil {
+			t.Fatal("opened against an endpoint that answers nothing")
+		}
+	})
+
+	t.Run("a profile naming no region", func(t *testing.T) {
+		profile := liveProfile()
+		delete(profile.Options, OptionRegion)
+		err := func() error { _, err := open(liveContext(t), profile); return err }()
+		if err == nil {
+			t.Fatal("opened with no region to sign for")
+		}
+		if !strings.Contains(err.Error(), "region") {
+			t.Errorf("error does not name the missing field: %v", err)
+		}
+	})
+}
+
+// Close is called on disconnect and again on shutdown, so the second call has
+// to be the one that does nothing.
+func TestLiveCloseIsIdempotent(t *testing.T) {
+	requireRegion(t)
+
+	conn, err := open(liveContext(t), liveProfile())
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatalf("first close: %v", err)
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatalf("second close: %v", err)
+	}
+	if err := conn.Ping(liveContext(t)); err == nil {
+		t.Error("a closed connection still answers a ping")
+	}
+}
+
+// The name a user types has to reach the URL every call actually takes, and a
+// name nothing answers for has to say so rather than failing later with an
+// SDK error naming an operation the user never asked for.
+func TestLiveQueueURLResolvesANameAndRefusesAnUnknownOne(t *testing.T) {
+	conn := liveConn(t)
+
+	url, err := conn.queueURL(liveContext(t), seedOrders)
+	if err != nil {
+		e2e.Missing(t, "%s is not seeded; run `npm run e2e:sqs:seed` (%v)", seedOrders, err)
+	}
+	if !strings.HasSuffix(url, "/"+seedOrders) {
+		t.Errorf("queue url %q does not end in the queue name", url)
+	}
+	if queueNameOf(url) != seedOrders {
+		t.Errorf("queueNameOf(%q) = %q, want %q", url, queueNameOf(url), seedOrders)
+	}
+
+	_, err = conn.queueURL(liveContext(t), "MQS-TEST-not-here")
+	if err == nil {
+		t.Fatal("resolved a queue that does not exist")
+	}
+	if !strings.Contains(err.Error(), "MQS-TEST-not-here") {
+		t.Errorf("error does not name the queue that is missing: %v", err)
+	}
+}
+
+// attrInt reads one of the driver's own numeric attributes off a row.
+func attrInt(t *testing.T, destination *model.Destination, key string) int64 {
+	t.Helper()
+	parsed, err := strconv.ParseInt(destination.Attribute(key), 10, 64)
+	if err != nil {
+		t.Fatalf("%s reported %s=%q, which is not a number", destination.Ref.Name, key, destination.Attribute(key))
+	}
+	return parsed
+}
+
+func destinationNamed(destinations []*model.Destination, name string) *model.Destination {
+	for _, destination := range destinations {
+		if destination.Ref.Name == name {
+			return destination
+		}
+	}
+	return nil
+}
+
+/*
+ * The listing is two calls per board and the second one is per queue, so this
+ * asserts what the fold produces rather than only that it produced something:
+ * the three kinds of held message, the redrive target read out of a policy
+ * that only carries an ARN, and the FIFO flag read off the name.
+ */
+func TestLiveListDestinationsReadsEveryQueuesFigures(t *testing.T) {
+	conn := liveConn(t)
+
+	destinations, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+
+	orders := destinationNamed(destinations, seedOrders)
+	if orders == nil {
+		e2e.Missing(t, "%s is not in the listing; run `npm run e2e:sqs:seed`", seedOrders)
+	}
+	if orders.Depth != 12 {
+		t.Errorf("%s depth = %d, want the 12 the seed sent", seedOrders, orders.Depth)
+	}
+	// Visible plus in flight rather than visible alone: another suite reading
+	// this region can be holding some of them at this instant, and a message
+	// in flight is still one the queue is holding.
+	if held := attrInt(t, orders, AttrVisible) + attrInt(t, orders, AttrInFlight); held != 12 {
+		t.Errorf("%s holds %d visible and in flight, want the 12 the seed sent", seedOrders, held)
+	}
+	if got := orders.Attribute(AttrDeadLetterQueue); got != seedDLQ {
+		t.Errorf("%s dead-letter queue = %q, want %q", seedOrders, got, seedDLQ)
+	}
+	if got := orders.Attribute(AttrMaxReceiveCount); got != "3" {
+		t.Errorf("%s max receive count = %q, want 3", seedOrders, got)
+	}
+	if got := orders.Attribute(AttrFIFO); got != "false" {
+		t.Errorf("%s reports fifo=%q", seedOrders, got)
+	}
+
+	// A delayed message is held and is not available, which is a distinction
+	// no single figure can carry.
+	delayed := destinationNamed(destinations, seedDelayed)
+	if delayed == nil {
+		e2e.Missing(t, "%s is not in the listing; run `npm run e2e:sqs:seed`", seedDelayed)
+	}
+	// The seed holds them back by 15 minutes, which is the longest SQS allows.
+	// A local run an hour later finds them visible, and that is the seed
+	// having aged rather than the driver being wrong.
+	if delayed.Attribute(AttrDelayed) == "0" {
+		e2e.Missing(t, "%s no longer holds a delayed message; the seed's delay has run out, so re-run `npm run e2e:sqs:seed`", seedDelayed)
+	}
+	if delayed.Attribute(AttrVisible) != "0" || delayed.Attribute(AttrDelayed) != "5" {
+		t.Errorf("%s visible=%q delayed=%q, want 0 and 5",
+			seedDelayed, delayed.Attribute(AttrVisible), delayed.Attribute(AttrDelayed))
+	}
+	if delayed.Depth != 5 {
+		t.Errorf("%s depth = %d; a delayed message is still held", seedDelayed, delayed.Depth)
+	}
+
+	fifo := destinationNamed(destinations, seedFIFO)
+	if fifo == nil {
+		e2e.Missing(t, "%s is not in the listing; run `npm run e2e:sqs:seed`", seedFIFO)
+	}
+	if fifo.Attribute(AttrFIFO) != "true" {
+		t.Errorf("%s is a FIFO queue and the listing says fifo=%q", seedFIFO, fifo.Attribute(AttrFIFO))
+	}
+
+	// An empty queue is a row, not an absence.
+	if destinationNamed(destinations, seedEmpty) == nil {
+		t.Errorf("%s is missing from the listing; an empty queue is still a queue", seedEmpty)
+	}
+}
+
+/*
+ * SQS keeps no record of who reads a queue, so the subscriber count has to be
+ * unknown rather than zero. Zero reads as "nothing is consuming this", which is
+ * a claim the service cannot support - and on the queues board it is the
+ * difference between an honest dash and a false alarm.
+ */
+func TestLiveListDestinationsReportsNoSubscribersOrPartitions(t *testing.T) {
+	conn := liveConn(t)
+
+	destinations, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(destinations) == 0 {
+		e2e.Missing(t, "the region holds no queues; run `npm run e2e:sqs:seed`")
+	}
+	for _, destination := range destinations {
+		if destination.Subscribers != model.UnknownMetric {
+			t.Errorf("%s reports %d subscribers, and SQS knows of none",
+				destination.Ref.Name, destination.Subscribers)
+		}
+		if destination.Partitions != model.UnknownMetric {
+			t.Errorf("%s reports %d partitions, and an SQS queue is not split",
+				destination.Ref.Name, destination.Partitions)
+		}
+		if destination.RateIn != model.UnknownMetric || destination.RateOut != model.UnknownMetric {
+			t.Errorf("%s reports a rate, and SQS publishes none", destination.Ref.Name)
+		}
+	}
+}
+
+// The prefix is the only filter SQS has, and it is applied by the service. A
+// connection scoped to one team's queues must not see another team's.
+func TestLiveQueuePrefixNarrowsTheListing(t *testing.T) {
+	requireRegion(t)
+
+	profile := liveProfile()
+	profile.Options[OptionQueuePrefix] = "MQS-SEED-orders"
+	conn, err := open(liveContext(t), profile)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
+	destinations, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(destinations) == 0 {
+		e2e.Missing(t, "%s is not seeded; run `npm run e2e:sqs:seed`", seedOrders)
+	}
+	for _, destination := range destinations {
+		if !strings.HasPrefix(destination.Ref.Name, "MQS-SEED-orders") {
+			t.Errorf("%s is outside the connection's prefix", destination.Ref.Name)
+		}
+	}
+	if destinationNamed(destinations, seedDelayed) != nil {
+		t.Errorf("%s is outside the prefix and still listed", seedDelayed)
+	}
+}
+
+// The detail read is one request against one queue rather than a walk of the
+// listing, and it has to answer the same figures.
+func TestLiveDestinationDetailMatchesTheListing(t *testing.T) {
+	conn := liveConn(t)
+
+	listed, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	fromList := destinationNamed(listed, seedOrders)
+	if fromList == nil {
+		e2e.Missing(t, "%s is not seeded; run `npm run e2e:sqs:seed`", seedOrders)
+	}
+
+	detail, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: seedOrders})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if detail.Ref.Name != fromList.Ref.Name || detail.Depth != fromList.Depth {
+		t.Errorf("detail says %s/%d and the listing says %s/%d",
+			detail.Ref.Name, detail.Depth, fromList.Ref.Name, fromList.Depth)
+	}
+	if detail.Attribute(AttrARN) == "" {
+		t.Error("the detail read reports no ARN, which is how every cross-queue setting names a queue")
+	}
+
+	if _, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: "MQS-TEST-absent"}); err == nil {
+		t.Error("described a queue that does not exist")
+	}
+}
+
+// testName builds a name no other run collides with. SQS allows letters,
+// digits, hyphens and underscores, and 80 characters - and refuses a deleted
+// queue's name for 60 seconds, so a rerun cannot reuse one.
+func testName(t *testing.T, suffix string) string {
+	t.Helper()
+	safe := strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' {
+			return r
+		}
+		return '-'
+	}, t.Name())
+	if len(safe) > 40 {
+		safe = safe[:40]
+	}
+	return "MQS-TEST-" + safe + "-" + strconv.FormatInt(time.Now().UnixNano()%1e9, 36) + suffix
+}
+
+// makeQueue creates a queue for one test and removes it afterwards.
+func makeQueue(t *testing.T, conn *Conn, spec QueueSpec) string {
+	t.Helper()
+	if err := conn.CreateQueue(liveContext(t), spec); err != nil {
+		t.Fatalf("create %s: %v", spec.Name, err)
+	}
+	t.Cleanup(func() {
+		_ = conn.RemoveDestination(context.Background(), model.DestinationRef{Name: spec.Name})
+	})
+	url, err := conn.queueURL(liveContext(t), spec.Name)
+	if err != nil {
+		t.Fatalf("resolve %s: %v", spec.Name, err)
+	}
+	return url
+}
+
+// A queue is created with the settings the form collected, and reads back with
+// them: an attribute silently dropped between the form and the service would
+// otherwise look like a queue that took a default nobody chose.
+func TestLiveCreateQueueAppliesEverySetting(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+
+	makeQueue(t, conn, QueueSpec{
+		Name:                 name,
+		VisibilityTimeoutSec: 45,
+		DelaySec:             10,
+		RetentionSec:         3600,
+		MaxMessageBytes:      65536,
+		ReceiveWaitSec:       5,
+	})
+
+	queue, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	for _, want := range []struct{ key, value string }{
+		{AttrVisibilityTimeo, "45"},
+		{AttrDelaySeconds, "10"},
+		{AttrRetentionSec, "3600"},
+		{AttrMaxMessageBytes, "65536"},
+		{AttrReceiveWaitSec, "5"},
+		{AttrFIFO, "false"},
+	} {
+		if got := queue.Attribute(want.key); got != want.value {
+			t.Errorf("%s = %q, want %q", want.key, got, want.value)
+		}
+	}
+}
+
+/*
+ * FIFO is decided by the name and by nothing else, so the two have to agree
+ * before the request is sent. SQS's own refusal names the FifoQueue attribute,
+ * which is a field no form here draws.
+ */
+func TestLiveCreateQueueHoldsFIFOToItsName(t *testing.T) {
+	conn := liveConn(t)
+
+	t.Run("a fifo queue whose name says so", func(t *testing.T) {
+		name := testName(t, ".fifo")
+		makeQueue(t, conn, QueueSpec{Name: name, FIFO: true, ContentBasedDeduplication: true})
+
+		queue, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+		if err != nil {
+			t.Fatalf("detail: %v", err)
+		}
+		if queue.Attribute(AttrFIFO) != "true" {
+			t.Errorf("fifo = %q, want true", queue.Attribute(AttrFIFO))
+		}
+		if queue.Attribute(AttrContentDedup) != "true" {
+			t.Errorf("contentBasedDeduplication = %q, want true", queue.Attribute(AttrContentDedup))
+		}
+	})
+
+	t.Run("a fifo queue whose name does not", func(t *testing.T) {
+		err := conn.CreateQueue(liveContext(t), QueueSpec{Name: testName(t, ""), FIFO: true})
+		if err == nil {
+			t.Fatal("created a FIFO queue with no .fifo suffix")
+		}
+		if !strings.Contains(err.Error(), ".fifo") {
+			t.Errorf("error does not name the suffix: %v", err)
+		}
+	})
+
+	t.Run("a standard queue whose name says fifo", func(t *testing.T) {
+		err := conn.CreateQueue(liveContext(t), QueueSpec{Name: testName(t, ".fifo"), FIFO: false})
+		if err == nil {
+			t.Fatal("created a standard queue with a .fifo suffix")
+		}
+	})
+}
+
+// A redrive policy names the target by ARN and a person names it by name, so
+// the driver resolves one into the other. The listing reads it back the other
+// way, which is what puts the dead-letter column on the queues board.
+func TestLiveCreateQueueResolvesTheDeadLetterQueueByName(t *testing.T) {
+	conn := liveConn(t)
+	dlq := testName(t, "-dlq")
+	source := testName(t, "-src")
+
+	makeQueue(t, conn, QueueSpec{Name: dlq})
+	makeQueue(t, conn, QueueSpec{Name: source, DeadLetterQueue: dlq, MaxReceiveCount: 4})
+
+	queue, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: source})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if got := queue.Attribute(AttrDeadLetterQueue); got != dlq {
+		t.Errorf("dead-letter queue = %q, want %q", got, dlq)
+	}
+	if got := queue.Attribute(AttrMaxReceiveCount); got != "4" {
+		t.Errorf("max receive count = %q, want 4", got)
+	}
+
+	// A target that is not there has to say which queue it could not find,
+	// rather than surfacing the service's InvalidParameterValue.
+	err = conn.CreateQueue(liveContext(t), QueueSpec{
+		Name: testName(t, "-orphan"), DeadLetterQueue: "MQS-TEST-no-such-dlq",
+	})
+	if err == nil {
+		t.Fatal("created a queue pointing at a dead-letter queue that does not exist")
+	}
+	if !strings.Contains(err.Error(), "MQS-TEST-no-such-dlq") {
+		t.Errorf("error does not name the missing queue: %v", err)
+	}
+}
+
+/*
+ * An edit writes only what the form sent. SQS replaces exactly the attributes
+ * it is given, so a setting the form left alone has to survive - otherwise
+ * changing a visibility timeout would silently reset a queue's retention to
+ * the service default.
+ */
+func TestLiveUpdateQueueLeavesUnsentSettingsAlone(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: name, VisibilityTimeoutSec: 45, RetentionSec: 3600})
+
+	if err := conn.UpdateQueue(liveContext(t), QueueSpec{Name: name, VisibilityTimeoutSec: 90}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	queue, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if got := queue.Attribute(AttrVisibilityTimeo); got != "90" {
+		t.Errorf("visibility timeout = %q, want the edited 90", got)
+	}
+	if got := queue.Attribute(AttrRetentionSec); got != "3600" {
+		t.Errorf("retention = %q, want the untouched 3600", got)
+	}
+}
+
+// Whether a queue is FIFO is fixed at creation. SetQueueAttributes answers
+// "Unknown Attribute FifoQueue", which names something the form never drew, so
+// the driver refuses it with a message that says what to do instead.
+func TestLiveUpdateQueueRefusesToChangeFIFO(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: name})
+
+	err := conn.UpdateQueue(liveContext(t), QueueSpec{Name: name, FIFO: true})
+	if err == nil {
+		t.Fatal("turned an existing standard queue into a FIFO one")
+	}
+	if !strings.Contains(err.Error(), "create a new queue") {
+		t.Errorf("error does not say what to do instead: %v", err)
+	}
+}
+
+/*
+ * Purging is asynchronous, so this waits for the queue to report empty rather
+ * than asserting straight after the call. The wait is the assertion: a purge
+ * that did nothing never reaches zero.
+ */
+func TestLivePurgeQueueEmptiesIt(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	url := makeQueue(t, conn, QueueSpec{Name: name})
+	sendRaw(t, conn, url, 5)
+
+	if err := conn.PurgeQueue(liveContext(t), model.DestinationRef{Name: name}); err != nil {
+		t.Fatalf("purge: %v", err)
+	}
+	waitForDepth(t, conn, name, 0)
+}
+
+// A delete removes the queue from the listing, and the cached URL with it: a
+// call under the same name afterwards has to ask again rather than address a
+// queue that has gone.
+func TestLiveRemoveQueueTakesItOutOfTheListing(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: name})
+
+	if err := conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: name}); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		destinations, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+		if err != nil {
+			t.Fatalf("list: %v", err)
+		}
+		if destinationNamed(destinations, name) == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s is still listed 20s after it was deleted", name)
+		}
+		time.Sleep(time.Second)
+	}
+
+	if _, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name}); err == nil {
+		t.Error("described a queue that was deleted; the cached url outlived it")
+	}
+}
+
+// sendRaw puts messages on a queue through the SDK rather than through this
+// driver, which has no send until the publish capability lands.
+func sendRaw(t *testing.T, conn *Conn, url string, count int) {
+	t.Helper()
+	for index := range count {
+		_, err := conn.client.SendMessage(liveContext(t), &awssqs.SendMessageInput{
+			QueueUrl:    aws.String(url),
+			MessageBody: aws.String(fmt.Sprintf("body-%d", index+1)),
+		})
+		if err != nil {
+			t.Fatalf("send: %v", err)
+		}
+	}
+}
+
+// waitForDepth waits for a queue to report a depth, because every SQS figure
+// is what its servers last agreed on rather than what is true this instant.
+func waitForDepth(t *testing.T, conn *Conn, name string, want int64) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	var last int64
+	for {
+		queue, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+		if err != nil {
+			t.Fatalf("detail: %v", err)
+		}
+		last = queue.Depth
+		if last == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s reports a depth of %d after 30s, want %d", name, last, want)
+		}
+		time.Sleep(time.Second)
+	}
+}
+
+/*
+ * A browse returns what the queue holds, and hands it straight back.
+ *
+ * The second half is the part worth proving: every message read here was
+ * hidden from real consumers while the page was assembled, and a driver that
+ * forgot to release them would leave a queue that looks empty for its whole
+ * visibility timeout. So this asserts the queue is available again immediately
+ * afterwards, which is what the release is for.
+ */
+func TestLiveQueryMessagesReturnsWhatItRead(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	url := makeQueue(t, conn, QueueSpec{Name: name, VisibilityTimeoutSec: 300})
+	sendRaw(t, conn, url, 6)
+	waitForDepth(t, conn, name, 6)
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: name, MaxResults: 6,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if len(messages) != 6 {
+		t.Fatalf("browsed %d messages, want 6", len(messages))
+	}
+	for _, message := range messages {
+		if message.MessageID == "" {
+			t.Error("a browsed message has no id")
+		}
+		if message.Body == "" {
+			t.Error("a browsed message has an empty body")
+		}
+		if message.StoreTimestamp == 0 {
+			t.Errorf("%s has no sent timestamp", message.MessageID)
+		}
+		if message.Properties[PropReceiveCount] == "" {
+			t.Errorf("%s reports no receive count, which is what the redrive policy counts",
+				message.MessageID)
+		}
+	}
+
+	/*
+	 * A visibility timeout of 300 seconds is deliberate: without the release
+	 * these messages would be invisible for five minutes, so an immediate
+	 * second browse returning them is the release working rather than the
+	 * timeout expiring.
+	 */
+	again, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: name, MaxResults: 6,
+	})
+	if err != nil {
+		t.Fatalf("second query: %v", err)
+	}
+	if len(again) != 6 {
+		t.Errorf("a second browse found %d of 6; the first one did not hand its messages back", len(again))
+	}
+}
+
+/*
+ * The caveat, demonstrated rather than asserted from the declaration.
+ *
+ * A browse is a real receive: the count goes up and does not come back down,
+ * and on a queue with a redrive policy that counts towards being
+ * dead-lettered. This is the fact the capability's caveat exists to warn
+ * about, and it is worth a test because it is the one thing about this page
+ * that a reader would not expect.
+ */
+func TestLiveBrowsingRaisesTheReceiveCount(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	url := makeQueue(t, conn, QueueSpec{Name: name})
+	sendRaw(t, conn, url, 1)
+	waitForDepth(t, conn, name, 1)
+
+	counts := make([]string, 0, 2)
+	for range 2 {
+		messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+			Topic: name, MaxResults: 1,
+		})
+		if err != nil {
+			t.Fatalf("query: %v", err)
+		}
+		if len(messages) != 1 {
+			t.Fatalf("browsed %d messages, want 1", len(messages))
+		}
+		counts = append(counts, messages[0].Properties[PropReceiveCount])
+	}
+	if counts[0] != "1" || counts[1] != "2" {
+		t.Errorf("receive counts were %v; browsing has to be visible in them, because the "+
+			"redrive policy compares against them", counts)
+	}
+}
+
+// A browse of more than ten is several ReceiveMessage calls, and each one has
+// to hold what it took: a message left visible would be handed back by the
+// next call and counted twice.
+func TestLiveQueryMessagesPagesPastOneBatch(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	url := makeQueue(t, conn, QueueSpec{Name: name})
+	sendRaw(t, conn, url, 25)
+	waitForDepth(t, conn, name, 25)
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: name, MaxResults: 25,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if len(messages) != 25 {
+		t.Fatalf("browsed %d messages, want 25 across three batches", len(messages))
+	}
+
+	seen := make(map[string]bool, len(messages))
+	for _, message := range messages {
+		if seen[message.MessageID] {
+			t.Errorf("%s came back twice; a batch was not held while the next one was read",
+				message.MessageID)
+		}
+		seen[message.MessageID] = true
+	}
+}
+
+// A FIFO message carries what makes it ordered, and a browse has to surface
+// it: the group id is what a reader groups by, and nothing else on the page
+// explains why two messages cannot overtake each other.
+func TestLiveQueryMessagesCarriesFIFOFields(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, ".fifo")
+	url := makeQueue(t, conn, QueueSpec{Name: name, FIFO: true})
+
+	for index := range 3 {
+		_, err := conn.client.SendMessage(liveContext(t), &awssqs.SendMessageInput{
+			QueueUrl:               aws.String(url),
+			MessageBody:            aws.String(fmt.Sprintf("ordered-%d", index)),
+			MessageGroupId:         aws.String("orders"),
+			MessageDeduplicationId: aws.String(fmt.Sprintf("%s-%d", name, index)),
+		})
+		if err != nil {
+			t.Fatalf("send: %v", err)
+		}
+	}
+	waitForDepth(t, conn, name, 3)
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: name, MaxResults: 3,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if len(messages) == 0 {
+		t.Fatal("browsed nothing from a FIFO queue holding three messages")
+	}
+	for _, message := range messages {
+		if message.Properties[PropGroupID] != "orders" {
+			t.Errorf("%s reports group %q, want orders",
+				message.MessageID, message.Properties[PropGroupID])
+		}
+		if message.Keys != "orders" {
+			t.Errorf("%s carries keys %q; the group id is what a reader groups by",
+				message.MessageID, message.Keys)
+		}
+		if message.Properties[PropSequenceNumber] == "" {
+			t.Errorf("%s reports no sequence number", message.MessageID)
+		}
+	}
+}
+
+// The producer's own attributes have to reach the page, prefixed so they stay
+// apart from the system attributes SQS sets and this driver renames.
+func TestLiveQueryMessagesCarriesProducerAttributes(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	url := makeQueue(t, conn, QueueSpec{Name: name})
+
+	_, err := conn.client.SendMessage(liveContext(t), &awssqs.SendMessageInput{
+		QueueUrl:    aws.String(url),
+		MessageBody: aws.String("with attributes"),
+		MessageAttributes: map[string]types.MessageAttributeValue{
+			"tenant": {DataType: aws.String("String"), StringValue: aws.String("acme")},
+		},
+	})
+	if err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	waitForDepth(t, conn, name, 1)
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: name, MaxResults: 1,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if len(messages) != 1 {
+		t.Fatalf("browsed %d messages, want 1", len(messages))
+	}
+	if got := messages[0].Properties["attr.tenant"]; got != "acme" {
+		t.Errorf("attr.tenant = %q, want acme", got)
+	}
+}
+
+// There is no call that takes a message id, and the driver has to say so
+// rather than returning nothing and letting a page read that as "not found".
+func TestLiveMessageByIDIsRefused(t *testing.T) {
+	conn := liveConn(t)
+
+	_, err := conn.MessageByID(liveContext(t), seedOrders, "any-id")
+	if err == nil {
+		t.Fatal("looked a message up by id, which SQS has no call for")
+	}
+}
+
+// A send reaches the queue with what the console collected: the attributes
+// beside the body, and the count the form asked for.
+func TestLivePublishSendsWhatTheConsoleCollected(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: name})
+
+	result, err := conn.Publish(liveContext(t), PublishRequest{
+		Queue:      name,
+		Body:       "hello",
+		Count:      3,
+		Attributes: map[string]string{"tenant": "acme"},
+	})
+	if err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if result.Sent != 3 {
+		t.Errorf("sent = %d, want 3", result.Sent)
+	}
+	if result.MessageID == "" {
+		t.Error("the send reports no message id")
+	}
+	waitForDepth(t, conn, name, 3)
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: name, MaxResults: 3,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	for _, message := range messages {
+		if message.Body != "hello" {
+			t.Errorf("body = %q, want hello", message.Body)
+		}
+		if got := message.Properties["attr.tenant"]; got != "acme" {
+			t.Errorf("attr.tenant = %q, want acme", got)
+		}
+	}
+}
+
+// A send of more than ten is several batches, and every message has to arrive:
+// a batch's entries succeed and fail individually, so a driver that reported
+// the request rather than the entries would call a partial send clean.
+func TestLivePublishBatchesPastTen(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: name})
+
+	result, err := conn.Publish(liveContext(t), PublishRequest{Queue: name, Body: "batched", Count: 23})
+	if err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if result.Sent != 23 {
+		t.Errorf("sent = %d, want 23 across three batches", result.Sent)
+	}
+	waitForDepth(t, conn, name, 23)
+}
+
+// A delayed message is held and counted apart from what is available, which is
+// the whole reason the queues board shows the three counts separately.
+func TestLivePublishDelaysAMessage(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: name})
+
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Queue: name, Body: "later", Delay: 600 * time.Second,
+	}); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	waitForDepth(t, conn, name, 1)
+
+	queue, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if queue.Attribute(AttrDelayed) != "1" || queue.Attribute(AttrVisible) != "0" {
+		t.Errorf("delayed=%q visible=%q, want 1 and 0",
+			queue.Attribute(AttrDelayed), queue.Attribute(AttrVisible))
+	}
+
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Queue: name, Body: "too late", Delay: time.Hour,
+	}); err == nil {
+		t.Error("accepted a delay past the fifteen minutes SQS allows")
+	}
+}
+
+/*
+ * The FIFO rules, which the driver enforces rather than the service.
+ *
+ * SQS refuses a FIFO send with no group id and a standard send with one, and
+ * names MessageGroupId in both answers - so half the people reading its own
+ * message would be sent to the wrong field.
+ */
+func TestLivePublishHoldsTheFIFORules(t *testing.T) {
+	conn := liveConn(t)
+	fifo := testName(t, ".fifo")
+	standard := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: fifo, FIFO: true})
+	makeQueue(t, conn, QueueSpec{Name: standard})
+
+	if _, err := conn.Publish(liveContext(t), PublishRequest{Queue: fifo, Body: "unordered"}); err == nil {
+		t.Error("sent to a FIFO queue with no group id")
+	}
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Queue: standard, Body: "ordered", GroupID: "acme",
+	}); err == nil {
+		t.Error("sent a group id to a standard queue")
+	}
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Queue: fifo, Body: "later", GroupID: "acme", Delay: time.Minute,
+	}); err == nil {
+		t.Error("accepted a per-message delay on a FIFO queue")
+	}
+
+	/*
+	 * The repeat is the case worth proving. SQS deduplicates a FIFO send on
+	 * its body for five minutes, so ten identical copies with one
+	 * deduplication id arrive as one message - accepted, acknowledged and
+	 * silently discarded. The driver gives each copy its own.
+	 */
+	result, err := conn.Publish(liveContext(t), PublishRequest{
+		Queue: fifo, Body: "same body", Count: 4, GroupID: "acme",
+	})
+	if err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if result.Sent != 4 {
+		t.Fatalf("sent = %d, want 4", result.Sent)
+	}
+	waitForDepth(t, conn, fifo, 4)
+}
+
+/*
+ * The canonical port is RocketMQ's shape, and what it does with the three
+ * arguments SQS has no home for is a decision rather than an accident: a tag
+ * is refused because it would be silently dropped, and keys carries the FIFO
+ * group id because that is the value a reader groups by.
+ */
+func TestLiveSendMessageMapsTheCanonicalPort(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: name})
+
+	id, err := conn.SendMessage(liveContext(t), name, "", "", "canonical", 0)
+	if err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	if id == "" {
+		t.Error("the canonical send reports no message id")
+	}
+
+	if _, err := conn.SendMessage(liveContext(t), name, "orders", "", "tagged", 0); err == nil {
+		t.Error("accepted a tag, which an sqs message has nowhere to carry")
+	}
+
+	fifo := testName(t, ".fifo")
+	makeQueue(t, conn, QueueSpec{Name: fifo, FIFO: true})
+	if _, err := conn.SendMessage(liveContext(t), fifo, "", "acme", "ordered", 0); err != nil {
+		t.Errorf("the canonical send did not carry the group id through keys: %v", err)
+	}
+}
+
+/*
+ * A dead-letter queue is found by walking backwards, because nothing marks
+ * one: it is an ordinary queue another queue's redrive policy points at.
+ *
+ * The sources are read from the service rather than inverted from the listing,
+ * so this asserts both halves - the queue appears, and it names what feeds it.
+ */
+func TestLiveDeadLetterQueuesWalkTheRedrivePolicies(t *testing.T) {
+	conn := liveConn(t)
+
+	queues, err := conn.DeadLetterQueues(liveContext(t), "")
+	if err != nil {
+		t.Fatalf("dead letters: %v", err)
+	}
+
+	var seeded *model.DeadLetterQueue
+	for _, queue := range queues {
+		if queue.Name == seedDLQ {
+			seeded = queue
+		}
+	}
+	if seeded == nil {
+		e2e.Missing(t, "%s is not among the dead-letter queues; run `npm run e2e:sqs:seed`", seedDLQ)
+	}
+	if seeded.Depth != 4 {
+		t.Errorf("%s depth = %d, want the 4 the seed sent", seedDLQ, seeded.Depth)
+	}
+	// SQS keeps no record of who reads a queue, so zero would read as "nothing
+	// is draining this backlog" - the one thing this page exists to say, and
+	// the one thing the service cannot support.
+	if seeded.Consumers != model.UnknownMetric {
+		t.Errorf("%s reports %d consumers, and SQS knows of none", seedDLQ, seeded.Consumers)
+	}
+
+	sources := make([]string, 0, len(seeded.Sources))
+	for _, source := range seeded.Sources {
+		sources = append(sources, source.Queue)
+	}
+	if !slices.Contains(sources, seedOrders) {
+		t.Errorf("%s names sources %v, and %s redrives into it", seedDLQ, sources, seedOrders)
+	}
+	for _, source := range seeded.Sources {
+		// A redrive policy belongs to the queue rather than to a reader of it,
+		// and a message is moved rather than re-published - so none of the
+		// fields a RabbitMQ source carries has a counterpart here.
+		if source.Subscription != "" || source.Exchange != "" || source.RoutingKey != "" {
+			t.Errorf("%s invents a subscription, exchange or routing key: %#v", seedDLQ, source)
+		}
+	}
+
+	// A queue nothing points at is not a dead-letter queue, however full it is.
+	for _, queue := range queues {
+		if queue.Name == seedDelayed || queue.Name == seedEmpty {
+			t.Errorf("%s is not a dead-letter queue and is listed as one", queue.Name)
+		}
+	}
+}
+
+// A dead-letter queue with a backlog and no sources left is the state this
+// page exists to surface: its producers were deleted, so it will never
+// receive anything again and will never drain.
+func TestLiveDeadLetterQueuesReportsAnOrphanedOne(t *testing.T) {
+	conn := liveConn(t)
+	dlq := testName(t, "-dlq")
+	source := testName(t, "-src")
+	makeQueue(t, conn, QueueSpec{Name: dlq})
+	makeQueue(t, conn, QueueSpec{Name: source, DeadLetterQueue: dlq, MaxReceiveCount: 2})
+
+	found := func() *model.DeadLetterQueue {
+		queues, err := conn.DeadLetterQueues(liveContext(t), "")
+		if err != nil {
+			t.Fatalf("dead letters: %v", err)
+		}
+		for _, queue := range queues {
+			if queue.Name == dlq {
+				return queue
+			}
+		}
+		return nil
+	}
+
+	withSource := found()
+	if withSource == nil {
+		t.Fatalf("%s is pointed at by %s and was not found", dlq, source)
+	}
+	if len(withSource.Sources) != 1 || withSource.Sources[0].Queue != source {
+		t.Errorf("%s names sources %#v, want only %s", dlq, withSource.Sources, source)
+	}
+
+	// Taking the policy off the source has to take the queue out of the
+	// listing: it is not a dead-letter queue any more, and nothing about the
+	// queue itself changed.
+	if err := conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: source}); err != nil {
+		t.Fatalf("remove source: %v", err)
+	}
+	deadline := time.Now().Add(20 * time.Second)
+	for found() != nil {
+		if time.Now().After(deadline) {
+			t.Fatalf("%s is still listed as a dead-letter queue 20s after its only source went", dlq)
+		}
+		time.Sleep(time.Second)
+	}
+}

@@ -21,10 +21,11 @@ import type { ProtocolId } from "@/design/data/protocols";
  * they go through a token that carries the brand's own dark-mode value. The
  * other five read on both.
  *
- * NSQ is drawn here instead. Simple Icons carries no glyph for it and NSQ's
- * own mark is a wordmark rather than a symbol, so rather than borrowing a
- * neighbour's this is a mark of its own, tinted through a token because a
- * colour invented here has no brand value to be faithful to.
+ * NSQ and SQS are drawn here instead. Simple Icons carries neither: NSQ's own
+ * mark is a wordmark rather than a symbol, and Amazon's were withdrawn from the
+ * set over trademark policy. So rather than borrowing a neighbour's, each has a
+ * mark of its own, tinted through a token because a colour invented here has no
+ * brand value to be faithful to.
  */
 /**
  * One topic fanning out into three channels, which is the whole of what NSQ
@@ -54,6 +55,32 @@ function NsqGlyph({ size = 14, color = "currentColor", ...rest }: IconBaseProps)
   );
 }
 
+/**
+ * Messages in line, and one leaving. It is the whole of what SQS is: a queue
+ * holds what has been sent until somebody asks for it, with no topic, no
+ * subscription and no second object anywhere in the service.
+ */
+function SqsGlyph({ size = 14, color = "currentColor", ...rest }: IconBaseProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...rest}
+    >
+      <rect x="2" y="8" width="4" height="8" rx="1" />
+      <rect x="8" y="8" width="4" height="8" rx="1" />
+      <rect x="14" y="8" width="4" height="8" rx="1" fill={color} stroke="none" />
+      <path d="M20 12h2M20.5 9.5 23 12l-2.5 2.5" />
+    </svg>
+  );
+}
+
 const GLYPH: Record<ProtocolId, { icon: IconType; color: string }> = {
   rocketmq: { icon: SiApacherocketmq, color: "#D77310" },
   kafka: { icon: SiApachekafka, color: "var(--c-brand-kafka)" },
@@ -67,6 +94,7 @@ const GLYPH: Record<ProtocolId, { icon: IconType; color: string }> = {
   // is true than a neighbour's borrowed.
   activemq: { icon: SiApache, color: "#D22128" },
   nsq: { icon: NsqGlyph, color: "var(--c-brand-nsq)" },
+  sqs: { icon: SqsGlyph, color: "var(--c-brand-sqs)" },
 };
 
 export function ProtocolIcon({

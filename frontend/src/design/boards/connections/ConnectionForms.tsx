@@ -2576,3 +2576,215 @@ export function NsqForm({
     </>
   );
 }
+
+/** Option keys the SQS driver reads back off a stored profile. */
+export const OPTION_SQS_REGION = "region";
+export const OPTION_SQS_QUEUE_PREFIX = "queuePrefix";
+export const OPTION_SQS_ENDPOINT_URL = "endpointUrl";
+
+/**
+ * The first form here with no address field, and it is not an omission.
+ *
+ * There is no broker to dial. A queue is reached by naming a region and
+ * signing a request with an AWS credential, and the SDK resolves
+ * sqs.<region>.amazonaws.com for itself - so the region is what every other
+ * family's endpoint row is, and the connection row shows it in the address
+ * column for the same reason.
+ *
+ * The credential pair is optional, which is the one thing about this form
+ * worth reading twice. Left blank the driver uses the machine's own AWS
+ * identity - environment variables, the shared config file, an instance or
+ * container role - which is how this app is expected to run on anything
+ * already inside AWS. Half a pair is refused, because falling back to that
+ * identity when someone typed one key and not the other would connect as
+ * whoever the machine is rather than as the account they meant.
+ */
+export interface SqsDraft {
+  name: string;
+  /** Required. What an endpoint field is on every other family. */
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  /** Only temporary credentials carry one, and it expires with the session. */
+  sessionToken: string;
+  /** Narrows every listing. An account's queues are not one team's. */
+  queuePrefix: string;
+  /** A VPC interface endpoint, or an emulator. Still signed for the region. */
+  endpointUrl: string;
+  group: string;
+  remark: string;
+  timeoutSec: number;
+  credentialsStored: boolean;
+  clearCredentials: boolean;
+}
+
+export function emptySqsDraft(): SqsDraft {
+  return {
+    name: "",
+    region: "",
+    accessKeyId: "",
+    secretAccessKey: "",
+    sessionToken: "",
+    queuePrefix: "",
+    endpointUrl: "",
+    group: "",
+    remark: "",
+    timeoutSec: DEFAULT_TIMEOUT_SEC,
+    credentialsStored: false,
+    clearCredentials: false,
+  };
+}
+
+/** Amazon SQS, addressed by a region rather than by an address. */
+export function SqsForm({
+  value,
+  onChange,
+}: {
+  value: SqsDraft;
+  onChange: (next: SqsDraft) => void;
+}) {
+  const { t } = useTranslation();
+  const set = <K extends keyof SqsDraft>(key: K, next: SqsDraft[K]) =>
+    onChange({ ...value, [key]: next });
+  const [advancedOpen, setAdvancedOpen] = useState(
+    value.timeoutSec !== DEFAULT_TIMEOUT_SEC ||
+      value.remark !== "" ||
+      value.queuePrefix !== "" ||
+      value.endpointUrl !== "",
+  );
+  const stored = value.credentialsStored && !value.clearCredentials;
+
+  return (
+    <>
+      <div style={GRID}>
+        <Fld label={t("page.connections.form.name")}>
+          <Input
+            value={value.name}
+            placeholder="sqs-prod"
+            onChange={(event) => set("name", event.target.value)}
+          />
+        </Fld>
+        <Fld
+          label={t("page.connections.form.sqs.region")}
+          hint={t("page.connections.form.sqs.regionHint")}
+        >
+          <Input
+            className="mono3"
+            style={MONO}
+            value={value.region}
+            placeholder="eu-west-1"
+            onChange={(event) => set("region", event.target.value)}
+          />
+        </Fld>
+        <Fld
+          label={t("page.connections.form.sqs.accessKeyId")}
+          hint={
+            stored ? (
+              <button
+                type="button"
+                className="mqs-linkbtn"
+                onClick={() => set("clearCredentials", true)}
+              >
+                {t("page.connections.form.clearCredentials")}
+              </button>
+            ) : (
+              t("page.connections.form.sqs.credentialsHint")
+            )
+          }
+        >
+          <Input
+            className="mono3"
+            style={MONO}
+            value={value.accessKeyId}
+            placeholder={stored ? t("page.connections.form.secretStored") : "AKIA..."}
+            onChange={(event) => set("accessKeyId", event.target.value)}
+          />
+        </Fld>
+        <Fld label={t("page.connections.form.sqs.secretAccessKey")}>
+          <Input
+            type="password"
+            value={value.secretAccessKey}
+            placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+            onChange={(event) => set("secretAccessKey", event.target.value)}
+          />
+        </Fld>
+        <Fld
+          span
+          label={t("page.connections.form.sqs.sessionToken")}
+          hint={t("page.connections.form.sqs.sessionTokenHint")}
+        >
+          <Input
+            type="password"
+            value={value.sessionToken}
+            placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+            onChange={(event) => set("sessionToken", event.target.value)}
+          />
+        </Fld>
+      </div>
+
+      <FormNote
+        advanced={
+          <button
+            type="button"
+            className="mqs-disclosure"
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((open) => !open)}
+          >
+            <ChevronRight size={12} aria-hidden />
+            {t("page.connections.form.rocketmq.advanced")}
+          </button>
+        }
+        note={t("page.connections.form.sqs.note")}
+      />
+      {advancedOpen && (
+        <div style={GRID}>
+          <Fld
+            label={t("page.connections.form.sqs.queuePrefix")}
+            hint={t("page.connections.form.sqs.queuePrefixHint")}
+          >
+            <Input
+              className="mono3"
+              style={MONO}
+              value={value.queuePrefix}
+              placeholder="team-orders-"
+              onChange={(event) => set("queuePrefix", event.target.value)}
+            />
+          </Fld>
+          <Fld
+            label={t("page.connections.form.rocketmq.timeout")}
+            hint={t("page.connections.form.rocketmq.timeoutHint")}
+          >
+            <Input
+              type="number"
+              value={value.timeoutSec > 0 ? String(value.timeoutSec) : ""}
+              onChange={(event) => {
+                const seconds = Number.parseInt(event.target.value, 10);
+                set("timeoutSec", Number.isNaN(seconds) ? 0 : seconds);
+              }}
+            />
+          </Fld>
+          <Fld
+            span
+            label={t("page.connections.form.sqs.endpointUrl")}
+            hint={t("page.connections.form.sqs.endpointUrlHint")}
+          >
+            <Input
+              className="mono3"
+              style={MONO}
+              value={value.endpointUrl}
+              placeholder="https://vpce-0abc.sqs.eu-west-1.vpce.amazonaws.com"
+              onChange={(event) => set("endpointUrl", event.target.value)}
+            />
+          </Fld>
+          <Fld
+            span
+            label={t("page.connections.form.remark")}
+            hint={t("page.connections.form.remarkHint")}
+          >
+            <Input value={value.remark} onChange={(event) => set("remark", event.target.value)} />
+          </Fld>
+        </div>
+      )}
+    </>
+  );
+}

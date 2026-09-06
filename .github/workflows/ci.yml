@@ -327,6 +327,19 @@ jobs:
             up: |
               npm run e2e:nsq:up
               npm run e2e:nsq:seed
+          - family: sqs
+            packages: ./internal/app/... ./internal/driver/sqs/...
+            # LocalStack rather than a broker, because there is no broker to
+            # run: SQS is an AWS API, so the only environments are a real
+            # account and an emulator. The driver reaches it through the
+            # endpoint-override option a VPC endpoint would use, so the
+            # override is exercised by every test here rather than by none.
+            # The seed is required - the cross-check compares what the app
+            # computes against the raw API, and comparing zero against zero
+            # proves nothing.
+            up: |
+              npm run e2e:sqs:up
+              npm run e2e:sqs:seed
     steps:
       - uses: actions/checkout@v7
 

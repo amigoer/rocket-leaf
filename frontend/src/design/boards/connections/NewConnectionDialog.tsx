@@ -28,6 +28,7 @@ import {
   RabbitMQForm,
   RedisForm,
   RocketMQForm,
+  SqsForm,
 } from "./ConnectionForms";
 import {
   emptyDraft,
@@ -51,6 +52,9 @@ const TILE: Record<ProtocolId, { name: string; versions: string }> = {
   // driver's to work out, so asking here would only let a user get it wrong.
   activemq: { name: "ActiveMQ", versions: "Classic 5/6 · Artemis 2.x" },
   nsq: { name: "NSQ", versions: "1.x" },
+  // No version to print: SQS is a managed service with one, whichever AWS
+  // is running. What varies is the region, and that is a form field.
+  sqs: { name: "Amazon SQS", versions: "managed" },
 };
 
 /** What the probe last reported, drawn in the footer beside the test button. */
@@ -233,6 +237,11 @@ export function NewConnectionDialog({
         <NsqForm
           value={draft.value}
           onChange={(next) => setDraft({ protocol: "nsq", value: next })}
+        />
+      ) : draft.protocol === "sqs" ? (
+        <SqsForm
+          value={draft.value}
+          onChange={(next) => setDraft({ protocol: "sqs", value: next })}
         />
       ) : (
         <RocketMQForm

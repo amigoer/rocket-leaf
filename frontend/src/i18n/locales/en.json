@@ -627,6 +627,25 @@
       "degraded": {
         "lookupdAbsent": "This connection names no nsqlookupd, so there is no discovery tier to describe. Everything else works without one — a single-node NSQ has none at all. Add the nsqlookupd addresses to this connection to see which daemons it is advertising and which topics it knows."
       }
+    },
+    "sqs": {
+      "name": "Amazon SQS",
+      "terms": {
+        "destination": "Queue",
+        "destinationPlural": "Queues",
+        "backlog": "Visible"
+      },
+      "form": {
+        "region": "AWS region",
+        "accessKeyId": "Access key ID",
+        "secretAccessKey": "Secret access key",
+        "sessionToken": "Session token",
+        "queuePrefix": "Queue name prefix",
+        "endpointUrl": "Endpoint override"
+      },
+      "caveat": {
+        "receiveHides": "Browsing goes through ReceiveMessage, which is the same call a consumer makes: what it reads is hidden from other consumers until this app hands it back, and its receive count goes up for good. On a queue with a redrive policy, that counts towards being dead-lettered."
+      }
     }
   },
   "shell": {
@@ -803,6 +822,14 @@
         "producer": "Publish",
         "cluster": "Cluster",
         "clients": "Clients",
+        "alerts": "Alerts"
+      },
+      "sqs": {
+        "overview": "Overview",
+        "topics": "Queues",
+        "messages": "Messages",
+        "dlq": "Dead letters",
+        "producer": "Send",
         "alerts": "Alerts"
       }
     }
@@ -1102,6 +1129,23 @@
           "lookupdHint": "The discovery tier: it knows which nsqd holds what and holds nothing itself. Only the cluster's directory list needs it, and a single-node NSQ has none. The HTTP port defaults to 4161.",
           "note": "Two daemons, and no credentials — nsqd's HTTP API takes none",
           "nsqdRequired": "Name at least one nsqd address — a cluster here is the set of them, not one that speaks for the rest."
+        },
+        "sqs": {
+          "region": "AWS region",
+          "regionHint": "Where the queues are. There is no address to type: the SDK resolves sqs.<region>.amazonaws.com, and the request is signed for this region — one signed for another is refused.",
+          "accessKeyId": "Access key ID",
+          "secretAccessKey": "Secret access key",
+          "credentialsHint": "Leave both blank to use this machine's own AWS credentials — environment variables, the shared config file, or an instance or container role.",
+          "sessionToken": "Session token (optional)",
+          "sessionTokenHint": "Only temporary credentials carry one, and it expires with the session. A connection using STS keys stops working when they do.",
+          "queuePrefix": "Queue name prefix (optional)",
+          "queuePrefixHint": "Narrows every listing to queues whose name starts with this. An account's queues belong to everyone using it, and SQS offers no other filter.",
+          "endpointUrl": "Endpoint override (optional)",
+          "endpointUrlHint": "A VPC interface endpoint, or a local emulator. The full URL, scheme included — it is still signed for the region above.",
+          "note": "A region and a credential — there is no broker to address",
+          "regionRequired": "Name an AWS region — it is what says where the queues are, and the request is signed with it.",
+          "credentialPairRequired": "An AWS credential needs both halves. Leave both blank to use this machine's own identity instead.",
+          "endpointScheme": "The endpoint override is a full URL — start it with https:// or http://."
         }
       },
       "deleteTitle": "Delete connection",
@@ -1309,7 +1353,7 @@
         "aheadOfRelease": "Local v{{current}} is newer than published v{{latest}}",
         "upToDate": "You are on the latest version v{{version}}",
         "updateCheckFailed": "Could not check for updates",
-        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, and NSQ without deploying a separate console."
+        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, and Amazon SQS without deploying a separate console."
       }
     }
   },
@@ -4436,6 +4480,156 @@
         "idleBadge": "No consumers",
         "nothingWaiting": "Nothing is waiting on any channel.",
         "note": "No rate anywhere, and no throughput chart: nsqd counts messages since it started and reports no rate at all. What the tiles separate instead is where the messages are — a backlog with consumers attached is a slow consumer, one with none is a consumer that is not running, and anything held by a topic reached no channel at all."
+      }
+    },
+    "sqs": {
+      "queues": {
+        "count": "{{count}} queues",
+        "search": "Search queues",
+        "name": "Queue",
+        "visible": "Available",
+        "inFlight": "In flight",
+        "delayed": "Delayed",
+        "depth": "Held",
+        "fifoBadge": "FIFO",
+        "deadLetterQueue": "Dead-letter queue",
+        "maxReceiveCount": "Receives before dead-lettering",
+        "visibilityTimeout": "Visibility timeout",
+        "deliveryDelay": "Delivery delay",
+        "retention": "Retention",
+        "receiveWait": "Receive wait",
+        "maxMessageBytes": "Maximum message size",
+        "encrypted": "Encrypted at rest",
+        "contentDedup": "Content-based deduplication",
+        "dedupScope": "Deduplication scope",
+        "throughputLimit": "Throughput limit",
+        "arn": "ARN",
+        "created": "Created {{name}}",
+        "modified": "Last changed",
+        "section": {
+          "messages": "Messages",
+          "settings": "Settings",
+          "fifo": "FIFO",
+          "identity": "Identity"
+        },
+        "allInFlight": "All {{count}} messages are in flight and none are available — something took them and has finished none of them. They come back when the visibility timeout expires.",
+        "note": "Every count is approximate: SQS reports what its servers last agreed on. Rates live in CloudWatch, not here.",
+        "create": "New queue",
+        "createTitle": "New queue",
+        "editTitle": "Edit {{name}}",
+        "updated": "Saved {{name}}",
+        "nameHint": "Up to 80 letters, digits, hyphens and underscores. A name cannot be changed afterwards, and SQS refuses it for 60 seconds after the queue is deleted.",
+        "nameProblem": {
+          "empty": "A queue needs a name.",
+          "tooLong": "SQS allows 80 characters, and a .fifo suffix counts towards them.",
+          "charset": "Letters, digits, hyphens and underscores only — the one dot allowed is the .fifo suffix."
+        },
+        "fifoHint": "Ordering and deduplication, and a group id on every send. It is decided by the name: turning this on appends .fifo.",
+        "fifoFixed": "Fixed when the queue was created and spelled in its name. To change it, create another queue and move the messages.",
+        "visibilityTimeoutHint": "Seconds a received message stays hidden from other consumers. Too short and the same message is handled twice.",
+        "retentionHint": "Seconds SQS keeps a message nobody deleted. 60 to 1209600 — one minute to fourteen days.",
+        "deliveryDelayHint": "Seconds every message waits before it becomes available, unless the send sets its own. Up to 900.",
+        "receiveWaitHint": "Seconds a receive waits for a message. 0 is a short poll, which samples only some of the servers and can come back empty on a queue that is not.",
+        "deadLetterQueueHint": "The queue failures are moved to, by name. It has to be the same kind — a FIFO queue can only dead-letter into a FIFO one. Leave blank for no redrive policy.",
+        "maxReceiveCountHint": "Receives before a message is moved to the dead-letter queue. Browsing this app's messages page counts towards it.",
+        "contentDedupHint": "Deduplicate on the message body rather than on an explicit deduplication id.",
+        "purgeAction": "Purge",
+        "purgeTitle": "Purge {{name}}?",
+        "purgeDesc": "Discards all {{count}} messages the queue holds. SQS purges in the background, so the queue is not empty the moment this returns — and anything sent in the next minute may go with it. One purge per queue per minute is allowed.",
+        "purged": "Purging {{name}}",
+        "purgeFailed": "Could not purge the queue",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "The queue and every message in it go, and there is no undo. SQS refuses the name for 60 seconds afterwards, so it cannot be recreated straight away.",
+        "deleted": "Deleted {{name}}",
+        "deleteFailed": "Could not delete the queue"
+      },
+      "messages": {
+        "title": "Messages",
+        "subtitle": "Receive from a queue and hand it straight back",
+        "pickQueue": "Pick a queue",
+        "receive": "Receive",
+        "found": "{{count}} received",
+        "receiveNote": "SQS has one read, and it is the one a consumer makes: what appears here was hidden from other consumers until it was handed back, and every message's receive count has gone up for good. On a queue with a redrive policy, browsing often enough moves a message to the dead-letter queue with nothing having failed.",
+        "startHere": "Pick a queue and press Receive.",
+        "nothingVisible": "Nothing was available. Messages already in flight, still delayed, or on a server this poll did not reach are not returned.",
+        "messageId": "Message ID",
+        "sent": "Sent",
+        "firstReceived": "First received",
+        "receiveCount": "Receives",
+        "sender": "Sender",
+        "bodyMd5": "Body MD5",
+        "body": "Body",
+        "groupId": "Group ID",
+        "deduplicationId": "Deduplication ID",
+        "sequenceNumber": "Sequence number",
+        "section": {
+          "fifo": "FIFO",
+          "attributes": "Message attributes"
+        }
+      },
+      "producer": {
+        "title": "Send a message",
+        "subtitle": "One body, or the same body several times",
+        "queue": "Queue",
+        "queueHint": "A .fifo name orders its messages and needs a group id on every send.",
+        "body": "Body",
+        "bodyHint": "Up to 256 KB by default, and the queue's own maximum message size can be lower.",
+        "count": "Copies",
+        "countHint": "Sends the same body this many times, in batches of ten. Up to {{max}}.",
+        "delay": "Delay (seconds)",
+        "delayHint": "Holds the message back from consumers. Up to {{max}} — fifteen minutes is the service's ceiling.",
+        "groupId": "Group ID",
+        "groupIdHint": "What this message is ordered against. Messages in one group are delivered in order; different groups move independently.",
+        "deduplicationId": "Deduplication ID",
+        "deduplicationIdHint": "SQS treats two sends with the same id inside five minutes as one message and silently discards the second. Leave blank to have one generated.",
+        "attributes": "Message attributes",
+        "attributesHint": "Named values beside the body, sent as strings. They are the only thing an SQS message carries apart from its payload.",
+        "attributeName": "Name",
+        "attributeValue": "Value",
+        "addAttribute": "Add attribute",
+        "send": "Send",
+        "sent": "Sent {{count}}",
+        "sentAs": "Sent {{count}}, first message {{id}}",
+        "failed": "Could not send",
+        "queueRequired": "Pick a queue to send to.",
+        "bodyRequired": "A message needs a body.",
+        "countRange": "Between 1 and 1000 copies.",
+        "delayRange": "Between 0 and 900 seconds.",
+        "groupRequired": "A FIFO queue orders messages within a group, so every send needs a group id.",
+        "groupOnStandard": "Only a FIFO queue takes a group id, and this queue's name does not end in .fifo.",
+        "fifoNoDelay": "A FIFO queue takes no per-message delay — set a delivery delay on the queue instead.",
+        "attributeNameRequired": "An attribute value needs a name to be sent under.",
+        "fifoRepeatNote": "SQS deduplicates a FIFO send on its body for five minutes, so each copy is given its own deduplication id — otherwise all of them would arrive as one message."
+      },
+      "dlq": {
+        "count": "{{count}} dead-letter queues",
+        "name": "Queue",
+        "depth": "Held",
+        "sources": "Redriven from",
+        "sourceCount": "Sources",
+        "noSources": "nothing",
+        "redrivesHere": "redrives here",
+        "orphaned": "Nothing redrives into this queue any more. Whatever is in it will stay there: the queues that pointed here were deleted or reconfigured, and no consumer of theirs is coming back for it.",
+        "note": "Nothing marks a dead-letter queue in SQS — it is an ordinary queue another queue's redrive policy points at, so these were found by walking backwards from the queues this connection can see. Read one on the messages page; the receive limit that fills it is on the queue's own row."
+      },
+      "overview": {
+        "subtitle": "{{region}} · {{queues}} queues",
+        "queues": "Queues",
+        "queuesHint": "In this region, narrowed by the connection's prefix",
+        "visible": "Available",
+        "visibleHint": "Waiting for a consumer to ask",
+        "inFlight": "In flight",
+        "inFlightHint": "Handed out and not yet deleted",
+        "delayed": "Delayed",
+        "delayedHint": "Accepted and not due yet",
+        "deadLettered": "Dead lettered",
+        "deadLetteredHint": "Given up on, and nothing drains it",
+        "busiest": "Queues holding messages",
+        "state": "State",
+        "stateWaiting": "waiting",
+        "stateStalled": "all in flight",
+        "stateDeadLetter": "dead letters",
+        "note": "Every count is approximate and comes from the queue listing — the whole of what SQS reports. Rates, ages and per-queue history live in CloudWatch, under a different permission."
       }
     }
   }

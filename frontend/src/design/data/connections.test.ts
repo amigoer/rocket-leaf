@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { MQKind } from "@bindings/model/models";
-import { protocolOfKind } from "./connections";
+import { protocolOfKind, toShellConnection } from "./connections";
 import { PROTOCOL_ORDER, isProtocolReady } from "./protocols";
+import type { Connection as ConnectionProfile } from "@/api/models";
 
 /**
  * Every protocol the picker draws has to map back from a stored kind.
@@ -40,5 +41,45 @@ describe("the kind-to-protocol map", () => {
       const protocol = protocolOfKind(kind as MQKind);
       if (protocol != null) expect(drawn.has(protocol), `${kind} → ${protocol}`).toBe(true);
     }
+  });
+});
+
+/**
+ * What the address column shows for a family that has no address.
+ *
+ * Every other protocol's row prints the profile's endpoints, and an SQS
+ * profile's is deliberately empty - there is nothing to dial. Printed as-is
+ * that leaves the column blank on a perfectly good connection, and two SQS
+ * connections to different regions look identical.
+ */
+describe("the address a connection row shows", () => {
+  const profileOf = (extra: Partial<ConnectionProfile>) =>
+    ({
+      id: 1,
+      name: "orders",
+      group: "",
+      endpoints: "",
+      timeoutSec: 5,
+      status: "offline",
+      lastCheck: "",
+      isDefault: false,
+      remark: "",
+      options: {},
+      ...extra,
+    }) as unknown as ConnectionProfile;
+
+  it("shows the region for SQS, which has no address at all", () => {
+    const row = toShellConnection(
+      profileOf({ kind: MQKind.KindSQS, options: { region: "eu-west-1" } }),
+    );
+    expect(row.address).toBe("eu-west-1");
+    expect(row.protocol).toBe("sqs");
+  });
+
+  it("still shows the endpoints for a family that dials one", () => {
+    const row = toShellConnection(
+      profileOf({ kind: MQKind.KindRocketMQ, endpoints: "10.0.0.1:9876" }),
+    );
+    expect(row.address).toBe("10.0.0.1:9876");
   });
 });

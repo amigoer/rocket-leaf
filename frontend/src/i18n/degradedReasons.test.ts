@@ -73,6 +73,9 @@ const CAVEATS: Record<string, string[]> = {
   rabbitmq: ["browseAltersQueue"],
   // internal/driver/activemq/conn.go - Classic stops at maxBrowsePageSize.
   activemq: ["browseCapped"],
+  // internal/driver/sqs/conn.go - the only read SQS has is the one a consumer
+  // makes, so a browse hides what it read and raises its receive count.
+  sqs: ["receiveHides"],
 };
 
 type Bundle = Record<string, unknown>;

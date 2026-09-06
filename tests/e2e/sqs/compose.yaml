@@ -1,0 +1,47 @@
+name: mq-studio-e2e-sqs
+
+# LocalStack running SQS, and nothing else.
+#
+# Amazon SQS is the first family here with no broker to run: it is an AWS API
+# behind SigV4, so an environment for it is either a real AWS account or an
+# emulator. LocalStack is the emulator, and the driver reaches it through the
+# endpoint-override option a VPC endpoint would otherwise use - the same field,
+# exercised the same way.
+#
+# The credentials below are the strings the AWS SDK requires to sign a request
+# at all. LocalStack does not check a signature, so they authenticate nothing;
+# they exist because a client with no credential chain refuses to send.
+#
+# SERVICES=sqs keeps the emulator to the one API this driver speaks. LocalStack
+# starts every service it is asked for, and the rest are minutes of startup
+# this suite would wait for and never call.
+
+services:
+  localstack:
+    image: localstack/localstack:4
+    hostname: localstack
+    environment:
+      SERVICES: sqs
+      AWS_DEFAULT_REGION: eu-west-1
+      # Off, so a queue survives a container restart only as long as the
+      # process does. Every live test creates what it needs, and the seed is
+      # re-runnable, so persistence would only hide a seed that did nothing.
+      PERSISTENCE: '0'
+      DEBUG: '0'
+    ports:
+      - '127.0.0.1:4566:4566'
+    # The health endpoint reports per-service readiness rather than only that
+    # the process is up: LocalStack answers HTTP on 4566 well before sqs is
+    # "available", and a probe on the port alone would hand the seed an API
+    # that is still starting.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl -sf http://127.0.0.1:4566/_localstack/health
+          | grep -q '"sqs": *"\(available\|running\)"'
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped

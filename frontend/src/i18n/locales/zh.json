@@ -627,6 +627,25 @@
       "degraded": {
         "lookupdAbsent": "这个连接没有填 nsqlookupd，所以没有服务发现层可展示。其余功能都不依赖它——单节点 NSQ 本来就没有。想看它对外通告了哪些 nsqd、知道哪些主题，请在连接里补上 nsqlookupd 地址。"
       }
+    },
+    "sqs": {
+      "name": "Amazon SQS",
+      "terms": {
+        "destination": "队列",
+        "destinationPlural": "队列",
+        "backlog": "可见"
+      },
+      "form": {
+        "region": "AWS 区域",
+        "accessKeyId": "Access Key ID",
+        "secretAccessKey": "Secret Access Key",
+        "sessionToken": "Session Token",
+        "queuePrefix": "队列名前缀",
+        "endpointUrl": "自定义 Endpoint"
+      },
+      "caveat": {
+        "receiveHides": "浏览走的是 ReceiveMessage，也就是消费者用的那个调用：读到的消息在本应用放回去之前对其他消费者不可见，接收次数还会永久加一。如果队列配了重驱策略，这个次数会计入进入死信队列的判定。"
+      }
     }
   },
   "shell": {
@@ -803,6 +822,14 @@
         "producer": "发送",
         "cluster": "集群",
         "clients": "客户端",
+        "alerts": "告警"
+      },
+      "sqs": {
+        "overview": "概览",
+        "topics": "队列",
+        "messages": "消息",
+        "dlq": "死信",
+        "producer": "发送",
         "alerts": "告警"
       }
     }
@@ -1102,6 +1129,23 @@
           "lookupdHint": "服务发现层：它知道哪个 nsqd 上有什么，自身不存任何消息。只有集群的目录列表需要它，单节点 NSQ 根本没有。HTTP 端口默认 4161。",
           "note": "两种守护进程，且无需凭据——nsqd 的 HTTP API 不做认证",
           "nsqdRequired": "至少填一个 nsqd 地址——这里的集群是它们的集合，而不是由某一个代表其余。"
+        },
+        "sqs": {
+          "region": "AWS 区域",
+          "regionHint": "队列所在的位置。这里没有地址可填：SDK 会自行解析 sqs.<region>.amazonaws.com，请求也按这个区域签名——按别的区域签名的请求会被拒绝。",
+          "accessKeyId": "Access Key ID",
+          "secretAccessKey": "Secret Access Key",
+          "credentialsHint": "两项都留空，就使用本机自己的 AWS 凭据——环境变量、共享配置文件，或实例、容器角色。",
+          "sessionToken": "Session Token（可选）",
+          "sessionTokenHint": "只有临时凭据才有，且会随会话一起过期。用 STS 密钥的连接在它失效时就会断。",
+          "queuePrefix": "队列名前缀（可选）",
+          "queuePrefixHint": "把所有列表收窄到以此开头的队列。一个账号下的队列属于所有使用它的人，而 SQS 没有别的筛选方式。",
+          "endpointUrl": "自定义 Endpoint（可选）",
+          "endpointUrlHint": "VPC 接口端点，或者本地模拟器。要填完整 URL、带协议头——它仍然按上面的区域签名。",
+          "note": "一个区域加一份凭据——这里没有 Broker 地址可填",
+          "regionRequired": "请填写 AWS 区域——它决定了队列在哪里，请求也用它签名。",
+          "credentialPairRequired": "AWS 凭据要两项一起填。两项都留空则改用本机自己的身份。",
+          "endpointScheme": "自定义 Endpoint 要填完整 URL——请以 https:// 或 http:// 开头。"
         }
       },
       "deleteTitle": "删除连接",
@@ -1309,7 +1353,7 @@
         "aheadOfRelease": "当前 v{{current}} 新于线上 v{{latest}}",
         "upToDate": "已是最新版本 v{{version}}",
         "updateCheckFailed": "无法检查更新",
-        "blurb": "本地优先的消息队列桌面客户端，无需额外部署控制台，即可管理 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ 与 NSQ 的集群、主题、消费者与消息。"
+        "blurb": "本地优先的消息队列桌面客户端，无需额外部署控制台，即可管理 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ 与 Amazon SQS 的集群、主题、消费者与消息。"
       }
     }
   },
@@ -4436,6 +4480,156 @@
         "idleBadge": "无消费者",
         "nothingWaiting": "所有通道都没有积压。",
         "note": "这里没有任何速率，也没有吞吐曲线：nsqd 只统计自启动以来的累计消息数，本身不上报速率。指标卡区分的是消息滞留在哪里——有消费者连着的堆积是消费慢，没有消费者的堆积是消费者没在跑，而滞留在主题里的则根本没进入任何通道。"
+      }
+    },
+    "sqs": {
+      "queues": {
+        "count": "{{count}} 个队列",
+        "search": "搜索队列",
+        "name": "队列",
+        "visible": "可取",
+        "inFlight": "处理中",
+        "delayed": "延迟中",
+        "depth": "总持有",
+        "fifoBadge": "FIFO",
+        "deadLetterQueue": "死信队列",
+        "maxReceiveCount": "进死信前的接收次数",
+        "visibilityTimeout": "可见性超时",
+        "deliveryDelay": "投递延迟",
+        "retention": "保留时长",
+        "receiveWait": "接收等待",
+        "maxMessageBytes": "单条消息上限",
+        "encrypted": "静态加密",
+        "contentDedup": "基于内容去重",
+        "dedupScope": "去重范围",
+        "throughputLimit": "吞吐限制",
+        "arn": "ARN",
+        "created": "已创建 {{name}}",
+        "modified": "最后修改",
+        "section": {
+          "messages": "消息",
+          "settings": "配置",
+          "fifo": "FIFO",
+          "identity": "标识"
+        },
+        "allInFlight": "全部 {{count}} 条都在处理中、没有一条可取——有消费者把它们取走了却一条都没处理完。等可见性超时到期后它们会重新出现。",
+        "note": "所有计数都是近似值：SQS 返回的是它各台服务器最近达成一致的数字。速率在 CloudWatch，不在这里。",
+        "create": "新建队列",
+        "createTitle": "新建队列",
+        "editTitle": "编辑 {{name}}",
+        "updated": "已保存 {{name}}",
+        "nameHint": "最多 80 个字符，可用字母、数字、连字符和下划线。创建后不能改名；队列删除后这个名字还会被 SQS 拒绝 60 秒。",
+        "nameProblem": {
+          "empty": "队列需要一个名字。",
+          "tooLong": "SQS 只允许 80 个字符，.fifo 后缀也算在内。",
+          "charset": "只能用字母、数字、连字符和下划线——唯一允许的点是 .fifo 后缀。"
+        },
+        "fifoHint": "保证顺序与去重，且每次发送都必须带分组 ID。它由名字决定：打开这个开关会自动加上 .fifo。",
+        "fifoFixed": "创建时就固定了，并写在名字里。要改只能新建一个队列再把消息搬过去。",
+        "visibilityTimeoutHint": "消息被取走后对其他消费者隐藏的秒数。设得太短，同一条消息会被处理两次。",
+        "retentionHint": "没被删除的消息 SQS 保留多少秒。范围 60 到 1209600——一分钟到十四天。",
+        "deliveryDelayHint": "每条消息在变为可取之前等待的秒数，发送时另行指定的除外。最多 900。",
+        "receiveWaitHint": "一次接收等待消息的秒数。0 是短轮询，只会抽查部分服务器，队列非空时也可能返回空。",
+        "deadLetterQueueHint": "失败消息转入的队列，按名字填。类型必须一致——FIFO 队列只能转入 FIFO 队列。留空表示不配置重驱策略。",
+        "maxReceiveCountHint": "消息被接收多少次后转入死信队列。本应用消息页的浏览也会计入这个次数。",
+        "contentDedupHint": "按消息内容去重，而不是按显式的去重 ID。",
+        "purgeAction": "清空",
+        "purgeTitle": "清空 {{name}}？",
+        "purgeDesc": "队列里的 {{count}} 条消息会全部丢弃。SQS 在后台执行清空，所以这个操作返回时队列并不一定已空——接下来一分钟内发送的消息也可能一并被删。每个队列每分钟只允许清空一次。",
+        "purged": "正在清空 {{name}}",
+        "purgeFailed": "清空队列失败",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "队列和其中所有消息都会删除，且无法撤销。之后 60 秒内 SQS 会拒绝这个名字，无法立刻重建。",
+        "deleted": "已删除 {{name}}",
+        "deleteFailed": "删除队列失败"
+      },
+      "messages": {
+        "title": "消息",
+        "subtitle": "从队列接收一批，再立刻放回去",
+        "pickQueue": "选择队列",
+        "receive": "接收",
+        "found": "已接收 {{count}} 条",
+        "receiveNote": "SQS 只有一种读取方式，就是消费者用的那一种：这里出现的消息在放回去之前对其他消费者不可见，而且每条消息的接收次数都已经永久加一。如果队列配了重驱策略，反复浏览会把消息推进死信队列——尽管什么都没有失败。",
+        "startHere": "选一个队列，然后点“接收”。",
+        "nothingVisible": "这次没有可取的消息。已在处理中、仍在延迟，或者本次轮询没访问到的服务器上的消息都不会返回。",
+        "messageId": "消息 ID",
+        "sent": "发送时间",
+        "firstReceived": "首次接收",
+        "receiveCount": "接收次数",
+        "sender": "发送者",
+        "bodyMd5": "内容 MD5",
+        "body": "消息体",
+        "groupId": "分组 ID",
+        "deduplicationId": "去重 ID",
+        "sequenceNumber": "序列号",
+        "section": {
+          "fifo": "FIFO",
+          "attributes": "消息属性"
+        }
+      },
+      "producer": {
+        "title": "发送消息",
+        "subtitle": "发一条，或者把同一条发多次",
+        "queue": "队列",
+        "queueHint": "以 .fifo 结尾的队列保证顺序，每次发送都必须带分组 ID。",
+        "body": "消息体",
+        "bodyHint": "默认最大 256 KB，队列自身设置的单条消息上限可能更小。",
+        "count": "份数",
+        "countHint": "把同一条消息发这么多次，每十条一批。最多 {{max}}。",
+        "delay": "延迟（秒）",
+        "delayHint": "让消息延后一段时间才对消费者可见。最多 {{max}}——十五分钟是服务本身的上限。",
+        "groupId": "分组 ID",
+        "groupIdHint": "这条消息按谁排序。同一分组内的消息按顺序投递，不同分组彼此独立。",
+        "deduplicationId": "去重 ID",
+        "deduplicationIdHint": "五分钟内两次发送用同一个 ID，SQS 会当成一条消息，第二条会被静默丢弃。留空则自动生成一个。",
+        "attributes": "消息属性",
+        "attributesHint": "消息体之外的命名值，按字符串发送。除了消息体本身，这是 SQS 消息唯一能携带的东西。",
+        "attributeName": "名称",
+        "attributeValue": "值",
+        "addAttribute": "添加属性",
+        "send": "发送",
+        "sent": "已发送 {{count}} 条",
+        "sentAs": "已发送 {{count}} 条，首条消息 {{id}}",
+        "failed": "发送失败",
+        "queueRequired": "请选择要发送到的队列。",
+        "bodyRequired": "消息需要有内容。",
+        "countRange": "份数需在 1 到 1000 之间。",
+        "delayRange": "延迟需在 0 到 900 秒之间。",
+        "groupRequired": "FIFO 队列按分组保证顺序，所以每次发送都要填分组 ID。",
+        "groupOnStandard": "只有 FIFO 队列才接受分组 ID，而这个队列名并不以 .fifo 结尾。",
+        "fifoNoDelay": "FIFO 队列不支持单条消息延迟——请改为在队列上设置投递延迟。",
+        "attributeNameRequired": "属性值需要有名称才能发送。",
+        "fifoRepeatNote": "SQS 会在五分钟内按消息体对 FIFO 发送去重，所以每一份都会分配各自的去重 ID——否则它们只会到达一条。"
+      },
+      "dlq": {
+        "count": "{{count}} 个死信队列",
+        "name": "队列",
+        "depth": "持有",
+        "sources": "来自",
+        "sourceCount": "来源数",
+        "noSources": "无",
+        "redrivesHere": "重驱到这里",
+        "orphaned": "已经没有队列会把消息重驱到这里了。里面的东西会一直留着：原先指向这里的队列被删掉或改了配置，它们的消费者不会再回来取。",
+        "note": "SQS 里没有任何标记表示某个队列是死信队列——它只是被另一个队列的重驱策略指向的普通队列，所以这些是从当前连接能看到的队列反向查出来的。要看内容请到消息页；把消息推进来的接收次数上限在队列自己那一行。"
+      },
+      "overview": {
+        "subtitle": "{{region}} · {{queues}} 个队列",
+        "queues": "队列",
+        "queuesHint": "该区域内，按连接的前缀筛选后",
+        "visible": "可取",
+        "visibleHint": "等待消费者来取",
+        "inFlight": "处理中",
+        "inFlightHint": "已取走但还没删除",
+        "delayed": "延迟中",
+        "delayedHint": "已接收但还没到时间",
+        "deadLettered": "进入死信",
+        "deadLetteredHint": "被放弃的消息，且无人清理",
+        "busiest": "有积压的队列",
+        "state": "状态",
+        "stateWaiting": "等待中",
+        "stateStalled": "全在处理中",
+        "stateDeadLetter": "死信",
+        "note": "所有计数都是近似值，来自队列列表——那是 SQS 报告的全部内容。速率、消息年龄和每队列的历史数据在 CloudWatch，需要另一份权限。"
       }
     }
   }

@@ -16,6 +16,7 @@ import (
 	"github.com/amigoer/mq-studio/internal/driver/rabbitmq"
 	"github.com/amigoer/mq-studio/internal/driver/redisstream"
 	"github.com/amigoer/mq-studio/internal/driver/rocketmq"
+	sqsdriver "github.com/amigoer/mq-studio/internal/driver/sqs"
 	"github.com/amigoer/mq-studio/internal/service/access"
 	activemqservice "github.com/amigoer/mq-studio/internal/service/activemq"
 	"github.com/amigoer/mq-studio/internal/service/cluster"
@@ -34,6 +35,7 @@ import (
 	"github.com/amigoer/mq-studio/internal/service/routing"
 	"github.com/amigoer/mq-studio/internal/service/scope"
 	"github.com/amigoer/mq-studio/internal/service/settings"
+	sqsservice "github.com/amigoer/mq-studio/internal/service/sqs"
 	"github.com/amigoer/mq-studio/internal/service/subscription"
 	"github.com/amigoer/mq-studio/internal/storage/layout"
 )
@@ -57,6 +59,7 @@ type Services struct {
 	NATS        *natsservice.Service
 	ActiveMQ    *activemqservice.Service
 	NSQ         *nsqservice.Service
+	SQS         *sqsservice.Service
 
 	// Conns resolves a profile id to a live connection. The bridge needs it to
 	// answer capability questions without going through a domain service.
@@ -90,6 +93,7 @@ func New() (*Services, error) {
 	driver.Register(natsdriver.New())
 	driver.Register(activemq.New())
 	driver.Register(nsqdriver.New())
+	driver.Register(sqsdriver.New())
 
 	registry := driver.NewRegistry()
 	settingsService := settings.New(paths.SettingsFile)
@@ -116,6 +120,7 @@ func New() (*Services, error) {
 		NATS:        natsservice.New(conns, settingsService),
 		ActiveMQ:    activemqservice.New(conns, settingsService),
 		NSQ:         nsqservice.New(conns, settingsService),
+		SQS:         sqsservice.New(conns, settingsService),
 		Conns:       conns,
 		Collector:   collector.New(sampleActiveConnection(clusterService, registry), registry.HasActive),
 		registry:    registry,
