@@ -3284,6 +3284,7 @@
         "pullHasNoMembers": "A pull consumer has none to count — clients ask when they want messages and hold nothing open in between.",
         "stateOn": "State led by {{server}}.",
         "created": "{{name}} created",
+        "createdAt": "Created",
         "updated": "{{name}} updated",
         "deleted": "{{name}} deleted",
         "deleteFailed": "Could not delete the consumer",
@@ -4797,6 +4798,7 @@
         "throughputLimit": "Throughput limit",
         "arn": "ARN",
         "created": "Created {{name}}",
+        "createdAt": "Created",
         "modified": "Last changed",
         "section": {
           "messages": "Messages",
@@ -5387,6 +5389,7 @@
         "kmsKey": "KMS key",
         "arn": "ARN",
         "created": "Created {{name}}",
+        "createdAt": "Created",
         "shardMetrics": "Shard metrics",
         "shardMetricsNone": "None published",
         "onDemandBadge": "On demand",
