@@ -275,7 +275,7 @@ function StreamDetail({
             [t("board.kinesis.streams.encryption"), entry.encryption ?? DASH],
             [t("board.kinesis.streams.kmsKey"), entry.kmsKeyId ?? DASH],
             [t("board.kinesis.streams.arn"), entry.arn ?? DASH],
-            [t("board.kinesis.streams.created"), formatMessageTime(entry.createdAtMs)],
+            [t("board.kinesis.streams.createdAt"), formatMessageTime(entry.createdAtMs)],
             [
               t("board.kinesis.streams.shardMetrics"),
               entry.shardMetrics.length === 0

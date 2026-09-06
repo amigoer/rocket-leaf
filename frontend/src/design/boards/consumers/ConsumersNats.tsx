@@ -383,7 +383,7 @@ export function ConsumersNats() {
                         <Metric value={maxAckPending(panel)} />
                       </span>,
                     ],
-                    [t("board.consumers.nats.created"), mono(createdAt(panel))],
+                    [t("board.consumers.nats.createdAt"), mono(createdAt(panel))],
                   ]}
                 />
 

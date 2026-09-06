@@ -341,7 +341,7 @@ function QueueDetail({
             [t("board.sqs.queues.deadLetterQueue"), entry.deadLetterQueue ?? DASH],
             [t("board.sqs.queues.maxReceiveCount"), count(entry.maxReceiveCount)],
             [t("board.sqs.queues.arn"), entry.arn ?? DASH],
-            [t("board.sqs.queues.created"), formatMessageTime(entry.createdAtMs)],
+            [t("board.sqs.queues.createdAt"), formatMessageTime(entry.createdAtMs)],
             [t("board.sqs.queues.modified"), formatMessageTime(entry.modifiedAtMs)],
           ]}
         />

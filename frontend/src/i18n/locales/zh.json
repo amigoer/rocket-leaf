@@ -3284,6 +3284,7 @@
         "pullHasNoMembers": "拉模式没有连接数可数——客户端要消息的时候才来问，中间不挂任何东西。",
         "stateOn": "状态由 {{server}} 主导。",
         "created": "{{name}} 已创建",
+        "createdAt": "创建时间",
         "updated": "{{name}} 已更新",
         "deleted": "{{name}} 已删除",
         "deleteFailed": "删除消费者失败",
@@ -4797,6 +4798,7 @@
         "throughputLimit": "吞吐限制",
         "arn": "ARN",
         "created": "已创建 {{name}}",
+        "createdAt": "创建时间",
         "modified": "最后修改",
         "section": {
           "messages": "消息",
@@ -5387,6 +5389,7 @@
         "kmsKey": "KMS 密钥",
         "arn": "ARN",
         "created": "已创建 {{name}}",
+        "createdAt": "创建时间",
         "shardMetrics": "分片指标",
         "shardMetricsNone": "未发布",
         "onDemandBadge": "按需",

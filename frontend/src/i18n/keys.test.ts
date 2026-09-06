@@ -67,3 +67,44 @@ describe("the two bundles", () => {
     expect(usedKeys().length).toBeGreaterThan(1500);
   });
 });
+
+/**
+ * A key taken with no arguments, whose text wants one.
+ *
+ * `created` is a toast - "Created {{name}}" - and `modified` beside it is a
+ * label. Reusing the toast as the label reads as "Created {{name}}" with the
+ * braces still in it, next to a timestamp: nothing throws, no key is missing,
+ * and the two bundles agree, so every other check here passes. Three boards
+ * had it, one of them since the family shipped.
+ */
+const KEY_WITH_NO_ARGS = /\bt\(\s*"([a-zA-Z][\w.-]*)"\s*\)/g;
+
+function textOf(bundle: unknown, key: string): string | null {
+  let node: unknown = bundle;
+  for (const part of key.split(".")) {
+    if (typeof node !== "object" || node === null || !(part in node)) return null;
+    node = (node as Record<string, unknown>)[part];
+  }
+  return typeof node === "string" ? node : null;
+}
+
+describe.each([
+  ["zh", zh],
+  ["en", en],
+] as const)("the %s bundle", (_language, bundle) => {
+  it("is never asked for an interpolated string without the values", () => {
+    const leaking: string[] = [];
+    for (const [file, source] of Object.entries(sources)) {
+      if (file.includes(".test.")) continue;
+      for (const match of source.matchAll(KEY_WITH_NO_ARGS)) {
+        const key = match[1];
+        if (key == null) continue;
+        const text = textOf(bundle, key);
+        if (text != null && text.includes("{{")) {
+          leaking.push(`${key} -> ${text} (${file})`);
+        }
+      }
+    }
+    expect(leaking).toEqual([]);
+  });
+});
