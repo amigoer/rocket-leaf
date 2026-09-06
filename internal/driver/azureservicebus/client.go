@@ -198,11 +198,21 @@ func (t managementTransport) Do(request *http.Request) (*http.Response, error) {
 // and an *azcore.ResponseError on the management plane, so the two are asked
 // separately and the callers only ever see the question they meant.
 
-// notFound reports an error the service raised because the entity is gone.
-//
-// Worth separating from any other failure: a listing that raced a delete is
-// ordinary and the row is simply dropped, where an authentication or
-// permission failure is something the user has to act on.
+/*
+ * notFound reports an error the service raised because the entity is gone.
+ *
+ * Worth separating from any other failure: a listing that raced a delete is
+ * ordinary and the row is simply dropped, where an authentication or
+ * permission failure is something the user has to act on.
+ *
+ * It answers for a delete, a create and every data-plane call. It does not
+ * answer for a Get: the admin client's Get* methods return a nil response and
+ * a nil error for an entity that does not exist, which is a convention rather
+ * than a mistake and the reason every caller here checks the response for nil
+ * before touching it. A driver that only checked the error would dereference
+ * that nil on the first missing entity, which is a crashed window rather than
+ * a "not found" on a page.
+ */
 func notFound(err error) bool {
 	if err == nil {
 		return false

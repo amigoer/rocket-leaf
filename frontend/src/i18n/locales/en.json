@@ -4924,6 +4924,40 @@
         "busiest": "Most-read topics",
         "note": "No backlog and no throughput here: both are Cloud Monitoring metrics, under a different API and a different credential."
       }
+    },
+    "azure-servicebus": {
+      "entities": {
+        "count": "{{queues}} queue(s), {{topics}} topic(s)",
+        "search": "Filter by name",
+        "name": "Name",
+        "kind": "Kind",
+        "kindQueue": "queue",
+        "kindTopic": "topic",
+        "depth": "Active",
+        "deadLetters": "Dead letters",
+        "scheduled": "Scheduled",
+        "subscribers": "Subscriptions",
+        "subscriptionNames": "Names",
+        "status": "Status",
+        "lockDuration": "Lock duration",
+        "maxDelivery": "Delivery limit",
+        "ttl": "Time to live",
+        "autoDelete": "Auto-delete on idle",
+        "maxSize": "Maximum size",
+        "sessions": "Sessions",
+        "duplicateDetection": "Duplicate detection",
+        "partitioned": "Partitioned",
+        "forwardTo": "Forward to",
+        "forwardDeadLettersTo": "Forward dead letters to",
+        "noSubscriberBadge": "no subscription",
+        "noSubscriberNote": "Nothing subscribes to this topic, so every message sent to it is accepted and discarded on arrival. It leaves no backlog anywhere.",
+        "section": {
+          "holding": "Holding",
+          "delivery": "Delivery",
+          "shape": "Shape"
+        },
+        "note": "A queue holds its messages; a topic holds none and copies each into every subscription whose rules let it through. Counts come from the entity's runtime properties, which the Service Bus emulator does not report."
+      }
     }
   }
 }

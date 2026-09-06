@@ -227,3 +227,246 @@ func TestLiveConnectionKnowsItIsAnEmulator(t *testing.T) {
 		t.Errorf("errors here would call the endpoint %q", conn.endpointName())
 	}
 }
+
+/*
+ * Listing, which is two API calls folded into one board.
+ *
+ * Queues and topics are separate resources in the management API and one board
+ * here, so what this pins is that both arrive, that each row says which it is,
+ * and that a topic's subscription count comes back - it is a further call per
+ * topic and the figure the row exists for.
+ */
+func TestLiveListDestinationsCoversQueuesAndTopics(t *testing.T) {
+	conn := liveConn(t)
+
+	found, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("ListDestinations: %v", err)
+	}
+
+	byName := make(map[string]*model.Destination, len(found))
+	for _, destination := range found {
+		byName[destination.Ref.Name] = destination
+	}
+
+	for _, name := range []string{seedOrders, seedFailures, seedQuiet} {
+		row, listed := byName[name]
+		if !listed {
+			e2e.Missing(t, "%s is not in the listing; run npm run e2e:azure-servicebus:seed", name)
+		}
+		if got := row.Attributes[AttrEntityType]; got != EntityQueue {
+			t.Errorf("%s is listed as %q, want a queue", name, got)
+		}
+		// A queue has no subscribers and the service keeps no register of who
+		// is reading it, so this must be unknown rather than zero.
+		if row.Subscribers != model.UnknownMetric {
+			t.Errorf("%s reports %d subscribers, and Service Bus registers none", name, row.Subscribers)
+		}
+	}
+
+	events, listed := byName[seedEvents]
+	if !listed {
+		e2e.Missing(t, "%s is not in the listing; run npm run e2e:azure-servicebus:seed", seedEvents)
+	}
+	if got := events.Attributes[AttrEntityType]; got != EntityTopic {
+		t.Errorf("%s is listed as %q, want a topic", seedEvents, got)
+	}
+	if events.Subscribers != 3 {
+		t.Errorf("%s reports %d subscriptions, seeded 3", seedEvents, events.Subscribers)
+	}
+	for _, name := range []string{seedSubAll, seedSubRed, seedSubOrders} {
+		if !strings.Contains(events.Attributes[AttrSubscriptionNames], name) {
+			t.Errorf("%s does not name %s among its subscriptions: %q",
+				seedEvents, name, events.Attributes[AttrSubscriptionNames])
+		}
+	}
+
+	// The topic the seed creates through the management API, because the
+	// emulator's own config file refuses to declare one with no subscriptions.
+	orphaned, listed := byName[seedOrphaned]
+	if !listed {
+		e2e.Missing(t, "%s is not in the listing; run npm run e2e:azure-servicebus:seed", seedOrphaned)
+	}
+	if orphaned.Subscribers != 0 {
+		t.Errorf("%s reports %d subscriptions; it exists to have none", seedOrphaned, orphaned.Subscribers)
+	}
+}
+
+/*
+ * A topic's depth is never a number, and that is the family rather than the
+ * emulator.
+ *
+ * A topic holds nothing: a send is copied into every subscription whose rules
+ * let it through and discarded if none do. A zero here would say "this topic
+ * is empty", which is true of every topic that ever existed and tells a reader
+ * nothing about whether their messages went anywhere.
+ */
+func TestLiveATopicReportsNoDepth(t *testing.T) {
+	conn := liveConn(t)
+
+	topic, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: seedEvents})
+	if err != nil {
+		t.Fatalf("DestinationDetail: %v", err)
+	}
+	if topic.Depth != model.UnknownMetric {
+		t.Errorf("%s reports a depth of %d, and a topic holds no messages", seedEvents, topic.Depth)
+	}
+	if topic.Partitions != model.UnknownMetric {
+		t.Errorf("%s reports %d partitions, and partitioning is a flag rather than a count",
+			seedEvents, topic.Partitions)
+	}
+}
+
+/*
+ * What this environment cannot exercise, asserted rather than stepped around.
+ *
+ * Service Bus reports a queue's depth and a subscription's backlog in the
+ * CountDetails element of the entity's Atom description. The emulator serves
+ * that element for a queue and a topic not at all, and for a subscription with
+ * its five children renamed to obfuscated tokens - so the SDK returns an error
+ * on the first and dereferences a nil pointer on the second.
+ *
+ * The driver's answer is to ask for none of them against an emulator and
+ * report an unknown depth, and to say so through a degraded capability with a
+ * reason rather than by printing a zero. This pins that: a number appearing
+ * here would mean either that the emulator started reporting counts or that
+ * the driver started inventing them, and those need telling apart.
+ */
+func TestLiveCountsAreDegradedAgainstTheEmulator(t *testing.T) {
+	conn := liveConn(t)
+
+	queue, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: seedOrders})
+	if err != nil {
+		t.Fatalf("DestinationDetail: %v", err)
+	}
+	if queue.Depth != model.UnknownMetric {
+		t.Errorf("%s reports a depth of %d against an emulator that reports none", seedOrders, queue.Depth)
+	}
+	if _, given := queue.Attributes[AttrDeadLetterCount]; given {
+		t.Errorf("%s reports a dead-letter count against an emulator that reports none", seedOrders)
+	}
+
+	// And the guard itself: the call the SDK panics on is never made here, but
+	// it must be survivable if it ever is.
+	if _, known := guardedCounts(func() (counts, error) { panic("obfuscated CountDetails") }); known {
+		t.Error("a panicking count read was reported as a known figure")
+	}
+}
+
+// Detail takes a name and works out which of the two it is, because a delete
+// or an inspect confirmed by name should not depend on the page having
+// remembered.
+func TestLiveDestinationDetailFindsEitherKindByName(t *testing.T) {
+	conn := liveConn(t)
+
+	queue, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: seedOrders})
+	if err != nil {
+		t.Fatalf("DestinationDetail(queue): %v", err)
+	}
+	if queue.Attributes[AttrEntityType] != EntityQueue {
+		t.Errorf("%s came back as %q", seedOrders, queue.Attributes[AttrEntityType])
+	}
+
+	topic, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: seedEvents})
+	if err != nil {
+		t.Fatalf("DestinationDetail(topic): %v", err)
+	}
+	if topic.Attributes[AttrEntityType] != EntityTopic {
+		t.Errorf("%s came back as %q", seedEvents, topic.Attributes[AttrEntityType])
+	}
+
+	if _, err := conn.DestinationDetail(liveContext(t),
+		model.DestinationRef{Name: "mqs-test-not-here"}); err == nil {
+		t.Error("described an entity that does not exist")
+	}
+}
+
+// The prefix is the connection's own filter and the API has none, so it is
+// applied in the driver - which means it has to be applied to both listings.
+func TestLiveEntityPrefixNarrowsBothListings(t *testing.T) {
+	requireNamespace(t)
+
+	profile := liveProfile()
+	profile.Options[OptionEntityPrefix] = "mqs-seed-e"
+	conn, err := open(liveContext(t), profile)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
+	found, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("ListDestinations: %v", err)
+	}
+	if len(found) != 1 || found[0].Ref.Name != seedEvents {
+		names := make([]string, 0, len(found))
+		for _, destination := range found {
+			names = append(names, destination.Ref.Name)
+		}
+		t.Fatalf("the prefix let through %v, want only %s", names, seedEvents)
+	}
+	// The prefix filters the boards; how many readers a topic has is a fact
+	// about the topic, so the count must not be narrowed with it.
+	if found[0].Subscribers != 3 {
+		t.Errorf("%s reports %d subscriptions under a prefix, want the true 3",
+			seedEvents, found[0].Subscribers)
+	}
+}
+
+/*
+ * The API's sharpest edge, pinned.
+ *
+ * A queue and a topic are addressed at the same Atom path, and the SDK's
+ * GetQueue and GetTopic send exactly the same request - they differ only in
+ * which element they look for in the reply. So GetQueue on a topic does not
+ * fail and does not answer nil: it parses a TopicDescription looking for a
+ * QueueDescription, finds none, and returns a response with every field nil.
+ *
+ * A driver that trusted a non-nil response would report every topic as a queue
+ * with no settings at all, and nothing else would go red. Worse, the same
+ * sharing applies to DELETE: DeleteQueue on a topic's name removes the topic
+ * and every subscription on it.
+ *
+ * This asserts the shape of the trap rather than only the driver's answer to
+ * it, so a future SDK that starts returning nil - or an error - is a red test
+ * rather than a silent change of behaviour underneath describeEntity.
+ */
+func TestLiveGetQueueDoesNotRefuseATopicName(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	crossed, err := conn.management.GetQueue(ctx, seedEvents, nil)
+	if err != nil {
+		t.Fatalf("GetQueue on a topic: %v", err)
+	}
+	if crossed == nil {
+		t.Skip("[e2e-gate] the SDK now answers nil for a cross-kind get; describeEntity can be simplified")
+	}
+	if crossed.Status != nil {
+		t.Errorf("GetQueue on a topic came back with a status of %q, so the discriminator is gone",
+			*crossed.Status)
+	}
+
+	// And the driver's answer to it.
+	described, err := conn.describeEntity(ctx, seedEvents)
+	if err != nil {
+		t.Fatalf("describeEntity: %v", err)
+	}
+	if described.kind() != EntityTopic {
+		t.Errorf("%s is described as %q", seedEvents, described.kind())
+	}
+	described, err = conn.describeEntity(ctx, seedOrders)
+	if err != nil {
+		t.Fatalf("describeEntity: %v", err)
+	}
+	if described.kind() != EntityQueue {
+		t.Errorf("%s is described as %q", seedOrders, described.kind())
+	}
+	described, err = conn.describeEntity(ctx, "mqs-test-absent")
+	if err != nil {
+		t.Fatalf("describeEntity: %v", err)
+	}
+	if described.kind() != "" {
+		t.Errorf("an entity that does not exist is described as %q", described.kind())
+	}
+}

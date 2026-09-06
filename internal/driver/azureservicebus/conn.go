@@ -101,7 +101,9 @@ func (c *Conn) live() error {
 // interface behind it, so each one arrives in the commit that implements it
 // rather than as a promise the connection cannot keep.
 func capabilities() []model.Capability {
-	return []model.Capability{}
+	return []model.Capability{
+		model.CapDestinationList,
+	}
 }
 
 // open builds both clients and proves the credential reaches the namespace.
@@ -143,6 +145,11 @@ func open(ctx context.Context, profile model.ConnectionProfile) (*Conn, error) {
 }
 
 // declare turns what answered into the capability set the pages gate on.
+//
+// Nothing here varies by endpoint yet. What does vary is a figure rather than
+// a capability: an emulator reports no message counts, so a depth is a dash
+// there and a number against a real namespace. That narrowing arrives with the
+// capability it belongs to.
 func (c *Conn) declare() model.Capabilities {
 	return model.Capabilities{
 		Supported: capabilities(),

@@ -4924,6 +4924,40 @@
         "busiest": "被读取最多的主题",
         "note": "这里没有积压和吞吐：两者都是 Cloud Monitoring 指标，属于另一套 API 和另一份凭据。"
       }
+    },
+    "azure-servicebus": {
+      "entities": {
+        "count": "{{queues}} 个队列，{{topics}} 个主题",
+        "search": "按名称筛选",
+        "name": "名称",
+        "kind": "类型",
+        "kindQueue": "队列",
+        "kindTopic": "主题",
+        "depth": "待处理",
+        "deadLetters": "死信",
+        "scheduled": "已排程",
+        "subscribers": "订阅数",
+        "subscriptionNames": "订阅名称",
+        "status": "状态",
+        "lockDuration": "锁定时长",
+        "maxDelivery": "投递上限",
+        "ttl": "存活时间",
+        "autoDelete": "空闲自动删除",
+        "maxSize": "最大容量",
+        "sessions": "会话",
+        "duplicateDetection": "重复检测",
+        "partitioned": "分区",
+        "forwardTo": "转发到",
+        "forwardDeadLettersTo": "死信转发到",
+        "noSubscriberBadge": "无订阅",
+        "noSubscriberNote": "没有任何订阅读取这个主题，因此发到它的每条消息都会被接收后立刻丢弃，任何地方都不会留下积压。",
+        "section": {
+          "holding": "持有",
+          "delivery": "投递",
+          "shape": "形态"
+        },
+        "note": "队列自己保存消息；主题不保存，而是把每条消息复制进规则放行的每个订阅。数量来自实体的运行时属性，而 Service Bus 模拟器不报告它们。"
+      }
     }
   }
 }

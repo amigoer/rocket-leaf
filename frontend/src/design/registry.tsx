@@ -80,6 +80,7 @@ import { NatsWorkbench } from "./boards/nats/NatsWorkbench";
 import { ActiveMQWorkbench } from "./boards/activemq/ActiveMQWorkbench";
 import { QueuesSqs } from "./boards/topics/QueuesSqs";
 import { TopicsGooglePubSub } from "./boards/topics/TopicsGooglePubSub";
+import { EntitiesAzureServiceBus } from "./boards/topics/EntitiesAzureServiceBus";
 import { SubscriptionsGooglePubSub } from "./boards/consumers/SubscriptionsGooglePubSub";
 import { MessagesSqs } from "./boards/messages/MessagesSqs";
 import { MessagesGooglePubSub } from "./boards/messages/MessagesGooglePubSub";
@@ -160,6 +161,7 @@ const BOARDS: Partial<
     nsq: TopicsNsq,
     sqs: QueuesSqs,
     "google-pubsub": TopicsGooglePubSub,
+    "azure-servicebus": EntitiesAzureServiceBus,
   },
   exchanges: { rabbitmq: ExchangesRabbitMQ },
   vhosts: { rabbitmq: VhostsRabbitMQ, pulsar: NamespacesPulsar, nats: AccountsNats },
