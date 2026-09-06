@@ -642,6 +642,9 @@
         "sessionToken": "Session Token",
         "queuePrefix": "队列名前缀",
         "endpointUrl": "自定义 Endpoint"
+      },
+      "caveat": {
+        "receiveHides": "浏览走的是 ReceiveMessage，也就是消费者用的那个调用：读到的消息在本应用放回去之前对其他消费者不可见，接收次数还会永久加一。如果队列配了重驱策略，这个次数会计入进入死信队列的判定。"
       }
     }
   },
@@ -4539,6 +4542,30 @@
         "deleteDesc": "队列和其中所有消息都会删除，且无法撤销。之后 60 秒内 SQS 会拒绝这个名字，无法立刻重建。",
         "deleted": "已删除 {{name}}",
         "deleteFailed": "删除队列失败"
+      },
+      "messages": {
+        "title": "消息",
+        "subtitle": "从队列接收一批，再立刻放回去",
+        "pickQueue": "选择队列",
+        "receive": "接收",
+        "found": "已接收 {{count}} 条",
+        "receiveNote": "SQS 只有一种读取方式，就是消费者用的那一种：这里出现的消息在放回去之前对其他消费者不可见，而且每条消息的接收次数都已经永久加一。如果队列配了重驱策略，反复浏览会把消息推进死信队列——尽管什么都没有失败。",
+        "startHere": "选一个队列，然后点“接收”。",
+        "nothingVisible": "这次没有可取的消息。已在处理中、仍在延迟，或者本次轮询没访问到的服务器上的消息都不会返回。",
+        "messageId": "消息 ID",
+        "sent": "发送时间",
+        "firstReceived": "首次接收",
+        "receiveCount": "接收次数",
+        "sender": "发送者",
+        "bodyMd5": "内容 MD5",
+        "body": "消息体",
+        "groupId": "分组 ID",
+        "deduplicationId": "去重 ID",
+        "sequenceNumber": "序列号",
+        "section": {
+          "fifo": "FIFO",
+          "attributes": "消息属性"
+        }
       }
     }
   }

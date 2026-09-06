@@ -642,6 +642,9 @@
         "sessionToken": "Session token",
         "queuePrefix": "Queue name prefix",
         "endpointUrl": "Endpoint override"
+      },
+      "caveat": {
+        "receiveHides": "Browsing goes through ReceiveMessage, which is the same call a consumer makes: what it reads is hidden from other consumers until this app hands it back, and its receive count goes up for good. On a queue with a redrive policy, that counts towards being dead-lettered."
       }
     }
   },
@@ -4539,6 +4542,30 @@
         "deleteDesc": "The queue and every message in it go, and there is no undo. SQS refuses the name for 60 seconds afterwards, so it cannot be recreated straight away.",
         "deleted": "Deleted {{name}}",
         "deleteFailed": "Could not delete the queue"
+      },
+      "messages": {
+        "title": "Messages",
+        "subtitle": "Receive from a queue and hand it straight back",
+        "pickQueue": "Pick a queue",
+        "receive": "Receive",
+        "found": "{{count}} received",
+        "receiveNote": "SQS has one read, and it is the one a consumer makes: what appears here was hidden from other consumers until it was handed back, and every message's receive count has gone up for good. On a queue with a redrive policy, browsing often enough moves a message to the dead-letter queue with nothing having failed.",
+        "startHere": "Pick a queue and press Receive.",
+        "nothingVisible": "Nothing was available. Messages already in flight, still delayed, or on a server this poll did not reach are not returned.",
+        "messageId": "Message ID",
+        "sent": "Sent",
+        "firstReceived": "First received",
+        "receiveCount": "Receives",
+        "sender": "Sender",
+        "bodyMd5": "Body MD5",
+        "body": "Body",
+        "groupId": "Group ID",
+        "deduplicationId": "Deduplication ID",
+        "sequenceNumber": "Sequence number",
+        "section": {
+          "fifo": "FIFO",
+          "attributes": "Message attributes"
+        }
       }
     }
   }

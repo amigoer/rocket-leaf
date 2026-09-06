@@ -1,6 +1,7 @@
 package sqs
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/amigoer/mq-studio/internal/driver"
@@ -388,6 +389,58 @@ func TestCredentialFieldsAvoidTheReservedACLNames(t *testing.T) {
 			t.Errorf("this driver reads the credential %q and the form never collects it", key)
 		}
 	}
+}
+
+/*
+ * Browsing has to carry its caveat, because the read is the same call a
+ * consumer makes.
+ *
+ * ReceiveMessage is the only read SQS has. What it returns is hidden from
+ * everyone else for the visibility timeout and its receive count goes up,
+ * which counts towards the redrive policy - so a message browsed often enough
+ * is dead-lettered with nothing having failed. The driver hands every message
+ * straight back and still declares this: handing back is not instantaneous,
+ * and the receive count does not come back down.
+ */
+func TestBrowsingCarriesTheCaveatThatItHidesMessages(t *testing.T) {
+	declared := (&Conn{closed: make(chan struct{})}).declare()
+
+	if !declared.Has(model.CapMessageQuery) {
+		t.Fatal("browsing is not declared at all")
+	}
+	caveat, warned := declared.Caveat(model.CapMessageQuery)
+	if !warned {
+		t.Fatal("browsing is offered with no caveat, and it is not a non-destructive read")
+	}
+	if caveat != receiveHides {
+		t.Errorf("caveat = %q, want %q", caveat, receiveHides)
+	}
+	if _, degraded := declared.DegradedReason(model.CapMessageQuery); degraded {
+		t.Error("browsing is both supported and degraded")
+	}
+}
+
+/*
+ * The caveats cross a language boundary as keys and are resolved by the
+ * renderer, so a sentence here reaches the screen as a sentence in the wrong
+ * language - and the renderer's own key test cannot see them, because it only
+ * scans literal t("...") calls in the frontend source.
+ */
+func TestCaveatsAreTranslationKeys(t *testing.T) {
+	for _, caveat := range []string{receiveHides} {
+		if caveat == "" {
+			t.Error("a caveat is empty")
+			continue
+		}
+		if !isTranslationKey(caveat) {
+			t.Errorf("%q is a sentence, not an i18n key", caveat)
+		}
+	}
+}
+
+func isTranslationKey(text string) bool {
+	const prefix = "mq.sqs."
+	return strings.HasPrefix(text, prefix) && !strings.Contains(text, " ")
 }
 
 // A profile with no region cannot sign anything, so it has to be refused

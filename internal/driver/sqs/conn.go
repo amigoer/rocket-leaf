@@ -15,6 +15,16 @@ import (
 
 var errConnectionDown = errors.New("sqs connection is not open")
 
+// Caveats, as i18n keys rather than sentences. The renderer turns them into
+// the user's language; an English frame around one would put the key itself on
+// screen.
+//
+// A caveat is not a degraded reason: the capability works, and doing it has a
+// consequence worth saying out loud.
+const (
+	receiveHides = "mq.sqs.caveat.receiveHides"
+)
+
 // Conn is one live connection to one AWS account's SQS in one region.
 //
 // "One connection" is a signed client rather than a socket: every call is an
@@ -94,6 +104,8 @@ func capabilities() []model.Capability {
 		model.CapDestinationUpdate,
 		model.CapDestinationDelete,
 		model.CapDestinationPurge,
+
+		model.CapMessageQuery,
 	}
 }
 
@@ -127,12 +139,22 @@ func open(ctx context.Context, profile model.ConnectionProfile) (*Conn, error) {
 	return conn, nil
 }
 
-// declare turns what answered into the capability set the pages gate on.
+/*
+ * declare turns what answered into the capability set the pages gate on.
+ *
+ * Nothing here varies by endpoint: SQS is one service with one feature set,
+ * and a credential that cannot do something fails the call rather than
+ * narrowing what the connection reports. What there is instead is a caveat,
+ * and it is unconditional - browsing goes through ReceiveMessage, which is the
+ * same call a consumer makes.
+ */
 func (c *Conn) declare() model.Capabilities {
 	return model.Capabilities{
 		Supported: capabilities(),
 		Degraded:  map[model.Capability]string{},
-		Caveats:   map[model.Capability]string{},
+		Caveats: map[model.Capability]string{
+			model.CapMessageQuery: receiveHides,
+		},
 	}
 }
 

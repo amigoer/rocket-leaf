@@ -10,6 +10,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awssqs "github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 
 	"github.com/amigoer/mq-studio/internal/e2e"
 	"github.com/amigoer/mq-studio/internal/model"
@@ -641,5 +642,217 @@ func waitForDepth(t *testing.T, conn *Conn, name string, want int64) {
 			t.Fatalf("%s reports a depth of %d after 30s, want %d", name, last, want)
 		}
 		time.Sleep(time.Second)
+	}
+}
+
+/*
+ * A browse returns what the queue holds, and hands it straight back.
+ *
+ * The second half is the part worth proving: every message read here was
+ * hidden from real consumers while the page was assembled, and a driver that
+ * forgot to release them would leave a queue that looks empty for its whole
+ * visibility timeout. So this asserts the queue is available again immediately
+ * afterwards, which is what the release is for.
+ */
+func TestLiveQueryMessagesReturnsWhatItRead(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	url := makeQueue(t, conn, QueueSpec{Name: name, VisibilityTimeoutSec: 300})
+	sendRaw(t, conn, url, 6)
+	waitForDepth(t, conn, name, 6)
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: name, MaxResults: 6,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if len(messages) != 6 {
+		t.Fatalf("browsed %d messages, want 6", len(messages))
+	}
+	for _, message := range messages {
+		if message.MessageID == "" {
+			t.Error("a browsed message has no id")
+		}
+		if message.Body == "" {
+			t.Error("a browsed message has an empty body")
+		}
+		if message.StoreTimestamp == 0 {
+			t.Errorf("%s has no sent timestamp", message.MessageID)
+		}
+		if message.Properties[PropReceiveCount] == "" {
+			t.Errorf("%s reports no receive count, which is what the redrive policy counts",
+				message.MessageID)
+		}
+	}
+
+	/*
+	 * A visibility timeout of 300 seconds is deliberate: without the release
+	 * these messages would be invisible for five minutes, so an immediate
+	 * second browse returning them is the release working rather than the
+	 * timeout expiring.
+	 */
+	again, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: name, MaxResults: 6,
+	})
+	if err != nil {
+		t.Fatalf("second query: %v", err)
+	}
+	if len(again) != 6 {
+		t.Errorf("a second browse found %d of 6; the first one did not hand its messages back", len(again))
+	}
+}
+
+/*
+ * The caveat, demonstrated rather than asserted from the declaration.
+ *
+ * A browse is a real receive: the count goes up and does not come back down,
+ * and on a queue with a redrive policy that counts towards being
+ * dead-lettered. This is the fact the capability's caveat exists to warn
+ * about, and it is worth a test because it is the one thing about this page
+ * that a reader would not expect.
+ */
+func TestLiveBrowsingRaisesTheReceiveCount(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	url := makeQueue(t, conn, QueueSpec{Name: name})
+	sendRaw(t, conn, url, 1)
+	waitForDepth(t, conn, name, 1)
+
+	counts := make([]string, 0, 2)
+	for range 2 {
+		messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+			Topic: name, MaxResults: 1,
+		})
+		if err != nil {
+			t.Fatalf("query: %v", err)
+		}
+		if len(messages) != 1 {
+			t.Fatalf("browsed %d messages, want 1", len(messages))
+		}
+		counts = append(counts, messages[0].Properties[PropReceiveCount])
+	}
+	if counts[0] != "1" || counts[1] != "2" {
+		t.Errorf("receive counts were %v; browsing has to be visible in them, because the "+
+			"redrive policy compares against them", counts)
+	}
+}
+
+// A browse of more than ten is several ReceiveMessage calls, and each one has
+// to hold what it took: a message left visible would be handed back by the
+// next call and counted twice.
+func TestLiveQueryMessagesPagesPastOneBatch(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	url := makeQueue(t, conn, QueueSpec{Name: name})
+	sendRaw(t, conn, url, 25)
+	waitForDepth(t, conn, name, 25)
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: name, MaxResults: 25,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if len(messages) != 25 {
+		t.Fatalf("browsed %d messages, want 25 across three batches", len(messages))
+	}
+
+	seen := make(map[string]bool, len(messages))
+	for _, message := range messages {
+		if seen[message.MessageID] {
+			t.Errorf("%s came back twice; a batch was not held while the next one was read",
+				message.MessageID)
+		}
+		seen[message.MessageID] = true
+	}
+}
+
+// A FIFO message carries what makes it ordered, and a browse has to surface
+// it: the group id is what a reader groups by, and nothing else on the page
+// explains why two messages cannot overtake each other.
+func TestLiveQueryMessagesCarriesFIFOFields(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, ".fifo")
+	url := makeQueue(t, conn, QueueSpec{Name: name, FIFO: true})
+
+	for index := range 3 {
+		_, err := conn.client.SendMessage(liveContext(t), &awssqs.SendMessageInput{
+			QueueUrl:               aws.String(url),
+			MessageBody:            aws.String(fmt.Sprintf("ordered-%d", index)),
+			MessageGroupId:         aws.String("orders"),
+			MessageDeduplicationId: aws.String(fmt.Sprintf("%s-%d", name, index)),
+		})
+		if err != nil {
+			t.Fatalf("send: %v", err)
+		}
+	}
+	waitForDepth(t, conn, name, 3)
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: name, MaxResults: 3,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if len(messages) == 0 {
+		t.Fatal("browsed nothing from a FIFO queue holding three messages")
+	}
+	for _, message := range messages {
+		if message.Properties[PropGroupID] != "orders" {
+			t.Errorf("%s reports group %q, want orders",
+				message.MessageID, message.Properties[PropGroupID])
+		}
+		if message.Keys != "orders" {
+			t.Errorf("%s carries keys %q; the group id is what a reader groups by",
+				message.MessageID, message.Keys)
+		}
+		if message.Properties[PropSequenceNumber] == "" {
+			t.Errorf("%s reports no sequence number", message.MessageID)
+		}
+	}
+}
+
+// The producer's own attributes have to reach the page, prefixed so they stay
+// apart from the system attributes SQS sets and this driver renames.
+func TestLiveQueryMessagesCarriesProducerAttributes(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	url := makeQueue(t, conn, QueueSpec{Name: name})
+
+	_, err := conn.client.SendMessage(liveContext(t), &awssqs.SendMessageInput{
+		QueueUrl:    aws.String(url),
+		MessageBody: aws.String("with attributes"),
+		MessageAttributes: map[string]types.MessageAttributeValue{
+			"tenant": {DataType: aws.String("String"), StringValue: aws.String("acme")},
+		},
+	})
+	if err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	waitForDepth(t, conn, name, 1)
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: name, MaxResults: 1,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if len(messages) != 1 {
+		t.Fatalf("browsed %d messages, want 1", len(messages))
+	}
+	if got := messages[0].Properties["attr.tenant"]; got != "acme" {
+		t.Errorf("attr.tenant = %q, want acme", got)
+	}
+}
+
+// There is no call that takes a message id, and the driver has to say so
+// rather than returning nothing and letting a page read that as "not found".
+func TestLiveMessageByIDIsRefused(t *testing.T) {
+	conn := liveConn(t)
+
+	_, err := conn.MessageByID(liveContext(t), seedOrders, "any-id")
+	if err == nil {
+		t.Fatal("looked a message up by id, which SQS has no call for")
 	}
 }
