@@ -66,6 +66,7 @@ func backings() []capabilityBacking {
 	dlqTopology := func(c Conn) bool { _, ok := c.(DeadLetterTopology); return ok }
 	stats := func(c Conn) bool { _, ok := c.(DestinationStats); return ok }
 	shards := func(c Conn) bool { _, ok := c.(ShardInspector); return ok }
+	channels := func(c Conn) bool { _, ok := c.(ChannelInspector); return ok }
 	actions := func(c Conn) bool { _, ok := c.(QueueActions); return ok }
 	trimmer := func(c Conn) bool { _, ok := c.(StreamTrimmer); return ok }
 	position := func(c Conn) bool { _, ok := c.(StreamPositionAdmin); return ok }
@@ -78,6 +79,7 @@ func backings() []capabilityBacking {
 		{model.CapDestinationDelete, "DestinationAdmin", destination},
 		{model.CapPartitions, "DestinationStats", stats},
 		{model.CapShards, "ShardInspector", shards},
+		{model.CapChannels, "ChannelInspector", channels},
 		{model.CapDestinationPurge, "QueueActions", actions},
 		{model.CapDestinationMove, "QueueActions", actions},
 		{model.CapQueueRebalance, "QueueActions", actions},

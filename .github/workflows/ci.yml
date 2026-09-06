@@ -381,6 +381,23 @@ jobs:
             up: |
               npm run e2e:kinesis:up
               npm run e2e:kinesis:seed
+          - family: ibmmq
+            packages: ./internal/app/... ./internal/driver/ibmmq/...
+            # IBM's own developer image, and one queue manager rather than two:
+            # a second would be a second broker with its own storage rather
+            # than a second node of this one, and nothing the boards show
+            # crosses between two of them. The image ships one account per
+            # mqweb role - admin holds MQWebAdmin and app holds MQWebUser -
+            # which is what exercises the driver's second credential and its
+            # messaging probe on every test here rather than on none. The seed
+            # is required: the cross-check compares what the app computes
+            # against the raw REST API, comparing zero against zero proves
+            # nothing, and it is also what produces the two shapes a fresh
+            # queue manager cannot have - a channel that is not running, and a
+            # message on the dead-letter queue.
+            up: |
+              npm run e2e:ibmmq:up
+              npm run e2e:ibmmq:seed
     steps:
       - uses: actions/checkout@v7
 

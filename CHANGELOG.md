@@ -22,6 +22,84 @@ was open now redials instead of going on with the old one in silence.
 
 ### Added
 
+- IBM MQ is the fourteenth driver, the first enterprise one, and the second
+  after ActiveMQ reached entirely through a vendor's own HTTP management plane.
+  The obvious client for this family is cgo over IBM's native MQ libraries,
+  which would mean nobody could build this app — or run its CI — without
+  installing the redistributable client first. It uses the two REST interfaces
+  the mqweb server hosts instead: the administrative one for objects and MQSC,
+  and the messaging one for messages.
+
+  It has an address, and working that out was the first decision. A connection
+  names a host, a port, a channel and a queue manager, and it would be easy to
+  file that with the hosted families — but the driver dials `https://host:9443`
+  and everything else is a path on it, so the form has a required address row
+  and 1414 is never opened. The queue manager is part of that address rather
+  than a scope: it is a separate process with its own storage, log and objects,
+  nothing crosses between two of them, and there is no unscoped IBM MQ
+  connection at all. So a second queue manager is a second connection, named on
+  the form or discovered when the server fronts exactly one.
+
+  Channels get a page of their own, because nothing in the canonical vocabulary
+  is shaped like one. A channel is not a client connection: it is a definition
+  an administrator made, it exists with nothing connected, it is what decides
+  whether an application may connect at all, one definition carries a running
+  instance per connected client, and a message channel can sit in doubt over a
+  batch with no client involved. A page built from connections would be empty
+  on a queue manager whose applications are all idle, which is exactly when
+  somebody is looking for why they cannot connect. The page is read only, for
+  the reason the shards page is: stopping a server-connection channel
+  disconnects every application using it, which is a different gesture with a
+  very different blast radius. An empty status is a real answer and is not
+  coloured — a channel nobody has started has none, and a client-connection
+  definition is one this queue manager holds on behalf of clients and never
+  runs.
+
+  Queues and topics share one board, because from an application's side they
+  are one thing: something is opened by name and a message goes into it. The
+  alias and remote definitions are listed too, holding nothing, because leaving
+  them out would hide exactly the indirection somebody tracing a message needs
+  to see. A topic object's name is not the string publishers use, and both are
+  shown.
+
+  Browsing takes nothing, which no other family reached through a management
+  API here can say: the queue's depth is the same afterwards and its messages
+  stay in order. The caveat it carries instead is its own — the mqweb server
+  returns character data and nothing else, so a message the queue manager
+  stored in any other format is listed with its identifier and its format and
+  refused when opened. That is the ordinary state of every dead letter, whose
+  payload sits behind a dead-letter header, and the dead-letter board says so
+  rather than looking broken.
+
+  Sending goes to a queue and only to a queue: the messaging interface has no
+  topic resource at any version of the API, so publishing needs an MQ client.
+  What the console collects instead is the descriptor an MQ message actually
+  carries — a correlation identifier, a persistence, an expiry — rather than
+  the tags, keys and delay level the shared console asks for and this family
+  has none of.
+
+  Two interfaces means two authorisations, and this is the family that made
+  that visible. The mqweb server maps them to the MQWebAdmin and MQWebUser
+  roles, a deployment may hold those on two accounts, and IBM's own developer
+  image does exactly that — so the connection form collects an optional second
+  credential and the connection probes the messaging interface when it opens. A
+  credential holding only the administrative role keeps every board except the
+  two that touch messages, and those explain themselves rather than
+  disappearing.
+
+  Dead letters are found by walking configuration backwards, not by reading a
+  store the broker names. Nothing here is a dead-letter queue by nature: what
+  makes one is the queue manager's DEADQ attribute or another queue's backout
+  queue pointing at it, and the board tells the two apart because they are
+  filled by different things.
+
+  There is no cluster page, no rate anywhere and no storage figure, and none is
+  an omission. An MQ cluster is a set of queue managers publishing to each
+  other's repositories rather than nodes of this one; how fast a queue is
+  moving is a statistics message published on a timer rather than a figure a
+  listing can read; and the REST interfaces report no size, free space or
+  percentage at all. There are no offsets either, because a queue is not a log.
+
 - Amazon Kinesis Data Streams is the thirteenth driver, the fourth hosted one,
   and the second reached by naming a region and signing a request rather than
   by dialling an address. Its connection form has no address row at all, the

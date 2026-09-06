@@ -1,0 +1,68 @@
+name: mq-studio-e2e-ibmmq
+
+# IBM MQ Advanced for Developers, and its mqweb server.
+#
+# One queue manager, not two. A second one would be a second broker with its
+# own storage and its own listener rather than a second node of this one -
+# IBM MQ has no cluster this driver reads, and everything the boards show
+# belongs to a single queue manager.
+#
+# The image is pinned twice over. The tag is a version rather than latest
+# because latest moved to a base image whose glibc refuses to start on
+# anything below x86-64-v3, and no amd64 emulator on an arm64 host provides
+# AVX2 - the container exits with "CPU does not support x86-64-v3" before MQ
+# is reached. 9.4.5.1-r1 is the last release on the previous base. The
+# platform is pinned for the reason the Azure SQL Edge service is: IBM
+# publishes amd64, s390x and ppc64le and no arm64, so on an arm64 host this
+# runs under emulation - about a minute to start rather than fifteen seconds,
+# which is what the long start_period below is for - and pinning it makes the
+# failure a slow start instead of "no matching manifest".
+#
+# The two accounts are the image's own, and they are two because the mqweb
+# server maps two roles to two groups and the image puts one user in each:
+# admin holds MQWebAdmin and reaches the administrative REST API, app holds
+# MQWebUser and reaches the messaging one. Neither can do the other's work,
+# which is precisely the split the driver's second credential exists for.
+
+services:
+  ibmmq:
+    image: icr.io/ibm-messaging/mq:9.4.5.1-r1
+    platform: linux/amd64
+    hostname: ibmmq
+    environment:
+      # The container refuses to start without it, and it is IBM's licence
+      # rather than this project's: the developer edition is free to use and
+      # the image will not run until the user says so.
+      LICENSE: accept
+      MQ_QMGR_NAME: QM1
+      MQ_ADMIN_PASSWORD: passw0rd
+      MQ_APP_PASSWORD: passw0rd
+    ports:
+      # The mqweb server: the web console, the administrative REST API and the
+      # messaging REST API all answer here over HTTPS with a certificate the
+      # container generates for itself. This is the whole of what a connection
+      # profile points at - the driver never opens 1414, which is why the
+      # queue manager's own listener is not published.
+      - '127.0.0.1:9443:9443'
+    healthcheck:
+      # The queue manager answering for itself, not the port being open.
+      # Liberty binds 9443 and serves the console while the queue manager is
+      # still starting, and a probe on the socket would hand the seed a REST
+      # API whose every call fails with "queue manager not available". The
+      # grep is on the state rather than the name for the same reason.
+      test:
+        - CMD-SHELL
+        - >-
+          curl -sfk -u admin:passw0rd
+          https://127.0.0.1:9443/ibmmq/rest/v1/admin/qmgr
+          | grep -q '"state": *"running"'
+      interval: 5s
+      timeout: 10s
+      retries: 60
+      start_period: 60s
+    restart: unless-stopped
+    volumes:
+      - ibmmq-data:/mnt/mqm
+
+volumes:
+  ibmmq-data:

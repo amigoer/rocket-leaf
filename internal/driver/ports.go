@@ -113,6 +113,28 @@ type ShardInspector interface {
 	ListShards(ctx context.Context, ref model.DestinationRef) ([]*model.Shard, error)
 }
 
+// ChannelInspector lists the configured objects a family's clients and peers
+// have to come through.
+//
+// Separate from ClientInspector, which answers CapClientInspect: that returns
+// the transport connections open right now, each of which exists only while an
+// application is holding it. A channel is a definition. It is there with
+// nothing connected, it is what decides whether a connection is allowed, one
+// definition carries many running instances at once, and a message channel can
+// be in doubt over a batch with no client involved at all. Reporting one as a
+// connection would lose every one of those.
+//
+// Read only, deliberately, and for the reason ShardInspector is. Starting and
+// stopping a channel is a different gesture with a very different blast
+// radius - a stop on a server-connection channel disconnects every application
+// using it, and a stop on a sender leaves its transmission queue filling - and
+// this port promises no such thing. What it does report is enough to decide
+// whether one is needed: the status, what a running instance is waiting on,
+// whether an operator has already asked it to stop, and whether it is in doubt.
+type ChannelInspector interface {
+	ListChannels(ctx context.Context) ([]*model.Channel, error)
+}
+
 // SubscriptionAdmin enumerates and manages consumer groups, Pulsar
 // subscriptions or RabbitMQ queue consumers.
 type SubscriptionAdmin interface {

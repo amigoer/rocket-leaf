@@ -27,7 +27,6 @@ body:
     attributes:
       label: Which broker
       options:
-        - IBM MQ
         - Solace
         - Something else
     validations:
@@ -43,7 +42,7 @@ body:
     id: deployment
     attributes:
       label: Version and how you run it
-      placeholder: IBM MQ 9.3 on z/OS, reached through the administrative REST API
+      placeholder: Solace PubSub+ 10.x, one broker, reached through SEMP v2
     validations:
       required: true
 

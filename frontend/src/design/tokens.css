@@ -116,6 +116,7 @@
   --c-brand-nsq: #0e7490;
   --c-brand-sqs: #be185d;
   --c-brand-kinesis: #7c3aed;
+  --c-brand-ibmmq: #0f62fe;
   /* Simple Icons gives Pub/Sub #AECBFA, a pale blue meant for a dark ground
      that vanishes on a light one, so each ground carries its own. */
   --c-brand-google-pubsub: #1a73e8;
@@ -207,6 +208,7 @@
   --c-brand-nsq: #67e8f9;
   --c-brand-sqs: #f9a8d4;
   --c-brand-kinesis: #c4b5fd;
+  --c-brand-ibmmq: #78a9ff;
   --c-brand-google-pubsub: #aecbfa;
   --c-brand-azure-servicebus: #6cb8f0;
 
@@ -616,6 +618,7 @@
 .pNSQ { background: #cffafe; color: #0e7490; }
 .pSQS { background: #fce7f3; color: #be185d; }
 .pKDS { background: #ede9fe; color: #7c3aed; }
+.pIMQ { background: #dbeafe; color: #0f62fe; }
 .pGPS { background: #e3edfd; color: #1a56b8; }
 .pASB { background: #dbeafe; color: #0058a0; }
 :root.dark .pRMQ { background: #3a1f0c; color: #fdba74; }
@@ -628,6 +631,7 @@
 :root.dark .pNSQ { background: #0b2f36; color: #67e8f9; }
 :root.dark .pSQS { background: #3a1024; color: #f9a8d4; }
 :root.dark .pKDS { background: #241a3a; color: #c4b5fd; }
+:root.dark .pIMQ { background: #10203a; color: #78a9ff; }
 :root.dark .pGPS { background: #0f2038; color: #aecbfa; }
 
 /* misc primitives */

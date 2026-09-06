@@ -87,6 +87,7 @@ internal/
     googlepubsub/        Google Pub/Sub driver: topics and subscriptions, no address
     azureservicebus/     Azure Service Bus driver: AMQP for messages, Atom for topology
     kinesis/             Amazon Kinesis driver: streams and shards, with no address to dial
+    ibmmq/               IBM MQ driver: the mqweb server's two REST interfaces, no wire client
   model/                 Domain models and the capability vocabulary
   crypto/                Local encryption helpers
   storage/               On-disk layout and atomic writes
@@ -126,6 +127,7 @@ tests/
   e2e/google-pubsub/     Google's own Pub/Sub emulator, reached through the host option
   e2e/azure-servicebus/  Microsoft's Service Bus emulator, and the SQL Server it needs
   e2e/kinesis/           LocalStack running kinesis, on a port of its own beside sqs
+  e2e/ibmmq/             IBM's own developer queue manager, and the mqweb server beside it
   throughput-load/       Load generator for the throughput charts (own module)
 ```
 

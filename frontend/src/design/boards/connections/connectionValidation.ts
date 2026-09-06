@@ -289,6 +289,37 @@ export function draftInvalidReason(draft: ProtocolDraft, t: Translate): string |
     }
     return null;
   }
+  if (draft.protocol === "ibmmq") {
+    // The mqweb server's URL, and a URL rather than a host:port: the driver
+    // builds every path on it, and a bare host would be joined to a relative
+    // path. Left to default it would be https, which is right - but a user who
+    // typed http:// meant it, so the scheme is required rather than guessed
+    // here where the message can say so.
+    const endpoints = draft.value.endpoints.trim();
+    if (endpoints === "") return t("page.connections.form.ibmmq.mqwebRequired");
+    if (!/^https?:\/\//i.test(endpoints)) {
+      return t("page.connections.form.ibmmq.mqwebScheme");
+    }
+    // An MQ object name is at most 48 characters from a restricted set, and a
+    // queue manager's is the same. Catching it here rather than at connect
+    // time is what keeps the message about the field.
+    const qmgr = draft.value.queueManager.trim();
+    if (qmgr !== "" && !/^[A-Za-z0-9._/%]{1,48}$/.test(qmgr)) {
+      return t("page.connections.form.ibmmq.queueManagerName");
+    }
+    // Half a messaging credential authenticates as somebody else: an empty
+    // pair means "reuse the administrative one", so a username with no
+    // password would silently send the administrative password with it.
+    const stored = draft.value.credentialsStored && !draft.value.clearCredentials;
+    if (draft.value.mechanism === "plain" && !stored) {
+      const user = draft.value.messagingUsername.trim();
+      const secret = draft.value.messagingPassword.trim();
+      if ((user === "") !== (secret === "")) {
+        return t("page.connections.form.ibmmq.messagingPairRequired");
+      }
+    }
+    return null;
+  }
   if (draft.protocol === "rocketmq") {
     if (draft.value.endpoints.trim() === "") return t("page.connections.endpointsRequired");
     if (draft.value.version === "5.x" && draft.value.access === "proxy") {

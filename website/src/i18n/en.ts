@@ -5,11 +5,11 @@ export const en: Content = {
   meta: {
     title: 'MQ Studio — One interface for every message queue',
     description:
-      'MQ Studio is a local-first desktop client for message queues. RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, Azure Service Bus, and Amazon Kinesis share one interface and one workflow, with no web console to deploy or keep alive. macOS, Windows, and Linux. Apache-2.0.',
+      'MQ Studio is a local-first desktop client for message queues. RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, Azure Service Bus, Amazon Kinesis, and IBM MQ share one interface and one workflow, with no web console to deploy or keep alive. macOS, Windows, and Linux. Apache-2.0.',
     ogAlt: 'The MQ Studio cluster overview',
   },
   banner: {
-    text: 'Amazon Kinesis has landed — shards get a page of their own, and a browse that takes nothing at all',
+    text: 'IBM MQ has landed — channels get a page of their own, over the REST API and no native client',
     linkLabel: 'Changelog',
     dismiss: 'Dismiss announcement',
   },
@@ -33,7 +33,7 @@ export const en: Content = {
     badgeSuffix: 'is out · Apache-2.0',
     title: 'One interface for every message queue',
     subtitle:
-      'MQ Studio is a local-first desktop client for message queues — RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, Azure Service Bus, and Amazon Kinesis behind the same pages and the same workflow, with no web console to deploy or keep alive.',
+      'MQ Studio is a local-first desktop client for message queues — RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, Azure Service Bus, Amazon Kinesis, and IBM MQ behind the same pages and the same workflow, with no web console to deploy or keep alive.',
     downloadFallback: 'Download MQ Studio',
     downloadFor: (platform: string) => `Download for ${platform}`,
     installGuide: 'Install guide',
@@ -59,8 +59,9 @@ export const en: Content = {
       'Google Pub/Sub',
       'Azure Service Bus',
       'Amazon Kinesis',
+      'IBM MQ',
     ],
-    planned: 'Planned: IBM MQ · Solace PubSub+ and more',
+    planned: 'Planned: Solace PubSub+ and more',
   },
   features: {
     title: 'Why MQ Studio',
@@ -176,6 +177,7 @@ export const en: Content = {
       { label: 'Google Pub/Sub', done: true },
       { label: 'Azure Service Bus', done: true },
       { label: 'Amazon Kinesis', done: true },
+      { label: 'IBM MQ', done: true },
       { label: 'More drivers', done: false },
       { label: 'Agent', done: false },
     ],

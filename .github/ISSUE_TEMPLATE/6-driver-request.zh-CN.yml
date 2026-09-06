@@ -26,7 +26,6 @@ body:
     attributes:
       label: 哪个消息队列
       options:
-        - IBM MQ
         - Solace
         - 其他
     validations:
@@ -42,7 +41,7 @@ body:
     id: deployment
     attributes:
       label: 版本与部署方式
-      placeholder: z/OS 上的 IBM MQ 9.3，通过管理 REST 接口访问
+      placeholder: Solace PubSub+ 10.x，单 broker，通过 SEMP v2 访问
     validations:
       required: true
 

@@ -82,19 +82,24 @@ import { QueuesSqs } from "./boards/topics/QueuesSqs";
 import { TopicsGooglePubSub } from "./boards/topics/TopicsGooglePubSub";
 import { EntitiesAzureServiceBus } from "./boards/topics/EntitiesAzureServiceBus";
 import { StreamsKinesis } from "./boards/topics/StreamsKinesis";
+import { QueuesIbmMq } from "./boards/topics/QueuesIbmMq";
 import { ShardsKinesis } from "./boards/shards/ShardsKinesis";
+import { ChannelsIbmMq } from "./boards/channels/ChannelsIbmMq";
 import { RulesAzureServiceBus } from "./boards/topics/RulesAzureServiceBus";
 import { SubscriptionsGooglePubSub } from "./boards/consumers/SubscriptionsGooglePubSub";
 import { SubscriptionsAzureServiceBus } from "./boards/consumers/SubscriptionsAzureServiceBus";
 import { ConsumersKinesis } from "./boards/consumers/ConsumersKinesis";
+import { SubscriptionsIbmMq } from "./boards/consumers/SubscriptionsIbmMq";
 import { MessagesSqs } from "./boards/messages/MessagesSqs";
 import { MessagesGooglePubSub } from "./boards/messages/MessagesGooglePubSub";
 import { MessagesAzureServiceBus } from "./boards/messages/MessagesAzureServiceBus";
 import { MessagesKinesis } from "./boards/messages/MessagesKinesis";
+import { MessagesIbmMq } from "./boards/messages/MessagesIbmMq";
 import { ProducerSqs } from "./boards/producer/ProducerSqs";
 import { ProducerGooglePubSub } from "./boards/producer/ProducerGooglePubSub";
 import { ProducerAzureServiceBus } from "./boards/producer/ProducerAzureServiceBus";
 import { ProducerKinesis } from "./boards/producer/ProducerKinesis";
+import { ProducerIbmMq } from "./boards/producer/ProducerIbmMq";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
 import { DlqGooglePubSub } from "./boards/dlq/DlqGooglePubSub";
 import { DlqAzureServiceBus } from "./boards/dlq/DlqAzureServiceBus";
@@ -102,10 +107,12 @@ import { OverviewSqs } from "./boards/overview/OverviewSqs";
 import { OverviewGooglePubSub } from "./boards/overview/OverviewGooglePubSub";
 import { OverviewAzureServiceBus } from "./boards/overview/OverviewAzureServiceBus";
 import { OverviewKinesis } from "./boards/overview/OverviewKinesis";
+import { OverviewIbmMq } from "./boards/overview/OverviewIbmMq";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
 import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
 import { DlqActiveMQ } from "./boards/dlq/DlqActiveMQ";
+import { DlqIbmMq } from "./boards/dlq/DlqIbmMq";
 import { TopicsNsq } from "./boards/topics/TopicsNsq";
 import { ChannelsNsq } from "./boards/consumers/ChannelsNsq";
 import { ClientsNsq } from "./boards/consumers/ClientsNsq";
@@ -162,6 +169,7 @@ const BOARDS: Partial<
     "google-pubsub": OverviewGooglePubSub,
     "azure-servicebus": OverviewAzureServiceBus,
     kinesis: OverviewKinesis,
+    ibmmq: OverviewIbmMq,
   },
   topics: {
     rocketmq: TopicsRocketMQ,
@@ -177,10 +185,12 @@ const BOARDS: Partial<
     "google-pubsub": TopicsGooglePubSub,
     "azure-servicebus": EntitiesAzureServiceBus,
     kinesis: StreamsKinesis,
+    ibmmq: QueuesIbmMq,
   },
   /* One family, and that is the point rather than an oversight: every other
      partitioned broker here reports a count, and a shard is an object. */
   shards: { kinesis: ShardsKinesis },
+  channels: { ibmmq: ChannelsIbmMq },
   exchanges: {
     rabbitmq: ExchangesRabbitMQ,
     // The same slot for the same reason: a rule decides which of a topic's
@@ -205,6 +215,7 @@ const BOARDS: Partial<
     "google-pubsub": SubscriptionsGooglePubSub,
     "azure-servicebus": SubscriptionsAzureServiceBus,
     kinesis: ConsumersKinesis,
+    ibmmq: SubscriptionsIbmMq,
   },
   subscribe: { mqtt: MqttWorkbench, nats: NatsWorkbench, activemq: ActiveMQWorkbench },
   clients: {
@@ -226,6 +237,7 @@ const BOARDS: Partial<
     "google-pubsub": MessagesGooglePubSub,
     "azure-servicebus": MessagesAzureServiceBus,
     kinesis: MessagesKinesis,
+    ibmmq: MessagesIbmMq,
   },
   dlq: {
     rocketmq: DlqRocketMQ,
@@ -236,6 +248,7 @@ const BOARDS: Partial<
     sqs: DlqSqs,
     "google-pubsub": DlqGooglePubSub,
     "azure-servicebus": DlqAzureServiceBus,
+    ibmmq: DlqIbmMq,
   },
   cluster: {
     rocketmq: ClusterRocketMQ,
@@ -306,6 +319,13 @@ export function renderBoard(
        key that decides the shard, and the explicit hash key that overrides it
        - the only way anywhere in the service to aim a record at one. */
     if (protocol === "kinesis") return <ProducerKinesis />;
+    /* IBM MQ's own too: the shared console collects tags and a delay level,
+       and a message here has neither - what it carries instead is a
+       descriptor, and nothing in the queue manager holds a message back until
+       later. The destination list is queues only, which is the interface
+       rather than tidiness: the messaging REST API has no topic resource at
+       all, so publishing needs an MQ client. */
+    if (protocol === "ibmmq") return <ProducerIbmMq />;
     return <Producer protocol={protocol} nav={nav} />;
   }
   /* Alerts is one board for every family: the rules are numeric comparisons

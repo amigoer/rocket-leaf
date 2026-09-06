@@ -25,6 +25,7 @@ ARCH ?=
 	e2e-google-pubsub-up e2e-google-pubsub-seed e2e-google-pubsub-down \
 	e2e-azure-servicebus-up e2e-azure-servicebus-seed e2e-azure-servicebus-down \
 	e2e-kinesis-up e2e-kinesis-seed e2e-kinesis-down \
+	e2e-ibmmq-up e2e-ibmmq-seed e2e-ibmmq-down \
 	check ci clean \
 	website-dev website-build
 
@@ -219,6 +220,15 @@ e2e-kinesis-seed: ## Fill the Kinesis region with streams for the cross-check
 
 e2e-kinesis-down: ## Stop the Kinesis environment and remove its volumes
 	npm run e2e:kinesis:down
+
+e2e-ibmmq-up: ## Start the IBM MQ environment the live tests use
+	npm run e2e:ibmmq:up
+
+e2e-ibmmq-seed: ## Fill the queue manager with objects for the cross-check
+	npm run e2e:ibmmq:seed
+
+e2e-ibmmq-down: ## Stop the IBM MQ environment and remove its volumes
+	npm run e2e:ibmmq:down
 
 e2e: ## Run the live tests against a running, seeded RocketMQ E2E environment
 	npm run test:e2e

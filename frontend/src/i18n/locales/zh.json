@@ -212,7 +212,8 @@
       "subscriptionUnroutable": "订阅没有任何规则",
       "entityDisabled": "实体已停用",
       "streamNotActive": "流仍在变更中",
-      "consumerNotActive": "消费者注册仍在变更中"
+      "consumerNotActive": "消费者注册仍在变更中",
+      "transmissionBacklog": "传输队列未被清空"
     },
     "tabs": {
       "active": "活跃告警",
@@ -245,7 +246,8 @@
       "queueBacklog": "{{queue}} 堆积超阈值",
       "queueNoConsumer": "{{queue}} 无人消费",
       "flowControl": "{{count}} 个连接被限流",
-      "subscriptionBlocked": "订阅已阻塞"
+      "subscriptionBlocked": "订阅已阻塞",
+      "transmissionBacklog": "{{queue}} 上积压着通道尚未发出的消息"
     },
     "detail": {
       "brokerOffline": "{{broker}}（{{address}}）",
@@ -272,7 +274,8 @@
       "subscriptionUnroutable": "{{subscription}} · 没有规则，什么都进不来；因为没有消息到达，它的状态仍是 Active、积压仍是 0",
       "entityDisabled": "{{entity}} · 状态为 {{status}}；请求会在客户端被拒绝，任何面板上都看不出来",
       "streamNotActive": "{{stream}} · 状态 {{status}}；在它变为 ACTIVE 之前，任何指向该流的其他调用都会以「资源占用中」被拒绝",
-      "consumerNotActive": "{{consumer}}（在 {{stream}} 上）· 状态 {{status}}；此时指向它的应用会收到关于消费者（而不是流）的错误"
+      "consumerNotActive": "{{consumer}}（在 {{stream}} 上）· 状态 {{status}}；此时指向它的应用会收到关于消费者（而不是流）的错误",
+      "transmissionBacklog": "{{queue}} · {{count}} 条等待中；传输队列只由一个通道清空，因此队列上有消息就说明该通道已停止、正在重试，或者从未启动"
     },
     "duration": {
       "minutes": "持续 {{count}} 分钟",
@@ -725,6 +728,34 @@
       "degraded": {
         "positionInDynamo": "Kinesis 流只记录某个消费者已注册，完全不记录它读到了哪里。经典消费者把位点存在 KCL 自己的 DynamoDB 表里，增强扇出消费者则根本不保存位点——所以任何连接都报不出积压，而一次读取返回的 millisBehindLatest 是本应用自己的滞后量，不是任何消费者的。"
       }
+    },
+    "ibmmq": {
+      "name": "IBM MQ",
+      "terms": {
+        "destination": "队列",
+        "destinationPlural": "队列",
+        "subscription": "订阅",
+        "subscriptionPlural": "订阅",
+        "backlog": "深度"
+      },
+      "form": {
+        "mqweb": "mqweb 服务器",
+        "mechanism": "认证方式",
+        "authPlain": "用户名与密码",
+        "username": "用户名",
+        "password": "密码",
+        "queueManager": "队列管理器",
+        "messagingUsername": "消息接口用户名",
+        "messagingPassword": "消息接口密码"
+      },
+      "degraded": {
+        "messagingForbidden": "该用户能访问管理 REST API，但没有映射到 MQWebUser 角色，因此消息 REST API 拒绝了它。浏览和发送都走这第二个接口。请在 mqweb 服务器配置中映射该角色，或为此连接单独填写一个已具备该角色的消息接口用户。",
+        "messagingRefused": "mqweb 服务器拒绝了消息接口用户的密码。管理接口仍能应答，所以其余页面照常工作；但在凭据修正之前，浏览和发送不可用。"
+      },
+      "caveat": {
+        "browseCharacterOnly": "浏览不会取走任何东西：读完之后队列深度不变，任意多个读者都能看到同一条消息。mqweb 服务器不会返回它无法按文本解析的消息体——死信、事件消息、应用自定义结构都是如此——这些消息只会列出标识与格式，打开时会被拒绝。",
+        "sendQueueOnly": "发送的目标是队列：消息 REST API 根本没有主题端点，因此这个控制台无法发布。它也只承载字符数据，其他内容一律拒绝，所以二进制消息只能由 MQ 客户端发送。"
+      }
     }
   },
   "shell": {
@@ -937,6 +968,16 @@
         "consumers": "消费者",
         "messages": "记录",
         "producer": "发送",
+        "alerts": "告警"
+      },
+      "ibmmq": {
+        "overview": "总览",
+        "topics": "队列",
+        "channels": "通道",
+        "consumers": "订阅",
+        "messages": "消息",
+        "producer": "发送",
+        "dlq": "死信",
         "alerts": "告警"
       }
     }
@@ -1303,6 +1344,26 @@
           "regionRequired": "请填写 AWS 区域——它说明流在哪里，请求也用它签名。",
           "credentialPairRequired": "AWS 凭据需要成对填写。两者都留空则改用本机自身的身份。",
           "endpointScheme": "端点覆盖要填完整 URL——请以 https:// 或 http:// 开头。"
+        },
+        "ibmmq": {
+          "mechanism": "认证方式",
+          "mechanismPlain": "用户名与密码",
+          "mechanismNone": "无",
+          "mqweb": "mqweb 服务器地址",
+          "mqwebHint": "队列管理器旁边的 Web 服务器，而不是它监听的 1414 端口。本应用使用的两个 REST 接口都由它承载，默认启用 TLS。",
+          "queueManager": "队列管理器（可选）",
+          "queueManagerHint": "服务器只承载一个队列管理器时可以留空，驱动会自动发现。承载多个时请填写：它们之间互不相通，每一个都是独立的连接。",
+          "adminHint": "具备 MQWebAdmin 角色的 mqweb 账号。除消息与发送外的所有页面都通过它读取。",
+          "messagingUsername": "消息接口用户名（可选）",
+          "messagingPassword": "消息接口密码（可选）",
+          "messagingHint": "只有当 MQWebUser 角色落在另一个账号上时才需要填写——IBM 官方开发镜像就是这样，每个角色一个账号。留空则两个接口都使用上面的用户。",
+          "skipVerify": "跳过 TLS 证书校验",
+          "skipVerifyHint": "除非配置了正式证书，mqweb 会使用自签名证书，开发环境需要打开此项。证书可信的环境请保持关闭。",
+          "note": "一个 Web 服务器地址加一个队列管理器——1414 端口是留给应用的",
+          "mqwebRequired": "请填写 mqweb 服务器地址——这是本连接实际访问的地址。",
+          "mqwebScheme": "mqweb 地址是完整 URL——请以 https:// 或 http:// 开头。",
+          "queueManagerName": "队列管理器名称最长 48 个字符，只能包含字母、数字以及 . _ / % 。",
+          "messagingPairRequired": "填写了消息接口用户名就必须填写密码。两者都留空则两个接口都使用管理员账号。"
         }
       },
       "deleteTitle": "删除连接",
@@ -1510,7 +1571,7 @@
         "aheadOfRelease": "当前 v{{current}} 新于线上 v{{latest}}",
         "upToDate": "已是最新版本 v{{version}}",
         "updateCheckFailed": "无法检查更新",
-        "blurb": "本地优先的消息队列桌面客户端，无需额外部署控制台，即可管理 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus 与 Amazon Kinesis 的集群、主题、消费者与消息。"
+        "blurb": "本地优先的消息队列桌面客户端，无需额外部署控制台，即可管理 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus、Amazon Kinesis 与 IBM MQ 的集群、主题、消费者与消息。"
       }
     }
   },
@@ -5399,6 +5460,222 @@
         "stateOnDemand": "按需",
         "stateProvisioned": "预置",
         "note": "没有吞吐也没有深度：两者都是 CloudWatch 指标，属于另一个服务、另一套权限，任何本连接发出的调用都不返回它们。这里不统计已关闭的分片——分片页会列出它们，它们会保留记录直到过期。"
+      }
+    },
+    "ibmmq": {
+      "queues": {
+        "count": "{{count}} 个队列与主题",
+        "search": "按名称或主题字符串搜索",
+        "name": "名称",
+        "type": "类型",
+        "kindTopic": "主题",
+        "depth": "深度",
+        "openInput": "读取打开数",
+        "openOutput": "写入打开数",
+        "subscribers": "订阅数",
+        "deadLetterBadge": "死信",
+        "description": "描述",
+        "topicString": "主题字符串",
+        "topicType": "主题类型",
+        "maxDepth": "最大深度",
+        "maxMessageLength": "最大消息长度",
+        "cluster": "集群",
+        "uncommitted": "未提交",
+        "oldestMessage": "最旧消息",
+        "seconds": "{{count}} 秒",
+        "lastPut": "最近写入",
+        "lastGet": "最近读取",
+        "backoutQueue": "退回队列",
+        "backoutThreshold": "退回阈值",
+        "altered": "最近修改",
+        "inhibited": "该队列已禁止{{what}}。应用会被拒绝，发往它的消息会进入死信队列。",
+        "inhibitPut": "写入",
+        "inhibitGet": "读取",
+        "section": {
+          "definition": "定义",
+          "runtime": "运行状态",
+          "handling": "失败处理"
+        },
+        "note": "没有速率列：队列管理器报告队列持有多少消息、最近何时被读写，但不报告流速。别名与远程定义本身不存储消息，因此这些行的数字为空——列出它们是因为消息接下来会走到那里。",
+        "create": "新建对象",
+        "createTitle": "新建队列或主题",
+        "kind": "对象类型",
+        "kindQueue": "队列",
+        "kindHint": "队列会保存消息，直到有程序读走。主题只负责把发布匹配给订阅，自身不存储任何消息。",
+        "nameHint": "最长 48 个字符，只能包含字母、数字以及 . _ / %，不能有空格。SYSTEM. 前缀由队列管理器保留。",
+        "nameProblem": {
+          "empty": "请填写对象名称。",
+          "tooLong": "IBM MQ 对象名称最长 48 个字符。",
+          "characters": "IBM MQ 对象名称只能包含字母、数字以及 . _ / %，不能有空格。"
+        },
+        "typeHint": "只有本地队列会存储消息。别名和远程定义都是转到别处；模型队列是动态队列的模板。",
+        "maxDepthHint": "队列最多保存多少条消息，超过则拒收。留空则使用队列管理器的默认值。",
+        "topicStringHint": "发布者使用的字符串，和上面的对象名称不是一回事。对象只是这个字符串的属性挂载点，多个对象覆盖有重叠的字符串是常见做法。",
+        "created": "已创建 {{name}}",
+        "deleted": "已删除 {{name}}",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "对象定义将被移除。如果队列正被应用打开，队列管理器会拒绝删除。",
+        "deleteHolding": "该队列还有 {{count}} 条消息，会随之一起删除。这些消息是被丢弃而不是转入死信队列，且无法恢复。",
+        "deleteFailed": "删除失败"
+      },
+      "channels": {
+        "count": "{{count}} 个通道",
+        "search": "按名称或连接地址搜索",
+        "name": "通道",
+        "type": "类型",
+        "status": "状态",
+        "substate": "当前等待",
+        "instances": "运行实例",
+        "messages": "消息数",
+        "bytesSent": "已发送字节",
+        "bytesReceived": "已接收字节",
+        "connectionName": "连接地址",
+        "transmissionQueue": "传输队列",
+        "description": "描述",
+        "remoteQueueManager": "对端队列管理器",
+        "startedAt": "启动时间",
+        "lastMessageAt": "最近一条消息",
+        "neverStarted": "从未启动",
+        "notRunHere": "不在本端运行",
+        "inDoubtBadge": "存疑",
+        "inDoubtNote": "该通道发出了一批消息，但始终没有得知对端是否收下。在有人手动处理之前，这批消息既没有送达，也无法重发。",
+        "stopRequestedNote": "操作员已请求停止该通道。它会在当前批次结束后停止，因此这段时间里看起来仍在工作。",
+        "group": {
+          "client": "客户端",
+          "message": "消息",
+          "cluster": "集群"
+        },
+        "section": {
+          "definition": "定义",
+          "runtime": "运行状态"
+        },
+        "note": "这里列出的是定义而不是连接：不管有没有人在用，通道都会列出来，因为它决定了谁可以连进来。状态为空是有意义的答案——从未启动过的通道没有状态，而客户端连接定义是队列管理器代客户端保存的、本端从不运行。计数是单个实例自启动以来的累计值，实例重启即清零。"
+      },
+      "messages": {
+        "title": "消息",
+        "subtitle": "浏览队列而不取走任何消息",
+        "pickQueue": "选择队列",
+        "read": "浏览",
+        "found": "{{count}} 条消息",
+        "readNote": "浏览不会取走任何东西：读完之后队列深度不变，消息顺序也不变。这里只列出本地队列——主题本身不存储消息，发布出去的消息落在各订阅的目标队列上。",
+        "startHere": "选择一个队列并开始浏览。",
+        "nothingThere": "该队列为空。",
+        "messageId": "消息 ID",
+        "format": "格式",
+        "persistence": "持久性",
+        "expiry": "有效期",
+        "correlationId": "关联 ID",
+        "replyTo": "回复队列",
+        "replyToQmgr": "回复队列管理器",
+        "body": "消息体",
+        "bodyUnavailable": "{{format}} —— 非文本",
+        "bodyUnavailableNote": "队列管理器以 {{format}} 格式保存了这条消息，而 REST 接口只承载字符数据——所以这里能列出它，却无法显示内容。所有死信都是这样：真正的内容藏在死信头之后。",
+        "noPutTime": "没有写入时间：REST 接口只返回各类标识、持久性和有效期，不返回消息到达的时刻。",
+        "section": {
+          "properties": "消息属性"
+        }
+      },
+      "producer": {
+        "title": "发送消息",
+        "subtitle": "向一个队列发送一条消息",
+        "queue": "队列",
+        "pickQueue": "选择队列",
+        "queueHint": "只能选队列。REST 接口没有主题端点，向主题发布需要使用 MQ 客户端，而不是这个控制台。",
+        "body": "消息体",
+        "bodyHint": "只能是字符数据。服务器会直接拒绝其他内容，二进制消息只能由 MQ 客户端发送。",
+        "contentType": "内容类型",
+        "persistent": "持久化",
+        "persistentHint": "持久消息会写入队列管理器的日志，重启后仍在。非持久消息更快，但重启后就没了。",
+        "correlationId": "关联 ID（可选）",
+        "correlationIdHint": "48 个十六进制字符——也就是 MQ 的 24 字节写法，用于把回复和请求对应起来。留空则保持全零，这是常见做法。",
+        "expiry": "有效期（秒，可选）",
+        "expiryHint": "超过这个时间仍无人读取，队列管理器会丢弃该消息。留空表示不限，这是 MQ 的默认值。",
+        "count": "发送份数",
+        "countHint": "最多 {{max}} 份。每一份都是一次独立请求，数量大只会更慢，并不会变成批量发送。",
+        "send": "发送",
+        "sent": "已发送 {{count}} 条消息",
+        "sentAs": "队列管理器分配的消息 ID 为 {{id}}",
+        "failed": "发送失败",
+        "problem": {
+          "queueRequired": "请选择要发送到的队列。",
+          "bodyRequired": "消息必须有内容。",
+          "correlationIdLength": "关联 ID 必须正好是 48 个十六进制字符。",
+          "correlationIdHex": "关联 ID 只能是十六进制字符——0-9 和 a-f。",
+          "countRange": "发送份数需在 1 到 100 之间。"
+        },
+        "note": "没有定时发送：队列管理器接收的消息立即可读。也没有 tag 和 key——IBM MQ 消息携带的是上面的描述符，以及发送方自行附加的消息属性。"
+      },
+      "dlq": {
+        "count": "{{count}} 个死信队列",
+        "queue": "队列",
+        "depth": "深度",
+        "consumers": "读取打开数",
+        "sources": "来源数",
+        "section": {
+          "sources": "谁指向这里"
+        },
+        "fromQueueManager": "队列管理器 DEADQ",
+        "fromQueue": "作为退回队列服务于",
+        "threshold": "触发阈值",
+        "thresholdNone": "永不触发——退回阈值为零",
+        "nobodyDraining": "没有任何程序以读取方式打开该队列。有深度却没有处理程序的死信队列，就是一堆没人看的积压。",
+        "note": "这里的队列本身没有任何死信标记：使它成为死信队列的，是队列管理器的 DEADQ 属性，或者另一个队列的退回队列指向了它。两者由不同的角色填充——队列管理器把自己无法投递的消息放进 DEADQ，而退回队列则由放弃处理的应用来填。消息内容请看消息页面：那里能列出每一条死信，但都打不开——死信带有死信头，而 REST 接口只返回字符数据。"
+      },
+      "subscriptions": {
+        "count": "{{count}} 个订阅",
+        "search": "按名称或主题字符串搜索",
+        "name": "订阅",
+        "topicString": "主题字符串",
+        "destination": "投递到",
+        "destinationQmgr": "目标队列管理器",
+        "waiting": "待处理",
+        "received": "累计接收",
+        "queueReaders": "读取该队列的程序数",
+        "attached": "订阅者已连接",
+        "attachedYes": "是",
+        "attachedNo": "否",
+        "lastMessage": "最近一次发布",
+        "kind": "创建者",
+        "kindValue": {
+          "admin": "管理员",
+          "api": "应用程序",
+          "proxy": "另一个队列管理器"
+        },
+        "durable": "持久订阅",
+        "durableYes": "是",
+        "durableNo": "否——订阅者断开后即消失",
+        "user": "用户",
+        "selector": "选择器",
+        "id": "订阅 ID",
+        "section": {
+          "definition": "定义",
+          "runtime": "运行状态"
+        },
+        "unread": "发布的消息正堆积在 {{queue}}，但没有任何程序在读取。无人读取的订阅会一直填满目标队列，队列满了之后队列管理器就会开始产生死信。",
+        "note": "两个数字含义不同：累计接收是该订阅历史上收到过多少条发布，待处理是其中还留在目标队列上的数量。“订阅者已连接”通常为否，而且通常没问题——管理员定义的订阅本来就不需要连接订阅者，读取目标队列的那个应用才是真正的消费者。"
+      },
+      "overview": {
+        "subtitle": "{{qmgr}} · {{queues}} 个队列",
+        "discovered": "该服务器上唯一的队列管理器",
+        "queues": "队列",
+        "queuesHint": "包括本地、别名、远程和模型队列，只有本地队列真正存储消息。",
+        "depth": "消息总数",
+        "depthHint": "队列管理器上所有队列的合计，含死信队列。",
+        "topics": "主题",
+        "topicsHint": "主题对象数量。发布者使用的是主题字符串，它未必对应任何对象。",
+        "runningChannels": "运行中的通道",
+        "runningChannelsHint": "至少有一个活动实例的通道定义。服务器连接通道每接入一个应用就有一个实例。",
+        "troubledChannels": "异常通道",
+        "troubledChannelsHint": "已启动但没有正常工作：重试中、已停止、已暂停或存疑。从未启动过的通道不计入——全新队列管理器上的大多数通道本来就不会启动。",
+        "inhibited": "被禁止的队列",
+        "inhibitedHint": "禁止写入或禁止读取。这是队列管理器悄悄产生死信最常见的原因，而且不会留下其他痕迹。",
+        "deepest": "积压最多的队列",
+        "state": "状态",
+        "stateDeadLetter": "队列管理器的死信队列",
+        "stateInhibited": "已禁止",
+        "stateTransmission": "传输队列——由通道负责清空",
+        "stateOrdinary": "普通队列",
+        "note": "没有速率，也没有存储用量：MQ 报告队列持有多少消息、最近何时被读写，而流速是按定时器发布到系统队列的统计消息，不是页面能直接读到的数字。也没有集群面板——这个连接对应一个队列管理器，而 MQ 集群是多个队列管理器的集合，不是它的节点。"
       }
     }
   }

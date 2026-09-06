@@ -47,7 +47,8 @@ export type ProtocolId =
   | "sqs"
   | "google-pubsub"
   | "azure-servicebus"
-  | "kinesis";
+  | "kinesis"
+  | "ibmmq";
 
 export type PageId =
   | "overview"
@@ -57,6 +58,12 @@ export type PageId =
      its own and - because shards are split and merged rather than resized - a
      parent and an end. None of that fits a count on the streams page. */
   | "shards"
+  /* Only IBM MQ has them, and the sidebar is where that shows. A channel is
+     not a client connection and not a queue: it is a named, configured object
+     that says how a client or another queue manager may reach this one, and it
+     has a type, an address, a status and a running instance count of its own.
+     Nothing on the queues page could carry that. */
+  | "channels"
   | "exchanges"
   | "vhosts"
   | "policies"
@@ -548,6 +555,45 @@ export const PROTOCOLS: Record<ProtocolId, Protocol> = {
       },
     ],
   },
+  ibmmq: {
+    id: "ibmmq",
+    name: "IBM MQ",
+    badge: "IMQ",
+    badgeClass: "pIMQ",
+    /* Seven entries, and the second one in Browse is the family's own. A
+       channel is how anything reaches a queue manager at all - a client
+       application, another queue manager, a cluster - and it is a configured
+       object with a name, a type, a connection name and a status, not a
+       transport session the broker happens to be holding. The clients page
+       could not carry it and the queues page has nowhere to put it.
+
+       There is no cluster page: an MQ cluster is a set of queue managers that
+       publish to each other's repositories, and this connection speaks to one
+       of them. There is no access page either - authority records are per
+       object and per principal, which is a page of its own rather than a
+       column somewhere. Dead letters are here because the queue manager names
+       one queue for them and every queue may name its own. */
+    nav: [
+      { items: [{ id: "overview", icon: House, label: "shell.nav.ibmmq.overview" }] },
+      {
+        label: BROWSE,
+        items: [
+          { id: "topics", icon: Layers, label: "shell.nav.ibmmq.topics" },
+          { id: "channels", icon: Cable, label: "shell.nav.ibmmq.channels" },
+          { id: "consumers", icon: Users, label: "shell.nav.ibmmq.consumers" },
+          { id: "messages", icon: Mail, label: "shell.nav.ibmmq.messages" },
+          { id: "producer", icon: Send, label: "shell.nav.ibmmq.producer" },
+        ],
+      },
+      {
+        label: OPS,
+        items: [
+          { id: "dlq", icon: TriangleAlert, label: "shell.nav.ibmmq.dlq" },
+          { id: "alerts", icon: BellRing, label: "shell.nav.ibmmq.alerts" },
+        ],
+      },
+    ],
+  },
 };
 
 export const PROTOCOL_ORDER: ProtocolId[] = [
@@ -564,6 +610,7 @@ export const PROTOCOL_ORDER: ProtocolId[] = [
   "google-pubsub",
   "azure-servicebus",
   "kinesis",
+  "ibmmq",
 ];
 
 /** Every page the protocol's sidebar can reach, flattened. */
@@ -600,6 +647,7 @@ const READY: ReadonlySet<ProtocolId> = new Set<ProtocolId>([
   "google-pubsub",
   "azure-servicebus",
   "kinesis",
+  "ibmmq",
 ]);
 
 export function isProtocolReady(protocol: ProtocolId): boolean {

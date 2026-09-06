@@ -1,7 +1,7 @@
 <div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.zh-CN.svg">
-    <img src="docs/images/hero-light.zh-CN.svg" width="100%" alt="MQ Studio — 本地优先的消息队列桌面客户端。一套界面连接 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus 与 Amazon Kinesis，更多驱动陆续接入，无需部署 Web 控制台。">
+    <img src="docs/images/hero-light.zh-CN.svg" width="100%" alt="MQ Studio — 本地优先的消息队列桌面客户端。一套界面连接 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus、Amazon Kinesis 与 IBM MQ，更多驱动陆续接入，无需部署 Web 控制台。">
   </picture>
 </div>
 
@@ -45,7 +45,7 @@ MQ Studio 是它们共同的客户端。每一种消息中间件都通过一个�
 - **数据留在本机** — 配置保存在当前设备，凭证加密存储
 - **跨平台与双语** — 支持 macOS、Windows、Linux，提供中英文界面
 
-目前可以连接的驱动是 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus 和 Amazon Kinesis，其余进度见[驱动支持](#驱动支持)。
+目前可以连接的驱动是 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus、Amazon Kinesis 和 IBM MQ，其余进度见[驱动支持](#驱动支持)。
 
 ## 功能
 
@@ -128,7 +128,8 @@ MQ Studio 通过可插拔驱动对接各类消息中间件。每个驱动声明�
 | **Google Pub/Sub** | ✅ 已支持 | 第二个不需要填地址的家族：一个连接就是一个项目加一份 Google 凭据。也是第一个有两类对象的家族——主题本身不存消息，一次发布只会送达那一刻已存在的订阅，所以主题列表以订阅数打头，没有订阅的主题会被单独标出来。订阅是独立的对象，投递配置全都挂在它身上：确认期限、保留时长、重试退避、过滤表达式、消息有序，以及消息最终放弃到哪里；两类对象都可以创建和删除；浏览针对订阅，走的是 Pull，并附带说明这一点的注意事项；发布支持属性和排序键；还可以创建还原点，把订阅移回还原点或某个时间点；死信主题通过反向遍历每个订阅的策略找出来。没有积压数字，因为它在 Cloud Monitoring 里 |
 | **Azure Service Bus** | ✅ 已支持 | 第三个托管家族，也是其中第一个需要真正拨号的：命名空间就是一个真实地址，所以它有地址栏，而 SQS 填区域、Pub/Sub 填项目。队列和主题放在同一个面板，因为创建、配置、删除它们是同一件事——队列自己保存消息，主题一条也不留，只把每次发送复制进规则放行的订阅。订阅带着完整的投递约定；规则则放在路由页面：它们是有名字的对象，一个订阅可以挂多条，每条是一个 SQL 或关联过滤器，还可以附一个在消息进入时改写它的动作。浏览用的是 peek，所以这是本应用里唯一一个不带任何注意事项的消息页面——不取走、不锁定、投递计数不变，连消费者根本看不到的已排程和已延期消息也能看见。发送支持主题标签、属性、会话键和真正的延迟；死信直接读每个队列和订阅自带的 $DeadLetterQueue，也可以一条条放回去 |
 | **Amazon Kinesis** | ✅ 已支持 | 第四个托管家族，又回到只填区域和 AWS 凭据、没有地址可填。它也是唯一一个核心对象放不进规范页面的家族：shard 不是分区编号，所以它有了自己的页面——一个流的全部分片，无论开放还是已关闭，带上决定记录落点的哈希键区间、它被拆分出来的父分片或被合并的两个父分片；已关闭的分片仍留在列表里，因为它们还保留着记录直到过期。流面板显示开放分片数、容量模式和保留时长；可以按预置或按需创建、调整容量和删除。浏览完全不拿走任何东西——记录不会被隐藏、消费或标记，任意多个读者都能读到同一条——它带的注意事项是另一回事：读取会消耗该分片上所有消费者共享的读取额度。发送时可填决定落点的分区键，以及把记录指向具体分片的显式哈希键。消费者页面列出注册的扇出消费者，它们是流唯一知道的读者。没有积压，因为服务里没有任何地方保存读者的位点 |
-| IBM MQ · Solace 等 | 📋 计划中 | 完整矩阵见下方折叠内容 |
+| **IBM MQ** | ✅ 已支持 | 第一个企业级家族，也是继 ActiveMQ 之后第二个只通过厂商自带 HTTP 管理面访问的家族——所有操作都走 mqweb 服务器承载的两个 REST 接口，因此本项目的任何一次构建都不需要 IBM 的原生客户端库。通道单独占一页，因为规范词汇里没有与之对应的概念：通道是一份定义，即使无人连接也存在，它决定了应用能否连进来，而且一个定义会带着若干个运行实例。队列与主题同在一页，包括消息在途中会经过的别名与远程定义；两者都可创建与删除。浏览真正不取走任何东西——读完之后深度不变——它带的注意事项是另一回事：服务器只返回字符数据，所以死信能被列出却打不开。发送到队列时可填写 MQ 消息真正携带的描述符。订阅的积压量取自它投递到的那个队列的深度；死信则通过反向遍历队列管理器自身的 DEADQ 和每个队列的退回队列找到 |
+| Solace 等 | 📋 计划中 | 完整矩阵见下方折叠内容 |
 
 <details>
 <summary><strong>计划中的驱动、协议兼容系统与范围边界</strong></summary>
@@ -136,7 +137,6 @@ MQ Studio 通过可插拔驱动对接各类消息中间件。每个驱动声明�
 
 | 驱动 | 状态 | 说明 |
 | --- | --- | --- |
-| **IBM MQ** | 📋 计划中 | 通过管理 REST 接口访问队列与通道 |
 | **Solace PubSub+** | 📋 计划中 | 通过 SEMP 访问队列与主题端点 |
 
 **由已有驱动覆盖。** 协议兼容的实现不单独占用一个驱动：Redpanda、AutoMQ、WarpStream、
@@ -172,8 +172,9 @@ ACL 与部分高级操作是否可用，取决于 Broker 版本和配置。表�
 | 11 | Google Cloud Pub/Sub | ✅ 已完成 |
 | 12 | Azure Service Bus | ✅ 已完成 |
 | 13 | Amazon Kinesis | ✅ 已完成 |
-| 14 | 其余驱动，按「驱动支持」中列出的顺序推进 | 📋 计划中 |
-| 15 | Agent 相关功能 | 📋 计划中 |
+| 14 | IBM MQ | ✅ 已完成 |
+| 15 | 其余驱动，按「驱动支持」中列出的顺序推进 | 📋 计划中 |
+| 16 | Agent 相关功能 | 📋 计划中 |
 
 Agent 相关的功能会等驱动接入完成之后再开始，不会提前。每个驱动都会声明所连中间件真正支持
 的能力，这套能力模型正是 Agent 跨中间件工作的前提 —— 不会给出中间件本身做不到的操作。

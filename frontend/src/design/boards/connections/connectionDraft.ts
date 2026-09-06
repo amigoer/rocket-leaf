@@ -46,6 +46,8 @@ import {
   OPTION_ACTIVEMQ_TLS_SKIP_VERIFY,
   OPTION_NSQ_LOOKUPD,
   OPTION_NSQ_TLS_SKIP_VERIFY,
+  OPTION_IBMMQ_QUEUE_MANAGER,
+  OPTION_IBMMQ_TLS_SKIP_VERIFY,
   OPTION_KINESIS_ENDPOINT_URL,
   OPTION_KINESIS_REGION,
   OPTION_KINESIS_STREAM_PREFIX,
@@ -85,6 +87,7 @@ import {
   emptyKafkaDraft,
   emptyMqttDraft,
   emptyNsqDraft,
+  emptyIbmMqDraft,
   emptyKinesisDraft,
   emptySqsDraft,
   emptyGooglePubSubDraft,
@@ -103,6 +106,8 @@ import {
   type MqttTransport,
   type NatsDraft,
   type NsqDraft,
+  type IbmMqDraft,
+  type IbmMqMechanism,
   type KinesisDraft,
   type SqsDraft,
   type GooglePubSubDraft,
@@ -137,7 +142,8 @@ export type ProtocolDraft =
   | { protocol: "sqs"; value: SqsDraft }
   | { protocol: "google-pubsub"; value: GooglePubSubDraft }
   | { protocol: "azure-servicebus"; value: AzureServiceBusDraft }
-  | { protocol: "kinesis"; value: KinesisDraft };
+  | { protocol: "kinesis"; value: KinesisDraft }
+  | { protocol: "ibmmq"; value: IbmMqDraft };
 
 /** The protocols this file can build a submission for. */
 export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
@@ -154,6 +160,7 @@ export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
   "google-pubsub",
   "azure-servicebus",
   "kinesis",
+  "ibmmq",
 ];
 
 export function isDraftable(protocol: ProtocolId): protocol is ProtocolDraft["protocol"] {
@@ -186,6 +193,8 @@ export function emptyDraft(protocol: ProtocolDraft["protocol"]): ProtocolDraft {
       return { protocol, value: emptyAzureServiceBusDraft() };
     case "kinesis":
       return { protocol, value: emptyKinesisDraft() };
+    case "ibmmq":
+      return { protocol, value: emptyIbmMqDraft() };
     default:
       return { protocol, value: emptyRocketMQDraft() };
   }
@@ -217,6 +226,8 @@ export function toSubmission(draft: ProtocolDraft): Submission {
       return azureServiceBusSubmission(draft.value);
     case "kinesis":
       return kinesisSubmission(draft.value);
+    case "ibmmq":
+      return ibmMqSubmission(draft.value);
     default:
       return rocketMQSubmission(draft.value);
   }
@@ -249,6 +260,8 @@ export function toDraft(profile: ConnectionProfile): ProtocolDraft {
       return { protocol: "azure-servicebus", value: toAzureServiceBusDraft(profile) };
     case MQKind.KindKinesis:
       return { protocol: "kinesis", value: toKinesisDraft(profile) };
+    case MQKind.KindIBMMQ:
+      return { protocol: "ibmmq", value: toIbmMqDraft(profile) };
     default:
       return { protocol: "rocketmq", value: toRocketMQDraft(profile) };
   }
@@ -1172,6 +1185,84 @@ function toKinesisDraft(profile: ConnectionProfile): KinesisDraft {
     // keep, whatever is still sitting in the secret store.
     credentialsStored:
       profile.authMechanism === AuthMechanism.AuthPlain && profile.secretsConfigured.length > 0,
+    clearCredentials: false,
+  };
+}
+
+/*
+ * IBM MQ, which has an address like the on-premise families and two credential
+ * pairs like ActiveMQ.
+ *
+ * The address is the mqweb server's URL. The queue manager is an option rather
+ * than part of it because it is a path segment on that server, and it may be
+ * left blank: the driver asks the server which ones it fronts and takes the
+ * answer when there is exactly one.
+ *
+ * The second pair is the messaging interface's, and it is dropped when the
+ * mechanism is none for the reason the first one is - a connection that
+ * authenticates nobody has no account to remember. Otherwise it is written as
+ * typed, including empty, which is what tells the driver to reuse the
+ * administrative pair.
+ */
+function ibmMqSubmission(draft: IbmMqDraft): Submission {
+  const mechanism = draft.mechanism;
+  const keepStored = draft.credentialsStored && !draft.clearCredentials;
+  const authenticated = mechanism === "plain";
+
+  return {
+    draft: {
+      name: draft.name.trim(),
+      group: draft.group,
+      kind: MQKind.KindIBMMQ,
+      endpoints: draft.endpoints.trim(),
+      timeoutSec: draft.timeoutSec,
+      authMechanism: IBMMQ_MECHANISMS[mechanism],
+      options: {
+        [OPTION_IBMMQ_QUEUE_MANAGER]: draft.queueManager.trim(),
+        [OPTION_IBMMQ_TLS_SKIP_VERIFY]: String(draft.tlsSkipVerify),
+      },
+      secrets: {
+        // Not accessKey and secretKey: those two names are reserved for
+        // RocketMQ's ACL and are cleared on save for any other family.
+        username: authenticated ? draft.username.trim() : "",
+        password: authenticated ? draft.password.trim() : "",
+        messagingUsername: authenticated ? draft.messagingUsername.trim() : "",
+        messagingPassword: authenticated ? draft.messagingPassword.trim() : "",
+      },
+      remark: draft.remark,
+    },
+    // "preserve" rather than "replace", for the reason ActiveMQ has it: with
+    // two credential pairs on one form, a user editing the address would
+    // otherwise wipe whichever pair they did not retype.
+    credentialsMode: draft.clearCredentials ? "clear" : keepStored ? "preserve" : "replace",
+  };
+}
+
+const IBMMQ_MECHANISMS: Record<IbmMqMechanism, AuthMechanism> = {
+  none: AuthMechanism.AuthNone,
+  plain: AuthMechanism.AuthPlain,
+};
+
+function toIbmMqDraft(profile: ConnectionProfile): IbmMqDraft {
+  const mechanism: IbmMqMechanism =
+    profile.authMechanism === AuthMechanism.AuthNone ? "none" : "plain";
+
+  return {
+    name: profile.name,
+    endpoints: profile.endpoints,
+    mechanism,
+    // Secrets never come back from the store. Blank with credentialsStored set
+    // is what tells the form to say "kept" rather than "empty".
+    username: "",
+    password: "",
+    queueManager: profile.options?.[OPTION_IBMMQ_QUEUE_MANAGER] ?? "",
+    messagingUsername: "",
+    messagingPassword: "",
+    tlsSkipVerify: profile.options?.[OPTION_IBMMQ_TLS_SKIP_VERIFY] === "true",
+    group: profile.group,
+    remark: profile.remark,
+    timeoutSec: profile.timeoutSec,
+    credentialsStored: profile.secretsConfigured.length > 0,
     clearCredentials: false,
   };
 }

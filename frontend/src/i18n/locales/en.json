@@ -212,7 +212,8 @@
       "subscriptionUnroutable": "Subscription with no rule",
       "entityDisabled": "Entity switched off",
       "streamNotActive": "Stream still settling",
-      "consumerNotActive": "Consumer registration settling"
+      "consumerNotActive": "Consumer registration settling",
+      "transmissionBacklog": "Transmission queue not draining"
     },
     "tabs": {
       "active": "Active",
@@ -245,7 +246,8 @@
       "queueBacklog": "{{queue}} is over the backlog threshold",
       "queueNoConsumer": "Nothing is reading {{queue}}",
       "flowControl": "{{count}} connection(s) are being throttled",
-      "subscriptionBlocked": "Subscription blocked"
+      "subscriptionBlocked": "Subscription blocked",
+      "transmissionBacklog": "{{queue}} is holding messages a channel has not sent"
     },
     "detail": {
       "brokerOffline": "{{broker}} ({{address}})",
@@ -272,7 +274,8 @@
       "subscriptionUnroutable": "{{subscription}} · no rules, so nothing can reach it; it stays Active with an empty backlog because nothing arrives",
       "entityDisabled": "{{entity}} · status {{status}}; work is refused at the client and leaves no mark on any board",
       "streamNotActive": "{{stream}} · status {{status}}; every other call that names this stream is refused as \"resource in use\" until it is ACTIVE",
-      "consumerNotActive": "{{consumer}} on {{stream}} · status {{status}}; an application pointed at it now fails with an error about the consumer rather than the stream"
+      "consumerNotActive": "{{consumer}} on {{stream}} · status {{status}}; an application pointed at it now fails with an error about the consumer rather than the stream",
+      "transmissionBacklog": "{{queue}} · {{count}} waiting; a transmission queue is drained by one channel, so anything on it means that channel is stopped, retrying or was never started"
     },
     "duration": {
       "minutes": "for {{count}} min",
@@ -725,6 +728,34 @@
       "degraded": {
         "positionInDynamo": "A Kinesis stream records that a consumer is registered and nothing about where it has read to. A classic consumer keeps its position in a DynamoDB table the KCL owns, and an enhanced fan-out consumer keeps none at all — so no connection anywhere can report a backlog, and the millisBehindLatest on a read is this app's own lag rather than any consumer's."
       }
+    },
+    "ibmmq": {
+      "name": "IBM MQ",
+      "terms": {
+        "destination": "Queue",
+        "destinationPlural": "Queues",
+        "subscription": "Subscription",
+        "subscriptionPlural": "Subscriptions",
+        "backlog": "Depth"
+      },
+      "form": {
+        "mqweb": "mqweb server",
+        "mechanism": "Authentication",
+        "authPlain": "User and password",
+        "username": "User",
+        "password": "Password",
+        "queueManager": "Queue manager",
+        "messagingUsername": "Messaging user",
+        "messagingPassword": "Messaging password"
+      },
+      "degraded": {
+        "messagingForbidden": "This user reaches the administrative REST API but is not mapped to the MQWebUser role, so the messaging REST API refuses it. Browsing and sending go through that second interface. Map the role in the mqweb server's configuration, or give this connection a messaging user that already holds it.",
+        "messagingRefused": "The mqweb server rejected the messaging user's password. The administrative interface is answering, so the rest of the app works; browsing and sending will not until that credential is right."
+      },
+      "caveat": {
+        "browseCharacterOnly": "Browsing takes nothing away: the queue's depth is the same afterwards, and any number of readers can look at the same message. What the mqweb server will not do is hand back a body it cannot read as text — a dead letter, an event message, an application's own structure — so those messages are listed with their identifier and format, and opening one is refused.",
+        "sendQueueOnly": "A send goes to a queue: the messaging REST API has no topic endpoint at all, so this console cannot publish. It also carries character data only and refuses anything else, so a binary payload has to be sent by an MQ client rather than from here."
+      }
     }
   },
   "shell": {
@@ -937,6 +968,16 @@
         "consumers": "Consumers",
         "messages": "Records",
         "producer": "Send",
+        "alerts": "Alerts"
+      },
+      "ibmmq": {
+        "overview": "Overview",
+        "topics": "Queues",
+        "channels": "Channels",
+        "consumers": "Subscriptions",
+        "messages": "Messages",
+        "producer": "Send",
+        "dlq": "Dead letters",
         "alerts": "Alerts"
       }
     }
@@ -1303,6 +1344,26 @@
           "regionRequired": "Name an AWS region — it is what says where the streams are, and the request is signed with it.",
           "credentialPairRequired": "An AWS credential needs both halves. Leave both blank to use this machine's own identity instead.",
           "endpointScheme": "The endpoint override is a full URL — start it with https:// or http://."
+        },
+        "ibmmq": {
+          "mechanism": "Authentication",
+          "mechanismPlain": "User and password",
+          "mechanismNone": "None",
+          "mqweb": "mqweb server URL",
+          "mqwebHint": "The web server beside the queue manager, not its listener on 1414. It hosts both REST interfaces this app uses, and it is TLS by default.",
+          "queueManager": "Queue manager (optional)",
+          "queueManagerHint": "Leave blank when the server fronts one queue manager and it will be discovered. Name it when the server fronts several — they share nothing, so each one is its own connection.",
+          "adminHint": "The mqweb account that holds the MQWebAdmin role. Every board except messages and send reads through it.",
+          "messagingUsername": "Messaging user (optional)",
+          "messagingPassword": "Messaging password (optional)",
+          "messagingHint": "Only needed where the MQWebUser role sits on a different account — IBM's developer image is one such, with one account per role. Left blank the user above is used for both.",
+          "skipVerify": "Skip TLS verification",
+          "skipVerifyHint": "mqweb signs its own certificate unless it has been given a real one, so a development server needs this. Leave it off anywhere the certificate is trusted.",
+          "note": "A web server URL and a queue manager — the listener on 1414 is for applications",
+          "mqwebRequired": "Give the mqweb server's URL — it is what this connection dials.",
+          "mqwebScheme": "The mqweb address is a full URL — start it with https:// or http://.",
+          "queueManagerName": "A queue manager name is at most 48 characters of letters, digits and . _ / %.",
+          "messagingPairRequired": "A messaging user needs a password. Leave both blank to use the administrative user for both interfaces."
         }
       },
       "deleteTitle": "Delete connection",
@@ -1510,7 +1571,7 @@
         "aheadOfRelease": "Local v{{current}} is newer than published v{{latest}}",
         "upToDate": "You are on the latest version v{{version}}",
         "updateCheckFailed": "Could not check for updates",
-        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, Azure Service Bus, and Amazon Kinesis without deploying a separate console."
+        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, Azure Service Bus, Amazon Kinesis, and IBM MQ without deploying a separate console."
       }
     }
   },
@@ -5399,6 +5460,222 @@
         "stateOnDemand": "On demand",
         "stateProvisioned": "Provisioned",
         "note": "No throughput and no depth: both are CloudWatch metrics, a different service under a different permission, and neither is on any call this connection makes. Closed shards are not counted here — the shards page lists them, and they hold their records until retention expires."
+      }
+    },
+    "ibmmq": {
+      "queues": {
+        "count": "{{count}} queues and topics",
+        "search": "Search by name or topic string",
+        "name": "Name",
+        "type": "Type",
+        "kindTopic": "topic",
+        "depth": "Depth",
+        "openInput": "Open for input",
+        "openOutput": "Open for output",
+        "subscribers": "Subscribers",
+        "deadLetterBadge": "Dead letter",
+        "description": "Description",
+        "topicString": "Topic string",
+        "topicType": "Topic type",
+        "maxDepth": "Maximum depth",
+        "maxMessageLength": "Maximum message length",
+        "cluster": "Cluster",
+        "uncommitted": "Uncommitted",
+        "oldestMessage": "Oldest message",
+        "seconds": "{{count}}s",
+        "lastPut": "Last put",
+        "lastGet": "Last get",
+        "backoutQueue": "Backout queue",
+        "backoutThreshold": "Backout threshold",
+        "altered": "Last altered",
+        "inhibited": "This queue has {{what}} inhibited. Applications are refused, and messages sent to it end up on the dead-letter queue.",
+        "inhibitPut": "put",
+        "inhibitGet": "get",
+        "section": {
+          "definition": "Definition",
+          "runtime": "Runtime",
+          "handling": "Failure handling"
+        },
+        "note": "No rates: the queue manager reports what a queue holds and when it was last touched, not how fast it is moving. Alias and remote definitions hold nothing, so every figure on those rows is blank — they are listed because they are where a message goes next.",
+        "create": "New object",
+        "createTitle": "New queue or topic",
+        "kind": "Object",
+        "kindQueue": "queue",
+        "kindHint": "A queue stores messages until something reads them. A topic matches publications against subscriptions and stores nothing itself.",
+        "nameHint": "Up to 48 characters of letters, digits and . _ / % — no spaces. SYSTEM. is reserved by the queue manager.",
+        "nameProblem": {
+          "empty": "Give the object a name.",
+          "tooLong": "An IBM MQ object name is at most 48 characters.",
+          "characters": "An IBM MQ object name takes letters, digits and . _ / % only — no spaces."
+        },
+        "typeHint": "Only a local queue stores messages. An alias and a remote definition resolve somewhere else; a model queue is a template dynamic queues are copied from.",
+        "maxDepthHint": "How many messages the queue will hold before it refuses more. Blank leaves the queue manager's default.",
+        "topicStringHint": "What publishers name, and it is not the object's name above. The object is where this string's settings live, and two objects covering overlapping strings is ordinary.",
+        "created": "Created {{name}}",
+        "deleted": "Deleted {{name}}",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "The definition is removed. A queue an application currently has open is refused by the queue manager.",
+        "deleteHolding": "This queue holds {{count}} messages and they go with it. They are discarded rather than moved to the dead-letter queue, and there is no undo.",
+        "deleteFailed": "Could not delete"
+      },
+      "channels": {
+        "count": "{{count}} channels",
+        "search": "Search by name or connection",
+        "name": "Channel",
+        "type": "Type",
+        "status": "Status",
+        "substate": "Waiting on",
+        "instances": "Running",
+        "messages": "Messages",
+        "bytesSent": "Bytes sent",
+        "bytesReceived": "Bytes received",
+        "connectionName": "Connection",
+        "transmissionQueue": "Transmission queue",
+        "description": "Description",
+        "remoteQueueManager": "Partner queue manager",
+        "startedAt": "Started",
+        "lastMessageAt": "Last message",
+        "neverStarted": "never started",
+        "notRunHere": "not run here",
+        "inDoubtBadge": "In doubt",
+        "inDoubtNote": "This channel sent a batch and never learned whether the other end kept it. The messages are neither delivered nor resendable until somebody resolves the channel.",
+        "stopRequestedNote": "An operator has asked this channel to stop. It will do so at the end of its current batch, so it can still look busy for a while.",
+        "group": {
+          "client": "client",
+          "message": "message",
+          "cluster": "cluster"
+        },
+        "section": {
+          "definition": "Definition",
+          "runtime": "Runtime"
+        },
+        "note": "Definitions, not connections: a channel is listed whether or not anything is using it, because it is what decides whether anything may. An empty status is a real answer — a channel nobody has started has none, and a client-connection definition is one this queue manager holds on behalf of clients and never runs. The counters are one instance's totals since it started and reset when it restarts."
+      },
+      "messages": {
+        "title": "Messages",
+        "subtitle": "Browse a queue without taking anything off it",
+        "pickQueue": "Choose a queue",
+        "read": "Browse",
+        "found": "{{count}} messages",
+        "readNote": "Browsing takes nothing: the queue's depth is the same afterwards and the messages stay in order. Only local queues are listed — a topic stores nothing, and a publication sits on the queues its subscriptions deliver to.",
+        "startHere": "Choose a queue and browse it.",
+        "nothingThere": "That queue is empty.",
+        "messageId": "Message ID",
+        "format": "Format",
+        "persistence": "Persistence",
+        "expiry": "Expiry",
+        "correlationId": "Correlation ID",
+        "replyTo": "Reply-to queue",
+        "replyToQmgr": "Reply-to queue manager",
+        "body": "Body",
+        "bodyUnavailable": "{{format}} — not text",
+        "bodyUnavailableNote": "The queue manager stored this message as {{format}}, and the REST interface carries character data only — so it is listed here and its body cannot be shown. Every dead letter is like this: its payload sits behind a dead-letter header.",
+        "noPutTime": "No put time: the REST interface returns the identifiers, the persistence and the expiry, and does not return when the message arrived.",
+        "section": {
+          "properties": "Message properties"
+        }
+      },
+      "producer": {
+        "title": "Send a message",
+        "subtitle": "One message onto one queue",
+        "queue": "Queue",
+        "pickQueue": "Choose a queue",
+        "queueHint": "Queues only. The REST interface has no topic endpoint, so publishing to a topic needs an MQ client rather than this console.",
+        "body": "Body",
+        "bodyHint": "Character data. The server refuses anything else outright, so a binary payload has to be sent by an MQ client.",
+        "contentType": "Content type",
+        "persistent": "Persistent",
+        "persistentHint": "A persistent message is written to the queue manager's log and survives a restart. A non-persistent one is faster and is gone.",
+        "correlationId": "Correlation ID (optional)",
+        "correlationIdHint": "48 hexadecimal characters — 24 bytes, as MQ spells them. It is what matches a reply to its request. Blank leaves the field at zeroes, which is the ordinary case.",
+        "expiry": "Expiry in seconds (optional)",
+        "expiryHint": "The queue manager discards the message if nothing has read it by then. Blank means unlimited, which is MQ's own default.",
+        "count": "Copies",
+        "countHint": "Up to {{max}}. Each copy is its own request, so a large number is a long wait rather than a bigger batch.",
+        "send": "Send",
+        "sent": "Sent {{count}} messages",
+        "sentAs": "The queue manager assigned message ID {{id}}",
+        "failed": "Could not send",
+        "problem": {
+          "queueRequired": "Choose a queue to send to.",
+          "bodyRequired": "A message needs a body.",
+          "correlationIdLength": "A correlation ID is exactly 48 hexadecimal characters.",
+          "correlationIdHex": "A correlation ID is hexadecimal — 0-9 and a-f only.",
+          "countRange": "Send between 1 and 100 copies."
+        },
+        "note": "There is no scheduled send: a message the queue manager accepts is readable immediately. There is no tag and no key either — what an IBM MQ message carries instead is the descriptor above and whatever properties the sending application attaches."
+      },
+      "dlq": {
+        "count": "{{count}} dead-letter queues",
+        "queue": "Queue",
+        "depth": "Depth",
+        "consumers": "Open for input",
+        "sources": "Sources",
+        "section": {
+          "sources": "What points here"
+        },
+        "fromQueueManager": "Queue manager DEADQ",
+        "fromQueue": "Backout queue for",
+        "threshold": "After",
+        "thresholdNone": "never — the backout threshold is zero",
+        "nobodyDraining": "Nothing has this queue open for input. A dead-letter queue with a depth and no handler is a backlog nobody is looking at.",
+        "note": "Nothing here is marked as a dead-letter queue: what makes one is the queue manager's DEADQ attribute or another queue's backout queue pointing at it. The two are filled by different things — the queue manager fills its own DEADQ with whatever it could not deliver, and a backout queue is filled by whichever application gave up after the threshold. Message bodies are on the messages page, where every dead letter is listed and none can be opened: a dead letter carries a dead-letter header, and the REST interface returns character data only."
+      },
+      "subscriptions": {
+        "count": "{{count}} subscriptions",
+        "search": "Search by name or topic string",
+        "name": "Subscription",
+        "topicString": "Topic string",
+        "destination": "Delivers to",
+        "destinationQmgr": "Destination queue manager",
+        "waiting": "Waiting",
+        "received": "Received",
+        "queueReaders": "Reading that queue",
+        "attached": "Subscriber attached",
+        "attachedYes": "yes",
+        "attachedNo": "no",
+        "lastMessage": "Last publication",
+        "kind": "Created by",
+        "kindValue": {
+          "admin": "an operator",
+          "api": "an application",
+          "proxy": "another queue manager"
+        },
+        "durable": "Durable",
+        "durableYes": "yes",
+        "durableNo": "no — it goes when its subscriber does",
+        "user": "User",
+        "selector": "Selector",
+        "id": "Subscription ID",
+        "section": {
+          "definition": "Definition",
+          "runtime": "Runtime"
+        },
+        "unread": "Publications are collecting on {{queue}} and nothing is reading it. A subscription with no reader fills its destination queue until the queue is full, and then the queue manager starts dead-lettering.",
+        "note": "Two numbers, and they mean different things: received is how many publications the subscription has ever taken, and waiting is how many are still on the queue it delivers to. \"Subscriber attached\" is usually no and usually fine — an operator-defined subscription has nothing attached by design, and whichever application reads its destination queue is the consumer."
+      },
+      "overview": {
+        "subtitle": "{{qmgr}} · {{queues}} queues",
+        "discovered": "the server's only queue manager",
+        "queues": "Queues",
+        "queuesHint": "Local, alias, remote and model. Only the local ones hold anything.",
+        "depth": "Messages held",
+        "depthHint": "Across every queue on the queue manager, dead letters included.",
+        "topics": "Topics",
+        "topicsHint": "Topic objects. A publisher names a topic string, which may have no object at all.",
+        "runningChannels": "Channels running",
+        "runningChannelsHint": "Definitions with at least one live instance. A server-connection channel has one per connected application.",
+        "troubledChannels": "Channels in trouble",
+        "troubledChannelsHint": "Started and not working: retrying, stopped, paused or in doubt. A channel nobody has started is not counted — most of a fresh queue manager's never will be.",
+        "inhibited": "Queues inhibited",
+        "inhibitedHint": "Put or get switched off. It is the commonest reason a queue manager quietly dead-letters, and it leaves no other mark.",
+        "deepest": "Deepest queues",
+        "state": "State",
+        "stateDeadLetter": "the queue manager's dead-letter queue",
+        "stateInhibited": "inhibited",
+        "stateTransmission": "transmission queue — a channel drains it",
+        "stateOrdinary": "ordinary",
+        "note": "No rates and no storage figures: MQ reports what a queue holds and when it was last touched, and how fast it is moving is a statistics message published on a timer rather than a figure a page can read. There is no cluster panel either — this connection speaks to one queue manager, and an MQ cluster is a set of queue managers rather than nodes of this one."
       }
     }
   }

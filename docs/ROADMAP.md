@@ -345,7 +345,61 @@ This is the delivery plan. The contract it delivers against is
   against it - so the caveat's mechanism is asserted through the driver's own call budget, and
   a live test says so and fails if the emulator ever starts enforcing it.
 
-- **Designed, not yet implemented** — the two families below.
+- **Shipped** — IBM MQ 9.x through the two REST interfaces the mqweb server hosts, and through no
+  wire client at all. The obvious client for this family is cgo over IBM's native MQ libraries,
+  which would put the redistributable client on the critical path of every build and every CI job;
+  what is here instead is the standard library against `/ibmmq/rest/v1/admin` for objects and MQSC
+  and `/ibmmq/rest/v1/messaging` for messages, which is the shape ActiveMQ already proved.
+
+  It has an address, and that took deciding. A connection names a host, a port, a channel and a
+  queue manager, and only the first two are dialled: the driver opens `https://host:9443` and
+  everything else is a path on it, so the descriptor declares a required endpoint field and never
+  opens 1414. The queue manager is part of that address rather than a scope - it is a separate
+  process with its own storage, log and objects, nothing crosses between two of them, and there is
+  no unscoped IBM MQ connection at all - so a second queue manager is a second connection, named on
+  the form or discovered when the server fronts exactly one.
+
+  Channels are the concept the canonical vocabulary had no room for, and they got a port and a page
+  rather than a corner of an attribute map. A channel is not a client connection: it is a definition
+  that exists with nothing connected, it decides whether an application may connect at all, one of
+  them carries a running instance per connected client, and a message channel can sit in doubt over
+  a batch with no client involved. So `model.Channel`, `driver.ChannelInspector` and
+  `model.CapChannels`, read only for the reason `ShardInspector` is - stopping a server-connection
+  channel disconnects every application using it, which is a different gesture with a different
+  blast radius. The definitions come from MQSC rather than from the REST channel resource, because
+  that resource returns no server-connection channel at all and its status parameter answers with an
+  empty array on every channel.
+
+  Two interfaces means two authorisations, which is the second thing this family taught. The mqweb
+  server maps the administrative and messaging interfaces to two roles and a deployment may hold
+  them on two accounts - IBM's own developer image does exactly that - so the form collects an
+  optional second credential and the connection probes the messaging interface when it opens. A
+  credential holding only the administrative role keeps every board except the two that touch
+  messages, and those say why rather than disappearing.
+
+  Browsing takes nothing, which no other family reached through a management API here can say: the
+  depth is the same afterwards and the messages stay in order. The caveat it carries instead is its
+  own - the server returns character data and nothing else, so a message stored in any other format
+  is listed with its identifier and refused when opened, which is the ordinary state of every dead
+  letter. Sending goes to a queue and only to a queue: the messaging interface has no topic resource
+  at any version, so publishing needs an MQ client.
+
+  Dead letters are `CapDeadLetterTopology` rather than `CapDLQ`. Nothing here is a dead-letter queue
+  by nature; what makes one is the queue manager's DEADQ attribute or another queue's backout queue
+  pointing at it, which is a walk backwards exactly as RabbitMQ's dead-letter exchange is.
+
+  What it deliberately does not have: no cluster page, because an MQ cluster is a set of queue
+  managers publishing to each other's repositories rather than nodes of this one; no rates and no
+  storage figures, because the REST interfaces report neither; no offsets of any kind, because a
+  queue is not a log; and no access page, because authority records are per object and per
+  principal, which is a page of its own rather than a column.
+
+  Two things this driver leaves out that the family has, recorded rather than dressed up as absences
+  in the product: creating and deleting a subscription, which DEFINE SUB and DELETE SUB would do,
+  and altering a queue, which ALTER would - each field worth changing has its own consequence for
+  applications already connected, and one control writing them all is not the shape to offer.
+
+- **Designed, not yet implemented** — the one family below.
 
 ## Delivery order
 
@@ -365,7 +419,7 @@ This is the delivery plan. The contract it delivers against is
 | 14 | **Google Cloud Pub/Sub** | Done. Subscriptions are objects in their own right rather than a reader's position - created, listed and deleted independently of the topic, and carrying the whole of the delivery configuration. Their backlog does not map onto lag after all: `num_undelivered_messages` is a Cloud Monitoring metric and no call in the Pub/Sub API reports it, so the capability is degraded with a reason rather than filled in with a number that would have to be produced by pulling the backlog to count it |
 | 15 | **Azure Service Bus** | Done. Peek is non-destructive, so this is the one messages page in the app with no caveat at all - and the absence is asserted rather than left to be noticed. Subscription rules did reach the routing page: a rule is an object with a name rather than a field on the reader, so an exchange maps onto a topic and a binding onto a rule. Two the estimate missed: the dead letters are a per-entity store the broker creates rather than a topology to walk, and a peek reaches scheduled and deferred messages no consumer is ever offered |
 | 16 | **Amazon Kinesis** | Done. Shards are not partitions, and they got a port and a page rather than columns: a shard is named, owns a slice of the hash space, and is split and merged rather than resized - so a resize leaves a closed parent still holding its records. Two the estimate got wrong: browsing takes nothing at all, which no other hosted family here can say, and what it does spend is the shard's read allowance, so the caveat says that instead; and the backlog does not exist anywhere, not even in a second API, because a classic consumer's position lives in DynamoDB and a registered one has none |
-| 17 | **IBM MQ** | Channels are first-class and have no counterpart among the canonical pages, so they get a page of their own |
+| 17 | **IBM MQ** | Done. Channels are first-class and have no counterpart among the canonical pages, so they got a port and a page of their own - read only, because stopping one disconnects every application using it. Three the estimate missed: the family has an address after all, and it is the mqweb server rather than the queue manager's listener; the two REST interfaces authorise against two roles, so a credential can reach every board and no message; and the channel resource returns no server-connection channel at all, so the definitions come from MQSC. One it got right in an unexpected direction: browsing takes nothing, and the caveat is about format instead - the server returns character data only, so every dead letter is listed and none can be opened |
 | 18 | **Solace PubSub+** | A Message VPN is a scope selector, the shape Pulsar's namespaces already proved |
 
 Two ordering decisions worth keeping in view.
@@ -424,7 +478,7 @@ and `Access`.
 
 | Driver | Management plane | Pages it lights up | Notable gaps |
 | --- | --- | --- | --- |
-| **IBM MQ** | Administrative REST API | All six | Channels are first-class with no canonical equivalent and are the likely override |
+| **IBM MQ** | The administrative and messaging REST APIs the mqweb server hosts | Overview, Destinations, Channels, Subscriptions, Messages, Publish, Dead letters, Alerts | Done. Confirmed: channels are first-class with no canonical equivalent, and they got a port and a page. Three the estimate missed: the address is the web server rather than the queue manager; the two interfaces authorise separately, so the messaging half is a tier probed on connect; and the messaging interface carries character data only, so a dead letter is listed and cannot be opened. No cluster page - an MQ cluster is a set of queue managers rather than nodes of one - and no rate, storage figure or offset anywhere |
 | **Solace PubSub+** | SEMP v2 | All six | Message VPN becomes a scope selector, as namespace does for Pulsar |
 
 ## Covered by an existing driver
