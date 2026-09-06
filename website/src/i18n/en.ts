@@ -5,11 +5,11 @@ export const en: Content = {
   meta: {
     title: 'MQ Studio — One interface for every message queue',
     description:
-      'MQ Studio is a local-first desktop client for message queues. RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, and NSQ share one interface and one workflow, with no web console to deploy or keep alive. macOS, Windows, and Linux. Apache-2.0.',
+      'MQ Studio is a local-first desktop client for message queues. RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, and Amazon SQS share one interface and one workflow, with no web console to deploy or keep alive. macOS, Windows, and Linux. Apache-2.0.',
     ogAlt: 'The MQ Studio cluster overview',
   },
   banner: {
-    text: 'NSQ has landed — topics and channels, the discovery tier, and who is consuming',
+    text: 'Amazon SQS has landed — the first connection with no broker address, only a region and a credential',
     linkLabel: 'Changelog',
     dismiss: 'Dismiss announcement',
   },
@@ -33,7 +33,7 @@ export const en: Content = {
     badgeSuffix: 'is out · Apache-2.0',
     title: 'One interface for every message queue',
     subtitle:
-      'MQ Studio is a local-first desktop client for message queues — RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, and NSQ behind the same pages and the same workflow, with no web console to deploy or keep alive.',
+      'MQ Studio is a local-first desktop client for message queues — RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, and Amazon SQS behind the same pages and the same workflow, with no web console to deploy or keep alive.',
     downloadFallback: 'Download MQ Studio',
     downloadFor: (platform: string) => `Download for ${platform}`,
     installGuide: 'Install guide',
@@ -55,8 +55,9 @@ export const en: Content = {
       'NATS 2.x',
       'ActiveMQ Classic 5.x / 6.x · Artemis 2.x',
       'NSQ 1.x',
+      'Amazon SQS',
     ],
-    planned: 'Planned: Amazon SQS · Google Cloud Pub/Sub · Azure Service Bus and more',
+    planned: 'Planned: Google Cloud Pub/Sub · Azure Service Bus · Amazon Kinesis and more',
   },
   features: {
     title: 'Why MQ Studio',
@@ -168,6 +169,7 @@ export const en: Content = {
       { label: 'NATS', done: true },
       { label: 'ActiveMQ', done: true },
       { label: 'NSQ', done: true },
+      { label: 'Amazon SQS', done: true },
       { label: 'More drivers', done: false },
       { label: 'Agent', done: false },
     ],

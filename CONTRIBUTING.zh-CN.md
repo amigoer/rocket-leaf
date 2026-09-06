@@ -212,6 +212,11 @@ capability，画出来的页面看着不像「诚实」，而像「坏了」。
 - `frontend/src/design/boards/<family>Boards.test.tsx` —— 每块 board 都要走一遍加载中、
   失败、已连接但为空、以及有数据这四种状态，用与驱动实际返回结构一致的桩数据。
   i18n 扫描只会在未连接的状态下渲染每块 board 一次，而那恰恰是唯一不碰数据的状态。
+- 没有 Broker 地址的家族**完全不要**声明地址字段，`model.DriverDescriptor.RequiresEndpoints`
+  读的就是这份缺失——没有别的地方能决定它。随后有两处需要再看一眼：
+  `frontend/src/design/data/connections.ts` 会把 profile 的 endpoints 打印到连接行的地址列，
+  那样这一列会是空的；另外驱动必须用自己的名字存凭据。`accessKey` 与 `secretKey`
+  是给 RocketMQ ACL 保留的：别的家族复用它们，保存时会被清空，拨号时还会被盖上全局那一对。
 
 不要靠眼睛数家族。哪些驱动能答哪个页面，由 capability 声明说了算：
 

@@ -51,6 +51,7 @@ body:
         - MQTT
         - ActiveMQ
         - NSQ
+        - Amazon SQS
     validations:
       required: true
 

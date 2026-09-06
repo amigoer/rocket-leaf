@@ -22,6 +22,40 @@ was open now redials instead of going on with the old one in silence.
 
 ### Added
 
+- Amazon SQS is the tenth driver, and the first with no broker address at all.
+  There is nothing to dial: a connection is an AWS region and a credential, and
+  the SDK resolves the endpoint from the region. The driver's own connection
+  form declares no address field, which is what lets a profile save with its
+  address empty — the seam that went in ahead of this driver rather than during
+  it. The connection row shows the region where every other family shows an
+  address. Left blank, the credential falls back to whatever AWS identity the
+  machine already has, which is how this runs on anything inside AWS.
+
+  Queues with what they are holding split three ways — available, in flight and
+  delayed — because those are three different problems with three different
+  fixes: nothing is consuming, a consumer took the work and is not finishing,
+  and a queue doing exactly what it was asked to. Creating, editing, purging
+  and deleting them, standard or FIFO. Sending with named attributes, a delay,
+  a repeat, and the group and deduplication ids a FIFO queue requires. And dead
+  letters, found by walking every queue's redrive policy backwards, with the
+  sources that feed each one — a dead-letter queue with a backlog and no
+  sources left will never receive anything again and never drain.
+
+  Browsing carries a caveat, and it is worth reading before pressing the
+  button. SQS has one read — ReceiveMessage — and it is the same call a
+  consumer makes: what it returns is hidden from other consumers until the app
+  hands it back, and every message's receive count goes up permanently. On a
+  queue with a redrive policy, browsing often enough moves a message to the
+  dead-letter queue with nothing having failed.
+
+  There is no consumers page, no cluster page and no access page, and none of
+  the three is an omission. SQS has no subscription of any kind — a consumer is
+  whoever calls ReceiveMessage, and the service keeps no record of who that was
+  — so a queue reports its subscriber count as unknown rather than as zero.
+  AWS runs the service, so there is no node, no disk figure and no rate: what
+  SQS reports is per queue, and the rest is CloudWatch. And who may call what
+  is IAM's, one service further out.
+
 - NSQ is the ninth driver, and the first with no admin protocol at all:
   everything an operator can ask is an HTTP call on the same daemons that carry
   the messages, so it needs no wire client. A connection is a set of nsqd

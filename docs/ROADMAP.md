@@ -172,7 +172,41 @@ This is the delivery plan. The contract it delivers against is
   emptying a topic has to empty its channels: nsqd copies each message into every channel as it
   arrives, so /topic/empty on its own answers 200 and moves nothing a page can see.
 
-- **Designed, not yet implemented** — the six families below.
+
+- **Shipped** — Amazon SQS through the AWS API. The first family with no broker address: there
+  is nothing to dial, so a connection is a region and a credential, and the driver's own
+  descriptor declares no endpoint field at all - which is what phase 11 built the seam for.
+  Queues with what they hold split three ways; creating, editing, purging and deleting them,
+  standard or FIFO; browsing; sending with named attributes, a delay, a repeat, and the group
+  and deduplication ids a FIFO queue requires; and dead letters found by walking every queue's
+  redrive policy backwards.
+
+  FIFO queues are covered rather than deferred. The .fifo suffix changes ordering,
+  deduplication and what a send must carry, and none of that changes how a queue is listed,
+  created, emptied, deleted or read - so the difference lives in three form fields and two
+  refusals, not in a second set of pages.
+
+  The browse carries a caveat, and it is the honest one. SQS has a single read -
+  ReceiveMessage - and it is the same call a consumer makes: what it returns is hidden from
+  everyone else for the visibility timeout, and its receive count goes up permanently, which is
+  what a redrive policy compares against. The driver hands every message straight back with a
+  visibility timeout of zero, so the window is about as long as the request; it cannot close it,
+  and it cannot undo the count. Hence a caveat rather than a silent best effort.
+
+  What it deliberately does not have is mostly one fact and one boundary. SQS has no
+  subscription of any kind - a consumer is whoever calls ReceiveMessage, and the service keeps
+  no record of who that was - so there is no consumers page, no lag, no offset and no consumer
+  count anywhere; a queue reports its subscribers as unknown rather than as zero, because zero
+  would be a claim the service cannot support. And AWS runs the service, so there is no cluster,
+  no node, no disk figure and no rate: what SQS reports is per queue, and everything else lives
+  in CloudWatch, which is a different API under a different permission.
+
+  Two more absences worth naming. There is no message-by-id lookup: an id is assigned on send
+  and echoed on receive, and nothing indexes one. And there is no access page: who may call what
+  is IAM's, one service further out, and a page editing the queue policy alone would claim to
+  control access it cannot see.
+
+- **Designed, not yet implemented** — the five families below.
 
 ## Delivery order
 
@@ -188,7 +222,7 @@ This is the delivery plan. The contract it delivers against is
 | 10 | **ActiveMQ / Artemis** | Done. JMS semantics fit the canonical pages everywhere except where those pages assume a log: no offsets, no partitions, no trim. What they gained is a dead-letter page that is finally full, and the first retry in the app |
 | 11 | **Connection shape** — the seam, not a driver | A family can declare it needs no address, and the connection form, the profile store and the probe path all honour that. The driver's own descriptor is what says so |
 | 12 | **NSQ** | Done. Topics and channels, with no message history and therefore no browse - confirmed. The management plane is the HTTP API of the daemons themselves, so the driver needs no wire client; what it had to get right instead is that every figure is a sum across daemons that each know only their own, that a delete has to reach the discovery tier, and that emptying a topic has to empty its channels |
-| 13 | **Amazon SQS** | Queues, messages and a send console, on a connection that carries a region and a credential rather than an address |
+| 13 | **Amazon SQS** | Done. The seam phase 11 built, used: a descriptor with no endpoint field, a profile that saves with an empty `Endpoints`, and a connection row that shows the region where every other family shows an address. Confirmed: no subscriptions, so no consumers page and no lag; no cluster, because AWS runs the service; and one read, which is the one a consumer makes - so the browse carries a caveat rather than pretending to be non-destructive |
 | 14 | **Google Cloud Pub/Sub** | Subscriptions are objects in their own right rather than a reader's position, and their backlog maps onto lag |
 | 15 | **Azure Service Bus** | Peek is non-destructive, so this is the one hosted family whose messages page needs no caveat, and subscription rules reach the routing page |
 | 16 | **Amazon Kinesis** | Shards are not partitions: they get their own columns instead of borrowing the canonical ones |
@@ -242,7 +276,7 @@ and `Access`.
 
 | Driver | Management plane | Pages it lights up | Notable gaps |
 | --- | --- | --- | --- |
-| **Amazon SQS** | SQS API | Destinations, Messages, Publish | No consumer groups and no cluster; receiving starts a visibility timeout, so browsing carries a caveat |
+| **Amazon SQS** | SQS API | Destinations, Messages, Publish, Dead letters, Alerts | Done. Confirmed: no consumer groups and no cluster, and receiving starts a visibility timeout so browsing carries a caveat. Two the estimate missed: the receive also raises the message's receive count, which a redrive policy compares against, so browsing can dead-letter a message with nothing having failed; and the dead-letter page is answerable after all, by walking every queue's redrive policy backwards |
 | **Google Cloud Pub/Sub** | Publisher and Subscriber admin APIs | Destinations, Subscriptions, Publish | Subscriptions are real objects and backlog maps cleanly to lag; pulling consumes, so browse needs a snapshot or a caveat |
 | **Azure Service Bus** | Service Bus management API | Destinations, Subscriptions, Messages, Publish, plus rules on the routing page | No cluster; peek is non-destructive, so browse needs no caveat |
 | **Amazon Kinesis** | Kinesis API | Destinations, Subscriptions, Messages, Publish | No cluster; shards are not partitions and need their own column set |

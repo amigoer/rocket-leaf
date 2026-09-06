@@ -106,7 +106,8 @@
     { "name": "driver:nats", "color": "BFDADC", "description": "NATS" },
     { "name": "driver:mqtt", "color": "BFDADC", "description": "MQTT" },
     { "name": "driver:activemq", "color": "BFDADC", "description": "ActiveMQ Classic and Artemis" },
-    { "name": "driver:nsq", "color": "BFDADC", "description": "NSQ" }
+    { "name": "driver:nsq", "color": "BFDADC", "description": "NSQ" },
+    { "name": "driver:sqs", "color": "BFDADC", "description": "Amazon SQS" }
   ],
 
   "workflow": [

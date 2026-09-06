@@ -247,6 +247,14 @@ After adding a family, update all of these:
   loading, failed, connected-but-empty and populated, against stubs shaped like
   what the driver actually sends. The i18n sweep renders each board once with
   nothing connected, which is the one state that does not touch the data.
+- A family with no broker address declares **no** endpoint field at all, and
+  `model.DriverDescriptor.RequiresEndpoints` reads that absence — nothing else
+  decides it. Two things then need a second look:
+  `frontend/src/design/data/connections.ts` prints the profile's endpoints in
+  the connection row's address column, which would leave it blank, and the
+  driver has to store its credentials under names of its own. `accessKey` and
+  `secretKey` are reserved for RocketMQ's ACL: a family reusing them has them
+  cleared on save and the global pair stamped on at dial time.
 
 Do not count the families by eye. The capability declarations settle which
 drivers answer which page:
