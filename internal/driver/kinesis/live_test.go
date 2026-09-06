@@ -964,3 +964,194 @@ func TestLiveLocalStackDoesNotEnforceTheReadQuota(t *testing.T) {
 			"and the driver's handling of it needs a test rather than this note", attempt, err)
 	}
 }
+
+/*
+ * Sending, and the two fields that decide where a record lands.
+ *
+ * A partition key is not decoration: the service hashes it into the key space
+ * and the shard whose range covers the hash takes the record. So a send
+ * reports which shard took it, and the pair it returns is the same handle a
+ * browse produces.
+ */
+func TestLivePublishReportsWhereTheRecordLanded(t *testing.T) {
+	conn := liveConn(t)
+	name := testStream(t, conn, "MQS-TEST-publish", StreamSpec{Shards: 2})
+
+	result, err := conn.Publish(liveContext(t), PublishRequest{
+		Stream: name, Body: "one record", PartitionKey: "orders-1",
+	})
+	if err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	if result.Sent != 1 || result.Failed != 0 {
+		t.Errorf("sent %d and %d were refused, want 1 and 0", result.Sent, result.Failed)
+	}
+	if result.ShardID == "" || result.SequenceNumber == "" {
+		t.Fatalf("the send reported shard %q and sequence %q; neither addresses a record alone",
+			result.ShardID, result.SequenceNumber)
+	}
+
+	// The pair the send reported is the id the browse produces, which is what
+	// makes "look at what I just wrote" a single step.
+	found, err := conn.MessageByID(liveContext(t), name, result.ShardID+":"+result.SequenceNumber)
+	if err != nil {
+		t.Fatalf("MessageByID on what was just sent: %v", err)
+	}
+	if found.Body != "one record" {
+		t.Errorf("body = %q, want %q", found.Body, "one record")
+	}
+	if found.Keys != "orders-1" {
+		t.Errorf("partition key = %q, want orders-1", found.Keys)
+	}
+}
+
+// A repeated body has to spread. Sending every copy under one partition key
+// would load one shard and leave the rest idle, which is a fair thing to ask
+// for explicitly and a bad default - the browse afterwards would look as
+// though the stream were not spreading records at all.
+func TestLivePublishSpreadsARepeatedBodyAcrossShards(t *testing.T) {
+	conn := liveConn(t)
+	name := testStream(t, conn, "MQS-TEST-spread", StreamSpec{Shards: 3})
+
+	result, err := conn.Publish(liveContext(t), PublishRequest{
+		Stream: name, Body: "repeated", PartitionKey: "batch", Count: 30,
+	})
+	if err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	if result.Sent != 30 {
+		t.Fatalf("sent %d of 30, %d refused", result.Sent, result.Failed)
+	}
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: name, MaxResults: 100,
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	shards := map[string]int{}
+	keys := map[string]bool{}
+	for _, message := range messages {
+		shards[message.Properties[PropShardID]]++
+		keys[message.Keys] = true
+	}
+	if len(shards) < 2 {
+		t.Errorf("30 records landed on %d shard(s) of 3", len(shards))
+	}
+	if len(keys) != 30 {
+		t.Errorf("%d distinct partition keys for 30 records; each copy needs its own or "+
+			"they all land together", len(keys))
+	}
+}
+
+/*
+ * An explicit hash key aims a record at a shard by name, and it is the reason
+ * the shards page shows each shard's range.
+ *
+ * It also turns off the per-copy partition key: the point of setting one is
+ * that every record goes to the same place, and varying the key underneath it
+ * would be doing nothing while looking like it did something.
+ */
+func TestLivePublishAimsAtAShardWithAnExplicitHashKey(t *testing.T) {
+	conn := liveConn(t)
+	name := testStream(t, conn, "MQS-TEST-aim", StreamSpec{Shards: 3})
+
+	shards, err := conn.ListShards(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("ListShards: %v", err)
+	}
+	if len(shards) != 3 {
+		t.Fatalf("created with %d shards, want 3", len(shards))
+	}
+	wanted := shards[2]
+
+	result, err := conn.Publish(liveContext(t), PublishRequest{
+		Stream:          name,
+		Body:            "aimed",
+		PartitionKey:    "ignored-by-the-hash-key",
+		ExplicitHashKey: wanted.StartHashKey,
+		Count:           5,
+	})
+	if err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	if result.ShardID != wanted.ID {
+		t.Errorf("the aimed send landed on %s, want %s", result.ShardID, wanted.ID)
+	}
+
+	onTarget, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic:      name,
+		MaxResults: 50,
+		Filters:    map[string]string{FilterShardID: wanted.ID},
+	})
+	if err != nil {
+		t.Fatalf("browsing %s: %v", wanted.ID, err)
+	}
+	if len(onTarget) != 5 {
+		t.Errorf("%s holds %d of the 5 aimed records", wanted.ID, len(onTarget))
+	}
+	for _, message := range onTarget {
+		if message.Keys != "ignored-by-the-hash-key" {
+			t.Errorf("partition key = %q; an aimed send keeps the key it was given",
+				message.Keys)
+		}
+	}
+
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Stream: name, Body: "bad", PartitionKey: "k", ExplicitHashKey: "not-a-number",
+	}); err == nil {
+		t.Error("accepted an explicit hash key that is not a number")
+	}
+}
+
+/*
+ * The canonical port, and the two arguments it has that Kinesis does not.
+ *
+ * Both are refused rather than ignored. A tag would be silently discarded and
+ * the send reported as having carried it; a delay would report a scheduled
+ * send that happened at once, which is the mistake ActiveMQ's driver was
+ * written to avoid making.
+ */
+func TestLiveSendMessageRefusesWhatKinesisCannotCarry(t *testing.T) {
+	conn := liveConn(t)
+	name := testStream(t, conn, "MQS-TEST-send", StreamSpec{Shards: 1})
+
+	id, err := conn.SendMessage(liveContext(t), name, "", "orders-1", "through the port", 0)
+	if err != nil {
+		t.Fatalf("SendMessage: %v", err)
+	}
+	if !strings.Contains(id, idSeparator) {
+		t.Errorf("SendMessage returned %q, which is not a shard and a sequence number", id)
+	}
+	if _, err := conn.MessageByID(liveContext(t), name, id); err != nil {
+		t.Errorf("the id SendMessage returned does not address the record: %v", err)
+	}
+
+	if _, err := conn.SendMessage(liveContext(t), name, "urgent", "k", "body", 0); err == nil {
+		t.Error("accepted a tag, which a kinesis record has nowhere to put")
+	}
+	if _, err := conn.SendMessage(liveContext(t), name, "", "k", "body", 3); err == nil {
+		t.Error("accepted a delay, and nothing in kinesis holds a record back")
+	}
+}
+
+// A send with no partition key is refused here rather than by the service,
+// whose own message names Data and PartitionKey together without saying which
+// was missing.
+func TestLivePublishRefusesASendWithNoPartitionKey(t *testing.T) {
+	conn := liveConn(t)
+
+	_, err := conn.Publish(liveContext(t), PublishRequest{Stream: seedOrders, Body: "body"})
+	if err == nil {
+		t.Fatal("accepted a record with no partition key")
+	}
+	if !strings.Contains(err.Error(), "partition key") {
+		t.Errorf("error does not name the missing field: %v", err)
+	}
+
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Stream: seedOrders, PartitionKey: "k",
+	}); err == nil {
+		t.Error("accepted an empty record")
+	}
+}

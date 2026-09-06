@@ -28,6 +28,15 @@ export function CreateStream(connID: number, input: $models.KinesisStreamInput):
 }
 
 /**
+ * Publish sends to one stream and reports what the service took.
+ */
+export function Publish(connID: number, input: $models.KinesisPublishInput): $CancellablePromise<$models.KinesisPublishResult | null> {
+    return $Call.ByID(1645475376, connID, input).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
+/**
  * RemoveStream deletes a stream and every record in it.
  * 
  * A stream with registered consumers is refused rather than cascaded: an
@@ -48,7 +57,7 @@ export function RemoveStream(connID: number, name: string): $CancellablePromise<
  */
 export function Shards(connID: number, stream: string): $CancellablePromise<(model$0.Shard | null)[]> {
     return $Call.ByID(901783872, connID, stream).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType4($result);
     });
 }
 
@@ -65,6 +74,8 @@ export function UpdateStream(connID: number, input: $models.KinesisStreamInput):
 }
 
 // Private type creation functions
-const $$createType0 = model$0.Shard.createFrom;
+const $$createType0 = $models.KinesisPublishResult.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
-const $$createType2 = $Create.Array($$createType1);
+const $$createType2 = model$0.Shard.createFrom;
+const $$createType3 = $Create.Nullable($$createType2);
+const $$createType4 = $Create.Array($$createType3);

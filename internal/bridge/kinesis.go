@@ -82,3 +82,59 @@ func (s *KinesisService) RemoveStream(connID int, name string) error {
 func (s *KinesisService) Shards(connID int, stream string) ([]*model.Shard, error) {
 	return s.service.Shards(context.Background(), connID, stream)
 }
+
+// KinesisPublishInput is a send as the Kinesis console collects it.
+//
+// Deliberately not MessageService.Send's shape. That one takes a topic, tags,
+// keys and a delay level - RocketMQ's vocabulary, of which a Kinesis record
+// has the destination and the partition key. There is no header table, no tag
+// and nothing anywhere in the service that holds a record back.
+type KinesisPublishInput struct {
+	Stream string `json:"stream"`
+	Body   string `json:"body"`
+	// PartitionKey is required. Kinesis hashes it into the 128-bit key space
+	// and the shard whose range covers the hash takes the record, so it is
+	// what decides where a record lands and the only ordering guarantee the
+	// service makes is between records sharing one.
+	PartitionKey string `json:"partitionKey"`
+	// ExplicitHashKey overrides that hash with one the sender chooses, which
+	// is the only way to aim a record at a named shard. Blank is the ordinary
+	// case.
+	ExplicitHashKey string `json:"explicitHashKey"`
+	// Count sends the same body more than once. One when left at zero. Each
+	// copy gets its own partition key suffix unless a hash key aims them all
+	// at one shard.
+	Count int `json:"count"`
+}
+
+// KinesisPublishResult is what the send did.
+type KinesisPublishResult struct {
+	Sent int `json:"sent"`
+	// SequenceNumber and ShardID are the first record's, and both are given
+	// because neither addresses a record on its own.
+	SequenceNumber string `json:"sequenceNumber"`
+	ShardID        string `json:"shardId"`
+	// Failed counts records the service refused individually. A send that
+	// raised no error can still have refused most of its batch.
+	Failed int `json:"failed"`
+}
+
+// Publish sends to one stream and reports what the service took.
+func (s *KinesisService) Publish(connID int, input KinesisPublishInput) (*KinesisPublishResult, error) {
+	result, err := s.service.Publish(context.Background(), connID, kinesisdriver.PublishRequest{
+		Stream:          input.Stream,
+		Body:            input.Body,
+		PartitionKey:    input.PartitionKey,
+		ExplicitHashKey: input.ExplicitHashKey,
+		Count:           input.Count,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &KinesisPublishResult{
+		Sent:           result.Sent,
+		SequenceNumber: result.SequenceNumber,
+		ShardID:        result.ShardID,
+		Failed:         result.Failed,
+	}, nil
+}

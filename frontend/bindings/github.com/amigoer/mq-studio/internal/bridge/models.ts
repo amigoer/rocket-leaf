@@ -1937,6 +1937,116 @@ export class KafkaTopicInput {
 }
 
 /**
+ * KinesisPublishInput is a send as the Kinesis console collects it.
+ * 
+ * Deliberately not MessageService.Send's shape. That one takes a topic, tags,
+ * keys and a delay level - RocketMQ's vocabulary, of which a Kinesis record
+ * has the destination and the partition key. There is no header table, no tag
+ * and nothing anywhere in the service that holds a record back.
+ */
+export class KinesisPublishInput {
+    "stream": string;
+    "body": string;
+
+    /**
+     * PartitionKey is required. Kinesis hashes it into the 128-bit key space
+     * and the shard whose range covers the hash takes the record, so it is
+     * what decides where a record lands and the only ordering guarantee the
+     * service makes is between records sharing one.
+     */
+    "partitionKey": string;
+
+    /**
+     * ExplicitHashKey overrides that hash with one the sender chooses, which
+     * is the only way to aim a record at a named shard. Blank is the ordinary
+     * case.
+     */
+    "explicitHashKey": string;
+
+    /**
+     * Count sends the same body more than once. One when left at zero. Each
+     * copy gets its own partition key suffix unless a hash key aims them all
+     * at one shard.
+     */
+    "count": number;
+
+    /** Creates a new KinesisPublishInput instance. */
+    constructor($$source: Partial<KinesisPublishInput> = {}) {
+        if (!("stream" in $$source)) {
+            this["stream"] = "";
+        }
+        if (!("body" in $$source)) {
+            this["body"] = "";
+        }
+        if (!("partitionKey" in $$source)) {
+            this["partitionKey"] = "";
+        }
+        if (!("explicitHashKey" in $$source)) {
+            this["explicitHashKey"] = "";
+        }
+        if (!("count" in $$source)) {
+            this["count"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new KinesisPublishInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): KinesisPublishInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new KinesisPublishInput($$parsedSource as Partial<KinesisPublishInput>);
+    }
+}
+
+/**
+ * KinesisPublishResult is what the send did.
+ */
+export class KinesisPublishResult {
+    "sent": number;
+
+    /**
+     * SequenceNumber and ShardID are the first record's, and both are given
+     * because neither addresses a record on its own.
+     */
+    "sequenceNumber": string;
+    "shardId": string;
+
+    /**
+     * Failed counts records the service refused individually. A send that
+     * raised no error can still have refused most of its batch.
+     */
+    "failed": number;
+
+    /** Creates a new KinesisPublishResult instance. */
+    constructor($$source: Partial<KinesisPublishResult> = {}) {
+        if (!("sent" in $$source)) {
+            this["sent"] = 0;
+        }
+        if (!("sequenceNumber" in $$source)) {
+            this["sequenceNumber"] = "";
+        }
+        if (!("shardId" in $$source)) {
+            this["shardId"] = "";
+        }
+        if (!("failed" in $$source)) {
+            this["failed"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new KinesisPublishResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): KinesisPublishResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new KinesisPublishResult($$parsedSource as Partial<KinesisPublishResult>);
+    }
+}
+
+/**
  * KinesisStreamInput is a stream as the stream form collects it.
  * 
  * Deliberately not TopicService.Create's shape. That one takes a broker

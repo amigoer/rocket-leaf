@@ -88,6 +88,8 @@ export {
     GroupInput,
     IdentityInput,
     KafkaTopicInput,
+    KinesisPublishInput,
+    KinesisPublishResult,
     KinesisStreamInput,
     LogDirView,
     MQTTFilterInput,

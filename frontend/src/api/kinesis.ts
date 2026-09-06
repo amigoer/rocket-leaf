@@ -1,9 +1,13 @@
 import { KinesisService } from "@bindings/bridge";
-import type { KinesisStreamInput } from "@bindings/bridge/models";
+import type {
+  KinesisPublishInput,
+  KinesisPublishResult,
+  KinesisStreamInput,
+} from "@bindings/bridge/models";
 import type { Shard } from "@bindings/model/models";
-import { present } from "./client";
+import { present, required } from "./client";
 
-export type { KinesisStreamInput };
+export type { KinesisPublishInput, KinesisPublishResult, KinesisStreamInput };
 
 /**
  * The Kinesis-only half of the surface.
@@ -52,3 +56,16 @@ export const removeStream = (connID: number, name: string): Promise<void> =>
  */
 export const shards = async (connID: number, stream: string): Promise<Shard[]> =>
   present(await KinesisService.Shards(connID, stream));
+
+/**
+ * Send one record, or the same body several times.
+ *
+ * Every record needs a partition key: the service hashes it to choose a shard,
+ * and there is no default. An explicit hash key overrides that hash, which is
+ * the only way to aim a record at a shard by name.
+ */
+export const publish = (
+  connID: number,
+  input: KinesisPublishInput,
+): Promise<KinesisPublishResult> =>
+  KinesisService.Publish(connID, input).then(required);

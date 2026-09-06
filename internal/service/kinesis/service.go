@@ -129,3 +129,22 @@ func (s *Service) Shards(ctx context.Context, connID int, stream string) ([]*mod
 	// region, and Kinesis has nothing inside it for one to belong to.
 	return api.ListShards(ctx, model.DestinationRef{Name: stream})
 }
+
+// Publish sends one body, or the same body several times, to one stream.
+//
+// Beside the canonical send rather than through it: MessageService.Send
+// collects a topic, tags, keys and a delay level - RocketMQ's vocabulary, of
+// which a Kinesis record has the destination and the key. What the canonical
+// shape cannot carry is the explicit hash key, which is the only way to aim a
+// record at a chosen shard.
+func (s *Service) Publish(
+	ctx context.Context, connID int, request kinesisdriver.PublishRequest,
+) (*kinesisdriver.PublishResult, error) {
+	api, err := s.kinesisConn(connID, model.CapPublish)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.Publish(ctx, request)
+}

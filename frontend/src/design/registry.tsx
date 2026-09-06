@@ -93,6 +93,7 @@ import { MessagesKinesis } from "./boards/messages/MessagesKinesis";
 import { ProducerSqs } from "./boards/producer/ProducerSqs";
 import { ProducerGooglePubSub } from "./boards/producer/ProducerGooglePubSub";
 import { ProducerAzureServiceBus } from "./boards/producer/ProducerAzureServiceBus";
+import { ProducerKinesis } from "./boards/producer/ProducerKinesis";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
 import { DlqGooglePubSub } from "./boards/dlq/DlqGooglePubSub";
 import { DlqAzureServiceBus } from "./boards/dlq/DlqAzureServiceBus";
@@ -295,6 +296,12 @@ export function renderBoard(
        every publish and discards it. */
     if (protocol === "google-pubsub") return <ProducerGooglePubSub />;
     if (protocol === "azure-servicebus") return <ProducerAzureServiceBus />;
+    /* Kinesis's own too, and it is the console with the least in common with
+       the shared one: a record is bytes and a partition key, so the topic is
+       the only field of the four that survives. What it needs instead is the
+       key that decides the shard, and the explicit hash key that overrides it
+       - the only way anywhere in the service to aim a record at one. */
+    if (protocol === "kinesis") return <ProducerKinesis />;
     return <Producer protocol={protocol} nav={nav} />;
   }
   /* Alerts is one board for every family: the rules are numeric comparisons

@@ -108,6 +108,8 @@ func capabilities() []model.Capability {
 
 		model.CapMessageQuery,
 		model.CapMessageByID,
+
+		model.CapPublish,
 	}
 }
 

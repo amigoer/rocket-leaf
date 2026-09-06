@@ -5323,6 +5323,32 @@
         "startHere": "Pick a stream and read. Nothing is fetched until you ask.",
         "nothingThere": "No records in that range. A record is kept for the stream's retention period and then discarded, read or not.",
         "readNote": "Reading removes nothing: any number of readers can read the same records until they expire. What it does spend is the shard's read allowance — five reads a second and two megabytes a second, shared with every consumer on that shard."
+      },
+      "producer": {
+        "title": "Send a record",
+        "subtitle": "Bytes and a partition key — that is the whole of a record",
+        "stream": "Stream",
+        "streamHint": "Where the record goes. It has to be ACTIVE; a stream still creating or resizing refuses the write.",
+        "body": "Body",
+        "bodyHint": "Up to 1 MB, sent as bytes exactly as typed.",
+        "partitionKey": "Partition key",
+        "partitionKeyHint": "Required. Kinesis hashes it into the key space and the shard whose range covers the hash takes the record. Records sharing a key stay in order; that is the only ordering the service promises.",
+        "aimAtShard": "Aim at a shard",
+        "aimAtShardHint": "Sends an explicit hash key instead of hashing the partition key, which is the only way to put a record on a shard you name. Closed shards are not listed: they take no writes.",
+        "byPartitionKey": "Let the partition key decide",
+        "count": "Copies",
+        "countHint": "Up to {{max}}. Each copy gets its own partition key suffix, so a repeat spreads across the shards rather than piling on one.",
+        "send": "Send",
+        "sent": "Sent {{count}} records",
+        "sentAs": "Sent {{count}}. The first landed on {{shard}} at sequence {{sequence}} — both halves, because neither addresses a record alone.",
+        "failed": "The send failed",
+        "streamRequired": "Pick a stream.",
+        "bodyRequired": "A record cannot be empty.",
+        "bodyTooLarge": "A record carries at most 1 MB.",
+        "keyRequired": "Every record needs a partition key — it is what decides which shard takes it.",
+        "countRange": "Send between 1 and 1000 copies.",
+        "hashKeyInvalid": "An explicit hash key is a decimal number between 0 and 2^128-1.",
+        "aimedRepeatNote": "Aimed at a shard, every copy lands on that one shard: the hash key replaces the partition key entirely, so the per-copy key that would otherwise spread them does nothing."
       }
     }
   }
