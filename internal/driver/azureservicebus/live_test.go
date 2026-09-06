@@ -491,6 +491,30 @@ const (
  * assertion is not weakened: the count still has to reach exactly what was
  * expected, and a run that never gets there fails with what it saw.
  */
+/*
+ * subscribedEventually waits until a just-created subscription can be read.
+ *
+ * A message is copied into the subscriptions that exist when it is sent, so a
+ * send that overtakes a new one lands nowhere at all - and the receive that
+ * follows returns empty straight away rather than waiting, because there is
+ * nothing coming. Waiting here is what makes the send meaningful.
+ */
+func subscribedEventually(t *testing.T, conn *Conn, topic, subscription string) {
+	t.Helper()
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		_, err := conn.SubscriptionDetail(context.Background(),
+			model.SubscriptionRef{Namespace: topic, Name: subscription})
+		if err == nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("subscription %s/%s never became readable: %v", topic, subscription, err)
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+}
+
 func heldEventually(
 	t *testing.T, conn *Conn, entity, subscription string, want int,
 ) []*model.MessageItem {
@@ -1450,6 +1474,7 @@ func TestLiveASubscriptionHasItsOwnDeadLetters(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("CreateSubscriptionFrom: %v", err)
 	}
+	subscribedEventually(t, conn, seedEvents, testDeadLetterSub)
 
 	// Nothing has failed yet, and the store still exists: that is the
 	// difference from a topology, where there would be no object at all.
@@ -1466,6 +1491,10 @@ func TestLiveASubscriptionHasItsOwnDeadLetters(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
+
+	// Peeking is non-destructive, so this leaves the message for the receiver
+	// below; it only proves the copy has landed before one is opened.
+	heldEventually(t, conn, seedEvents, testDeadLetterSub, 1)
 
 	receiver, err := conn.receiver(seedEvents, testDeadLetterSub, false)
 	if err != nil {
