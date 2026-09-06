@@ -5837,6 +5837,43 @@
         "section": {
           "properties": "Other fields"
         }
+      },
+      "producer": {
+        "title": "Send",
+        "subtitle": "Publish through the REST messaging interface",
+        "target": "Send to",
+        "target_queue": "A queue, by name",
+        "target_topic": "A topic, to be matched",
+        "targetQueueHint": "The message goes to this one endpoint.",
+        "targetTopicHint": "The message goes to every queue whose subscriptions match — and nowhere at all if none do.",
+        "destination": "Destination",
+        "pickQueue": "Choose a queue",
+        "destinationQueueHint": "A queue in this Message VPN.",
+        "destinationTopicHint": "Levels are separated with a slash: orders/eu/created.",
+        "body": "Body",
+        "contentType": "Content type",
+        "deliveryMode": "Delivery",
+        "deliveryModeHint": "Persistent is written to the spool and survives a restart. Direct and non-persistent do not.",
+        "ttl": "Time to live (ms)",
+        "ttlHint": "Discarded if nothing has taken it by then. Empty or 0 is unlimited.",
+        "dmqEligible": "Dead-message eligible",
+        "dmqEligibleHint": "Off is the broker's default, and it is why a queue with a dead message queue can still discard quietly: unless the message is marked, nothing is moved.",
+        "correlationId": "Correlation id",
+        "replyTo": "Reply to",
+        "replyToHint": "A destination spelled the interface's way: /QUEUE/name, or a bare topic.",
+        "count": "Copies",
+        "countHint": "Up to {{max}}. Each copy is its own request.",
+        "send": "Send",
+        "sent": "Sent {{count}}",
+        "failed": "Could not send",
+        "noId": "The broker reports no message id for a send it took.",
+        "problem": {
+          "destinationRequired": "A destination is required.",
+          "bodyRequired": "A body is required.",
+          "deliveryMode": "Delivery is persistent, non-persistent or direct.",
+          "ttlRange": "A time to live cannot be negative.",
+          "countRange": "Copies must be between 1 and 100."
+        }
       }
     }
   }

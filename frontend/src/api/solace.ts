@@ -1,7 +1,12 @@
 import { SolaceService } from "@bindings/bridge";
-import type { SolaceQueueInput } from "@bindings/bridge/models";
+import { required } from "./client";
+import type {
+  SolacePublishInput,
+  SolacePublishResult,
+  SolaceQueueInput,
+} from "@bindings/bridge/models";
 
-export type { SolaceQueueInput };
+export type { SolacePublishInput, SolacePublishResult, SolaceQueueInput };
 
 /**
  * The Solace-only half of the surface.
@@ -40,3 +45,18 @@ export const createQueue = (connID: number, input: SolaceQueueInput): Promise<vo
  */
 export const removeQueue = (connID: number, name: string): Promise<void> =>
   SolaceService.RemoveQueue(connID, name);
+
+/**
+ * Send one body, or the same body several times.
+ *
+ * To a queue by name or to a topic to be matched, which are two different acts
+ * rather than one field with two spellings: a topic send lands on every queue
+ * whose subscriptions match and on nothing at all when none do.
+ *
+ * The result carries no message id, and that is the interface: the broker
+ * answers a send it took with an empty body and no identifier of any kind.
+ */
+export const publish = (
+  connID: number,
+  input: SolacePublishInput,
+): Promise<SolacePublishResult> => SolaceService.Publish(connID, input).then(required);

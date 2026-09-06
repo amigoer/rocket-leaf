@@ -959,3 +959,171 @@ func TestLiveMessageByIDReadsOneAndSaysWhenItIsGone(t *testing.T) {
 		t.Error("accepted a message id that is not a number")
 	}
 }
+
+/*
+ * Sending, to a queue and to a topic, which are two different gestures.
+ *
+ * A queue send names one endpoint. A topic send is matched against every
+ * subscription in the Message VPN and lands on nothing at all when none match,
+ * which is the failure mode a console has to be able to show - so both halves
+ * are exercised here rather than only the one that always works.
+ */
+func TestLiveSendReachesAQueueAndATopic(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
+	queue := "mqstudio/test/send-" + suffix
+	topic := "mqstudio/test/send/" + suffix + "/one"
+
+	if err := conn.CreateDestination(ctx, model.DestinationSpec{
+		Ref: model.DestinationRef{Name: queue},
+	}); err != nil {
+		t.Fatalf("create %s: %v", queue, err)
+	}
+	t.Cleanup(func() {
+		_ = conn.RemoveDestination(context.Background(), model.DestinationRef{Name: queue})
+	})
+
+	result, err := conn.Publish(ctx, PublishRequest{
+		Target: TargetQueue, Destination: queue, Body: `{"sent":"by name"}`,
+		ContentType: "application/json", Count: 3,
+	})
+	if err != nil {
+		t.Fatalf("send to %s: %v", queue, err)
+	}
+	if result.Sent != 3 {
+		t.Errorf("sent %d, want 3", result.Sent)
+	}
+	if err := waitForDepth(t, conn, queue, 3); err != nil {
+		t.Fatalf("%s: %v", queue, err)
+	}
+
+	// The same queue, reached the other way: a subscription makes the topic
+	// send land here too, which is the whole of what a topic send does.
+	if err := rawSEMP(http.MethodPost,
+		"/config/msgVpns/"+livePath(liveVPN)+"/queues/"+livePath(queue)+"/subscriptions",
+		map[string]any{"subscriptionTopic": "mqstudio/test/send/" + suffix + "/>"}, nil); err != nil {
+		t.Fatalf("subscribing %s: %v", queue, err)
+	}
+	if _, err := conn.Publish(ctx, PublishRequest{
+		Target: TargetTopic, Destination: topic, Body: "by topic",
+	}); err != nil {
+		t.Fatalf("send to %s: %v", topic, err)
+	}
+	if err := waitForDepth(t, conn, queue, 4); err != nil {
+		t.Fatalf("the topic send did not reach %s: %v", queue, err)
+	}
+}
+
+/*
+ * The headers the send sets reach the message, and one of them is the reason
+ * this test exists.
+ *
+ * Solace-DMQ-Eligible is off by default, so a queue configured with a dead
+ * message queue still discards quietly unless the publisher marks the message
+ * or the queue overrides it. The driver sends the flag either way; this is
+ * what proves the broker read it.
+ *
+ * Solace-Partition-Key is deliberately not among them: it looks exactly like a
+ * header that should work and the broker ignores it entirely, which is checked
+ * here so nobody adds it back on the strength of the name.
+ */
+func TestLiveSendHeadersReachTheMessage(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	queue := "mqstudio/test/headers-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+
+	if err := conn.CreateDestination(ctx, model.DestinationSpec{
+		Ref: model.DestinationRef{Name: queue},
+	}); err != nil {
+		t.Fatalf("create %s: %v", queue, err)
+	}
+	t.Cleanup(func() {
+		_ = conn.RemoveDestination(context.Background(), model.DestinationRef{Name: queue})
+	})
+
+	if _, err := conn.Publish(ctx, PublishRequest{
+		Target: TargetQueue, Destination: queue, Body: "with headers",
+		DeliveryMode: DeliveryPersistent, TimeToLiveMs: 600000, DMQEligible: true,
+		CorrelationID: "corr-1", Properties: map[string]string{"order": "42"},
+	}); err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	if err := waitForDepth(t, conn, queue, 1); err != nil {
+		t.Fatalf("%s: %v", queue, err)
+	}
+
+	items, err := conn.QueryMessages(ctx, model.MessageQueryParams{Topic: queue, MaxResults: 1})
+	if err != nil {
+		t.Fatalf("browse: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("browsed %d messages, want 1", len(items))
+	}
+	if items[0].Properties[PropDmqEligible] != "true" {
+		t.Errorf("the message is not dead-message eligible, so a queue with a dead message "+
+			"queue would discard it: %v", items[0].Properties)
+	}
+}
+
+// A delivery mode the broker does not have is refused here, where the message
+// can name the three it does, rather than by the interface answering with an
+// XML document quoting them.
+func TestLiveSendRefusesADeliveryModeThatIsNotOne(t *testing.T) {
+	conn := liveConn(t)
+
+	_, err := conn.Publish(liveContext(t), PublishRequest{
+		Target: TargetQueue, Destination: seedOrdersQueue, Body: "x", DeliveryMode: "eventual",
+	})
+	if err == nil {
+		t.Fatal("accepted a delivery mode solace does not have")
+	}
+	if !strings.Contains(err.Error(), DeliveryNonPersistent) {
+		t.Errorf("the error does not name the modes that do exist: %v", err)
+	}
+}
+
+/*
+ * A send to a queue that is not there is refused rather than discarded.
+ *
+ * It is the same refusal the connection's own probe reads, so this is what
+ * pins the probe's success case as well: if the broker ever started accepting
+ * these, the probe would report a working interface on a credential that
+ * cannot send.
+ */
+func TestLiveSendToAQueueThatIsNotThereIsRefused(t *testing.T) {
+	conn := liveConn(t)
+
+	_, err := conn.Publish(liveContext(t), PublishRequest{
+		Target: TargetQueue, Destination: "mqstudio/test/no-such-queue", Body: "x",
+	})
+	if err == nil {
+		t.Fatal("a send to a queue that does not exist was accepted")
+	}
+	if !queueMissing(err) {
+		t.Errorf("the refusal is not the one the connection probe reads: %v", err)
+	}
+}
+
+/*
+ * A topic send with nothing subscribed is accepted and lands nowhere, which is
+ * the broker's design rather than a failure.
+ *
+ * Worth pinning because it is the one send that can look successful and do
+ * nothing: the console reports what the broker took, and the broker took it.
+ */
+func TestLiveSendToATopicWithNoSubscriberIsQuietlyDiscarded(t *testing.T) {
+	conn := liveConn(t)
+
+	result, err := conn.Publish(liveContext(t), PublishRequest{
+		Target:      TargetTopic,
+		Destination: "mqstudio/test/nobody/" + strconv.FormatInt(time.Now().UnixNano(), 36),
+		Body:        "into the void",
+	})
+	if err != nil {
+		t.Fatalf("send to an unsubscribed topic: %v", err)
+	}
+	if result.Sent != 1 {
+		t.Errorf("sent %d, want 1", result.Sent)
+	}
+}

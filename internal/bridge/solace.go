@@ -93,3 +93,67 @@ func (s *SolaceService) CreateQueue(connID int, input SolaceQueueInput) error {
 func (s *SolaceService) RemoveQueue(connID int, name string) error {
 	return s.service.RemoveDestination(context.Background(), connID, name)
 }
+
+// SolacePublishInput is a send as the Solace console collects it.
+//
+// Deliberately not MessageService.Send's shape. That one takes a topic, tags,
+// keys and a delay level; a Solace message has a delivery mode, a time to live
+// and a dead-message flag instead, and it can go to a queue by name or to a
+// topic to be matched - which are two different things and not one field with
+// two spellings.
+type SolacePublishInput struct {
+	// Target is "queue" or "topic". A queue send names one endpoint; a topic
+	// send is matched against every subscription in the Message VPN and lands
+	// on nothing when none match.
+	Target      string `json:"target"`
+	Destination string `json:"destination"`
+	Body        string `json:"body"`
+	ContentType string `json:"contentType"`
+
+	// DeliveryMode is "persistent", "non-persistent" or "direct". Empty is
+	// persistent.
+	DeliveryMode string `json:"deliveryMode"`
+	// TimeToLiveMs discards the message if nothing takes it by then. Zero is
+	// the broker's own unlimited.
+	TimeToLiveMs int `json:"timeToLiveMs"`
+	// DMQEligible decides whether a message given up on is moved to the
+	// queue's dead message queue or discarded. The broker's default is off,
+	// which is why a queue configured to dead-letter can still discard.
+	DMQEligible   bool              `json:"dmqEligible"`
+	CorrelationID string            `json:"correlationId"`
+	ReplyTo       string            `json:"replyTo"`
+	Properties    map[string]string `json:"properties"`
+	// Count sends the same body more than once. Each copy is its own request.
+	Count int `json:"count"`
+}
+
+// SolacePublishResult is what the send did.
+//
+// There is no message id, and that is the interface rather than an omission:
+// the broker answers a successful send with an empty body and no identifier.
+// The id a browse lists is the queue's own sequence number, assigned when the
+// message is spooled and never told to the publisher.
+type SolacePublishResult struct {
+	Sent int `json:"sent"`
+}
+
+// Publish sends to one queue or one topic and reports what the broker took.
+func (s *SolaceService) Publish(connID int, input SolacePublishInput) (*SolacePublishResult, error) {
+	result, err := s.service.Publish(context.Background(), connID, solacedriver.PublishRequest{
+		Target:        input.Target,
+		Destination:   input.Destination,
+		Body:          input.Body,
+		ContentType:   input.ContentType,
+		DeliveryMode:  input.DeliveryMode,
+		TimeToLiveMs:  input.TimeToLiveMs,
+		DMQEligible:   input.DMQEligible,
+		CorrelationID: input.CorrelationID,
+		ReplyTo:       input.ReplyTo,
+		Properties:    input.Properties,
+		Count:         input.Count,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &SolacePublishResult{Sent: result.Sent}, nil
+}

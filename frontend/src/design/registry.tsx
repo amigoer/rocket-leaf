@@ -102,6 +102,7 @@ import { ProducerGooglePubSub } from "./boards/producer/ProducerGooglePubSub";
 import { ProducerAzureServiceBus } from "./boards/producer/ProducerAzureServiceBus";
 import { ProducerKinesis } from "./boards/producer/ProducerKinesis";
 import { ProducerIbmMq } from "./boards/producer/ProducerIbmMq";
+import { ProducerSolace } from "./boards/producer/ProducerSolace";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
 import { DlqGooglePubSub } from "./boards/dlq/DlqGooglePubSub";
 import { DlqAzureServiceBus } from "./boards/dlq/DlqAzureServiceBus";
@@ -330,6 +331,14 @@ export function renderBoard(
        rather than tidiness: the messaging REST API has no topic resource at
        all, so publishing needs an MQ client. */
     if (protocol === "ibmmq") return <ProducerIbmMq />;
+    /* Solace's own too, and for one field the others have no counterpart for.
+       A queue and a topic here are routinely called the same thing, and the
+       two sends are different acts: one names an endpoint, the other is
+       matched against every subscription in the Message VPN and lands nowhere
+       at all when none match. So the target is a choice rather than something
+       guessed from the name - and beside it sits the flag that decides whether
+       a message given up on is moved or quietly discarded. */
+    if (protocol === "solace") return <ProducerSolace />;
     return <Producer protocol={protocol} nav={nav} />;
   }
   /* Alerts is one board for every family: the rules are numeric comparisons

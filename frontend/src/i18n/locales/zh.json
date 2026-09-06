@@ -5837,6 +5837,43 @@
         "section": {
           "properties": "其他字段"
         }
+      },
+      "producer": {
+        "title": "发送",
+        "subtitle": "通过 REST 消息接口发布",
+        "target": "发送到",
+        "target_queue": "队列（按名称）",
+        "target_topic": "主题（按匹配）",
+        "targetQueueHint": "消息进入这一个端点。",
+        "targetTopicHint": "消息会进入所有订阅匹配的队列——如果没有任何匹配，则不会落到任何地方。",
+        "destination": "目的地",
+        "pickQueue": "选择队列",
+        "destinationQueueHint": "该 Message VPN 内的队列。",
+        "destinationTopicHint": "层级用斜杠分隔：orders/eu/created。",
+        "body": "正文",
+        "contentType": "内容类型",
+        "deliveryMode": "投递方式",
+        "deliveryModeHint": "persistent 会写入存储并在重启后保留；direct 与 non-persistent 不会。",
+        "ttl": "存活时间（毫秒）",
+        "ttlHint": "到期仍无人取走则被丢弃。留空或填 0 表示不限。",
+        "dmqEligible": "可进入死信队列",
+        "dmqEligibleHint": "Broker 默认关闭，这正是配置了死信队列的队列仍可能悄悄丢弃消息的原因：消息未被标记时不会被转移。",
+        "correlationId": "关联 ID",
+        "replyTo": "回复地址",
+        "replyToHint": "按该接口的写法填写：/QUEUE/名称，或直接写主题。",
+        "count": "份数",
+        "countHint": "最多 {{max}} 份。每一份都是一次独立请求。",
+        "send": "发送",
+        "sent": "已发送 {{count}} 条",
+        "failed": "发送失败",
+        "noId": "Broker 对已接收的消息不返回任何消息 ID。",
+        "problem": {
+          "destinationRequired": "目的地不能为空。",
+          "bodyRequired": "正文不能为空。",
+          "deliveryMode": "投递方式只能是 persistent、non-persistent 或 direct。",
+          "ttlRange": "存活时间不能为负数。",
+          "countRange": "份数必须在 1 到 100 之间。"
+        }
       }
     }
   }

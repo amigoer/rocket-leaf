@@ -115,3 +115,29 @@ func (s *Service) RemoveDestination(ctx context.Context, connID int, name string
 	// would be asking it to write outside its own scope.
 	return api.RemoveDestination(ctx, model.DestinationRef{Name: name})
 }
+
+/*
+ * Publish sends one body, or the same body several times.
+ *
+ * Beside the canonical send rather than through it: MessageService.Send
+ * collects a topic, tags, keys and a delay level - RocketMQ's vocabulary, of
+ * which a Solace message has only the destination. What it carries instead is
+ * a delivery mode that decides whether the broker spools it at all, a time to
+ * live, and the flag that decides whether it is moved or discarded when it is
+ * given up on.
+ *
+ * It also goes somewhere else entirely: SEMP carries no message data, so this
+ * is the REST messaging interface on its own port, probed when the connection
+ * opened. CapPublish is what says the probe succeeded.
+ */
+func (s *Service) Publish(
+	ctx context.Context, connID int, request solacedriver.PublishRequest,
+) (*solacedriver.PublishResult, error) {
+	api, err := s.solaceConn(connID, model.CapPublish)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.Publish(ctx, request)
+}

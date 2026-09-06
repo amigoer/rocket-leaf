@@ -140,6 +140,8 @@ export {
     SettingsInput,
     SettingsView,
     ShellPage,
+    SolacePublishInput,
+    SolacePublishResult,
     SolaceQueueInput,
     StreamInput,
     TopicInput,

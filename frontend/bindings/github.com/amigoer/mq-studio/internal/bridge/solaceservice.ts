@@ -31,6 +31,15 @@ export function MsgVPN(connID: number): $CancellablePromise<string> {
 }
 
 /**
+ * Publish sends to one queue or one topic and reports what the broker took.
+ */
+export function Publish(connID: number, input: $models.SolacePublishInput): $CancellablePromise<$models.SolacePublishResult | null> {
+    return $Call.ByID(2722482709, connID, input).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
+/**
  * RemoveQueue deletes a queue and whatever it was holding.
  * 
  * No purge flag: SEMP has no precondition to ask for, and it deletes a full
@@ -40,3 +49,7 @@ export function MsgVPN(connID: number): $CancellablePromise<string> {
 export function RemoveQueue(connID: number, name: string): $CancellablePromise<void> {
     return $Call.ByID(2355590309, connID, name);
 }
+
+// Private type creation functions
+const $$createType0 = $models.SolacePublishResult.createFrom;
+const $$createType1 = $Create.Nullable($$createType0);

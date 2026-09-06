@@ -161,6 +161,7 @@ func capabilities() []model.Capability {
 
 		model.CapMessageQuery,
 		model.CapMessageByID,
+		model.CapPublish,
 	}
 }
 
@@ -224,7 +225,9 @@ func (c *Conn) declare(rest tiers) model.Capabilities {
 // restCapabilities are the ones the second interface answers, and the ones
 // that go degraded together when it will not take this credential.
 func restCapabilities() []model.Capability {
-	return []model.Capability{}
+	return []model.Capability{
+		model.CapPublish,
+	}
 }
 
 func without(capabilities []model.Capability, unwanted model.Capability) []model.Capability {
