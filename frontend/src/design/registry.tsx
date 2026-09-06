@@ -82,6 +82,7 @@ import { QueuesSqs } from "./boards/topics/QueuesSqs";
 import { TopicsGooglePubSub } from "./boards/topics/TopicsGooglePubSub";
 import { EntitiesAzureServiceBus } from "./boards/topics/EntitiesAzureServiceBus";
 import { StreamsKinesis } from "./boards/topics/StreamsKinesis";
+import { QueuesSolace } from "./boards/topics/QueuesSolace";
 import { QueuesIbmMq } from "./boards/topics/QueuesIbmMq";
 import { ShardsKinesis } from "./boards/shards/ShardsKinesis";
 import { ChannelsIbmMq } from "./boards/channels/ChannelsIbmMq";
@@ -186,6 +187,7 @@ const BOARDS: Partial<
     "azure-servicebus": EntitiesAzureServiceBus,
     kinesis: StreamsKinesis,
     ibmmq: QueuesIbmMq,
+    solace: QueuesSolace,
   },
   /* One family, and that is the point rather than an oversight: every other
      partitioned broker here reports a count, and a shard is an object. */

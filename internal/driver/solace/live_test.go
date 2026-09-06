@@ -413,3 +413,117 @@ func TestLiveNamesWithSlashesAreAddressable(t *testing.T) {
 		t.Errorf("queue name = %q, want %q", answer.QueueName, seedOrdersQueue)
 	}
 }
+
+/*
+ * The queue listing, and the figure on it that no field carries.
+ *
+ * The depth is asserted against the message collection's own count read
+ * straight over HTTP rather than against a number written into this file,
+ * because the seed's queues are the only thing that makes the assertion worth
+ * anything and both sides have to agree about the same moment.
+ *
+ * spooledMsgCount is checked here too, and checked to be the *wrong* answer on
+ * one queue: the seed's audit queue has handed everything to its dead message
+ * queue, so it holds nothing and its lifetime counter still says three. A
+ * driver that read the obvious field would pass every other test in this file.
+ */
+func TestLiveListDestinationsReportsTheRealDepth(t *testing.T) {
+	conn := liveConn(t)
+
+	destinations, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("list destinations: %v", err)
+	}
+	found := map[string]*model.Destination{}
+	for _, destination := range destinations {
+		found[destination.Ref.Name] = destination
+		if destination.Ref.Namespace != liveVPN {
+			t.Errorf("%s is namespaced %q, want %q",
+				destination.Ref.Name, destination.Ref.Namespace, liveVPN)
+		}
+	}
+
+	for _, name := range []string{seedOrdersQueue, seedAuditQueue, seedDMQ, seedEventsQueue} {
+		if _, present := found[name]; !present {
+			e2e.Missing(t, "%s is not in the listing; run: npm run e2e:solace:seed", name)
+		}
+	}
+
+	// Both sides read together, because a broker moving messages between them
+	// would otherwise look like a driver getting the figure wrong.
+	for _, name := range []string{seedOrdersQueue, seedDMQ, seedEventsQueue} {
+		want, err := rawDepth(name)
+		if err != nil {
+			t.Fatalf("reading %s over http: %v", name, err)
+		}
+		if got := found[name].Depth; got != want {
+			t.Errorf("%s depth = %d, want %d", name, got, want)
+		}
+		if want == 0 {
+			t.Errorf("%s holds nothing, so the assertion above proves nothing; "+
+				"run: npm run e2e:solace:seed", name)
+		}
+	}
+
+	audit := found[seedAuditQueue]
+	if audit.Depth != 0 {
+		t.Errorf("%s depth = %d, want 0: the seed's ttl hands everything to the dead "+
+			"message queue", seedAuditQueue, audit.Depth)
+	}
+	if audit.Attributes[AttrSpooledTotal] == "0" {
+		t.Errorf("%s reports a lifetime spooled count of 0, so this test can no longer "+
+			"tell the statistic from the depth", seedAuditQueue)
+	}
+}
+
+// rawDepth is how many messages a queue holds, read without the driver.
+func rawDepth(queue string) (int64, error) {
+	var answer struct {
+		Meta struct {
+			Count int64 `json:"count"`
+		} `json:"meta"`
+	}
+	path := "/monitor/msgVpns/" + livePath(liveVPN) + "/queues/" + livePath(queue) + "/msgs?count=1"
+	if err := rawSEMP(http.MethodGet, path, nil, &answer); err != nil {
+		return 0, err
+	}
+	return answer.Meta.Count, nil
+}
+
+// A queue's dead message queue pointer reaches the listing, because the
+// dead-letter page is answered by walking it backwards and there is nothing
+// else on a queue that says it is one.
+func TestLiveListDestinationsCarriesTheDeadMsgQueuePointer(t *testing.T) {
+	conn := liveConn(t)
+
+	destinations, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("list destinations: %v", err)
+	}
+	for _, destination := range destinations {
+		if destination.Ref.Name != seedAuditQueue {
+			continue
+		}
+		if got := destination.Attributes[AttrDeadMsgQueue]; got != seedDMQ {
+			t.Errorf("%s points at %q, want %q", seedAuditQueue, got, seedDMQ)
+		}
+		return
+	}
+	e2e.Missing(t, "%s is not in the listing; run: npm run e2e:solace:seed", seedAuditQueue)
+}
+
+// A queue that is not there reads as gone rather than as a broken page. SEMP
+// answers it with HTTP 400 and NOT_FOUND inside the envelope, so this is also
+// what pins the error decoding to the envelope.
+func TestLiveDestinationDetailNamesAQueueThatIsGone(t *testing.T) {
+	conn := liveConn(t)
+
+	_, err := conn.DestinationDetail(liveContext(t),
+		model.DestinationRef{Name: "mqstudio/test/no-such-queue"})
+	if err == nil {
+		t.Fatal("read a queue that does not exist")
+	}
+	if !strings.Contains(err.Error(), "no queue named") {
+		t.Errorf("error does not say the queue is gone: %v", err)
+	}
+}

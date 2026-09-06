@@ -57,13 +57,21 @@ func (e *sempError) Error() string {
 	return fmt.Sprintf("semp failed with %d", e.HTTPStatus)
 }
 
-// SEMP's own word for the one failure this driver has to tell from the rest.
-const statusNotFound = "NOT_FOUND"
+// SEMP's own words for the failures this driver has to tell from the rest.
+const (
+	statusNotFound      = "NOT_FOUND"
+	statusAlreadyExists = "ALREADY_EXISTS"
+)
 
 // notFound reports an object the broker does not have. Callers turn it into an
 // empty result or a named error rather than a failed page: a queue deleted
 // between a listing and a read should read as gone.
 func notFound(err error) bool { return statusIs(err, statusNotFound) }
+
+// alreadyExists reports a create refused because the object is there. It is a
+// different message from a failed create, and the difference is what a user
+// needs: one is a name to change, the other is a broker to look at.
+func alreadyExists(err error) bool { return statusIs(err, statusAlreadyExists) }
 
 func statusIs(err error, status string) bool {
 	var serr *sempError
@@ -160,6 +168,11 @@ func listConfig[T any](ctx context.Context, c *sempClient, path string) ([]T, er
 	return listPaged[T](ctx, c, configAPI+path)
 }
 
+// listMonitor reads a whole monitored collection, following the cursor.
+func listMonitor[T any](ctx context.Context, c *sempClient, path string) ([]T, error) {
+	return listPaged[T](ctx, c, monitorAPI+path)
+}
+
 /*
  * listPaged walks one collection to its end.
  *
@@ -212,7 +225,12 @@ type envelope struct {
 
 type sempMeta struct {
 	ResponseCode int `json:"responseCode"`
-	Error        *struct {
+	// Count is how many entries the collection holds, not how many came back.
+	// It is the only place several figures exist at all - a queue's depth and
+	// its bound consumer count among them - so a request asking for one entry
+	// answers "how many are there" without transferring the rest.
+	Count int `json:"count"`
+	Error *struct {
 		Code        int    `json:"code"`
 		Description string `json:"description"`
 		Status      string `json:"status"`

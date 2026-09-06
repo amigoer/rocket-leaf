@@ -5734,6 +5734,42 @@
         "stateOrdinary": "普通队列",
         "note": "没有速率，也没有存储用量：MQ 报告队列持有多少消息、最近何时被读写，而流速是按定时器发布到系统队列的统计消息，不是页面能直接读到的数字。也没有集群面板——这个连接对应一个队列管理器，而 MQ 集群是多个队列管理器的集合，不是它的节点。"
       }
+    },
+    "solace": {
+      "queues": {
+        "count": "{{count}} 个队列",
+        "search": "按名称筛选",
+        "name": "队列",
+        "accessType": "访问模式",
+        "permission": "权限",
+        "owner": "所有者",
+        "spooled": "堆积",
+        "spooledTotal": "累计入队",
+        "spoolUsage": "已用存储",
+        "maxSpool": "存储配额",
+        "maxMsgSize": "最大消息",
+        "partitions": "分区数",
+        "bound": "已绑定",
+        "unacked": "未确认",
+        "redelivered": "重投递",
+        "rateIn": "入/秒",
+        "deadMsgQueue": "死信队列",
+        "dmqBadge": "DMQ",
+        "maxRedelivery": "最大重投递次数",
+        "maxTtl": "最大 TTL",
+        "seconds": "{{count}} 秒",
+        "toDmqTtl": "过期转入 DMQ",
+        "toDmqRetry": "重投递超限转入 DMQ",
+        "halted": "该队列当前不接收{{what}}。",
+        "ingress": "消息",
+        "egress": "消费者",
+        "section": {
+          "definition": "定义",
+          "runtime": "运行时",
+          "handling": "投递处理"
+        },
+        "note": "「堆积」是队列当前持有的消息数。「累计入队」是会被清除统计重置的历史计数，并不是当前深度。"
+      }
     }
   }
 }

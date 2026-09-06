@@ -5734,6 +5734,42 @@
         "stateOrdinary": "ordinary",
         "note": "No rates and no storage figures: MQ reports what a queue holds and when it was last touched, and how fast it is moving is a statistics message published on a timer rather than a figure a page can read. There is no cluster panel either — this connection speaks to one queue manager, and an MQ cluster is a set of queue managers rather than nodes of this one."
       }
+    },
+    "solace": {
+      "queues": {
+        "count": "{{count}} queues",
+        "search": "Filter by name",
+        "name": "Queue",
+        "accessType": "Access",
+        "permission": "Permission",
+        "owner": "Owner",
+        "spooled": "Spooled",
+        "spooledTotal": "Spooled ever",
+        "spoolUsage": "Spool used",
+        "maxSpool": "Spool quota",
+        "maxMsgSize": "Max message",
+        "partitions": "Partitions",
+        "bound": "Bound",
+        "unacked": "Unacked",
+        "redelivered": "Redelivered",
+        "rateIn": "In/s",
+        "deadMsgQueue": "Dead message queue",
+        "dmqBadge": "DMQ",
+        "maxRedelivery": "Max redeliveries",
+        "maxTtl": "Max TTL",
+        "seconds": "{{count}}s",
+        "toDmqTtl": "Expired to DMQ",
+        "toDmqRetry": "Retried out to DMQ",
+        "halted": "This queue is not accepting {{what}}.",
+        "ingress": "messages",
+        "egress": "consumers",
+        "section": {
+          "definition": "Definition",
+          "runtime": "Runtime",
+          "handling": "Delivery handling"
+        },
+        "note": "Spooled is what the queue holds now. Spooled ever is a lifetime counter the broker resets with its statistics, and it is not the depth."
+      }
     }
   }
 }

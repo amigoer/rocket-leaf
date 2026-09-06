@@ -134,7 +134,9 @@ func (c *Conn) live() error {
 // interface behind it, so each one arrives in the commit that implements it
 // rather than as a promise the connection cannot keep.
 func capabilities() []model.Capability {
-	return []model.Capability{}
+	return []model.Capability{
+		model.CapDestinationList,
+	}
 }
 
 // open dials the broker, settles which Message VPN was meant, and probes the
