@@ -482,6 +482,47 @@ const (
 	testTopic = "mqs-test-topic"
 )
 
+/*
+ * heldEventually peeks until an entity holds the expected number of messages.
+ *
+ * A send returns when the service has accepted the message, not when it has
+ * finished copying it into every subscription whose rules let it through - so
+ * a peek immediately afterwards can be one short. The wait is bounded and the
+ * assertion is not weakened: the count still has to reach exactly what was
+ * expected, and a run that never gets there fails with what it saw.
+ */
+func heldEventually(
+	t *testing.T, conn *Conn, entity, subscription string, want int,
+) []*model.MessageItem {
+	t.Helper()
+
+	filters := map[string]string{}
+	if subscription != "" {
+		filters[FilterSubscription] = subscription
+	}
+	label := browseLabel(entity, subscription, false)
+
+	var held []*model.MessageItem
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		var err error
+		held, err = conn.QueryMessages(context.Background(), model.MessageQueryParams{
+			Topic: entity, MaxResults: 100, Filters: filters,
+		})
+		if err != nil {
+			t.Fatalf("QueryMessages(%s): %v", label, err)
+		}
+		if len(held) == want || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	if len(held) != want {
+		t.Errorf("%s holds %d messages, want %d", label, len(held), want)
+	}
+	return held
+}
+
 // removeEntities takes the test's own objects away whatever the test did.
 func removeEntities(t *testing.T, conn *Conn, names ...string) {
 	t.Helper()
@@ -1209,18 +1250,7 @@ func TestLiveSendReachesTheSubscriptionsItsRulesAllow(t *testing.T) {
 	}
 
 	for name, want := range map[string]int{"all": 3, "red": 2} {
-		held, err := conn.QueryMessages(ctx, model.MessageQueryParams{
-			Topic:      testTopic,
-			MaxResults: 20,
-			Filters:    map[string]string{FilterSubscription: name},
-		})
-		if err != nil {
-			t.Fatalf("QueryMessages(%s): %v", name, err)
-		}
-		if len(held) != want {
-			t.Errorf("%s holds %d of the 3 sent, want %d", name, len(held), want)
-		}
-		for _, message := range held {
+		for _, message := range heldEventually(t, conn, testTopic, name, want) {
 			if message.Tags != "order" {
 				t.Errorf("a message reached %s with subject %q", name, message.Tags)
 			}
@@ -1744,30 +1774,12 @@ func TestLiveRulesDecideWhatReachesEachSubscription(t *testing.T) {
 	}
 
 	for name, want := range map[string]int{"everything": 4, "sql": 2, "correlated": 2} {
-		held, err := conn.QueryMessages(ctx, model.MessageQueryParams{
-			Topic:      testTopic,
-			MaxResults: 20,
-			Filters:    map[string]string{FilterSubscription: name},
-		})
-		if err != nil {
-			t.Fatalf("QueryMessages(%s): %v", name, err)
-		}
-		if len(held) != want {
-			t.Errorf("%s holds %d of the 4 sent, want %d", name, len(held), want)
-		}
+		heldEventually(t, conn, testTopic, name, want)
 	}
 
 	// The action is the half of a rule that changes the message rather than
 	// selecting it, and it runs before the copy is placed.
-	routed, err := conn.QueryMessages(ctx, model.MessageQueryParams{
-		Topic:      testTopic,
-		MaxResults: 20,
-		Filters:    map[string]string{FilterSubscription: "correlated"},
-	})
-	if err != nil {
-		t.Fatalf("QueryMessages: %v", err)
-	}
-	for _, message := range routed {
+	for _, message := range heldEventually(t, conn, testTopic, "correlated", 2) {
 		if message.Properties[PropAttributePrefix+"routed"] != "yes" {
 			t.Errorf("sequence %d reached a subscription whose rule sets routed and does not carry it: %v",
 				message.QueueOffset, message.Properties)
