@@ -210,7 +210,9 @@
       "topicUnsubscribed": "主题没有任何订阅",
       "subscriptionOrphaned": "订阅的主题已被删除",
       "subscriptionUnroutable": "订阅没有任何规则",
-      "entityDisabled": "实体已停用"
+      "entityDisabled": "实体已停用",
+      "streamNotActive": "流仍在变更中",
+      "consumerNotActive": "消费者注册仍在变更中"
     },
     "tabs": {
       "active": "活跃告警",
@@ -268,7 +270,9 @@
       "topicUnsubscribed": "{{topic}} · 没有任何订阅；发布到这里的消息会被接受然后丢弃",
       "subscriptionOrphaned": "{{subscription}} · 它的主题已被删除；再也收不到任何消息，而已有的内容仍然留在那里",
       "subscriptionUnroutable": "{{subscription}} · 没有规则，什么都进不来；因为没有消息到达，它的状态仍是 Active、积压仍是 0",
-      "entityDisabled": "{{entity}} · 状态为 {{status}}；请求会在客户端被拒绝，任何面板上都看不出来"
+      "entityDisabled": "{{entity}} · 状态为 {{status}}；请求会在客户端被拒绝，任何面板上都看不出来",
+      "streamNotActive": "{{stream}} · 状态 {{status}}；在它变为 ACTIVE 之前，任何指向该流的其他调用都会以「资源占用中」被拒绝",
+      "consumerNotActive": "{{consumer}}（在 {{stream}} 上）· 状态 {{status}}；此时指向它的应用会收到关于消费者（而不是流）的错误"
     },
     "duration": {
       "minutes": "持续 {{count}} 分钟",
@@ -5376,6 +5380,25 @@
           "registration": "注册信息"
         },
         "note": "这里只有增强扇出消费者，因为它们是流唯一知道的读者。其他读取方——KCL、Lambda 事件源、任何 GetRecords 调用——都不会注册，位点保存在这个连接看不到的 DynamoDB 表里，这也是这里没有积压列的原因。"
+      },
+      "overview": {
+        "subtitle": "{{region}} · {{streams}} 个流",
+        "streams": "流",
+        "streamsHint": "该区域中连接前缀放行的全部流。",
+        "openShards": "开放分片",
+        "openShardsHint": "所有流中仍接受写入的分片。预置模式的流按它计费，吞吐上限也由它决定。",
+        "onDemand": "按需",
+        "onDemandHint": "容量由 AWS 决定的流。其余为预置模式，分片数由人设定。",
+        "consumers": "已注册消费者",
+        "consumersHint": "增强扇出消费者，是流唯一知道的读者。每个流最多 20 个。",
+        "settling": "变更中",
+        "settlingHint": "状态不是 ACTIVE 的流。在它变回 ACTIVE 之前，任何指向它的调用都会被拒绝。",
+        "widest": "分片最多的流",
+        "state": "状态",
+        "stateSettling": "{{status}}",
+        "stateOnDemand": "按需",
+        "stateProvisioned": "预置",
+        "note": "没有吞吐也没有深度：两者都是 CloudWatch 指标，属于另一个服务、另一套权限，任何本连接发出的调用都不返回它们。这里不统计已关闭的分片——分片页会列出它们，它们会保留记录直到过期。"
       }
     }
   }

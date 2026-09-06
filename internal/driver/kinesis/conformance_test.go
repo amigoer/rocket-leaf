@@ -340,3 +340,344 @@ func TestDegradedReasonsAreTranslationKeys(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * What Kinesis has no concept of, and why.
+ *
+ * Every entry is a capability another family in this app declares and this one
+ * must not, and each reason is about Kinesis rather than about how far the
+ * driver has got. Without this list the cheapest way to add a family is to
+ * copy a neighbour's capability set, and the result is a sidebar full of pages
+ * that open onto nothing.
+ *
+ * Three roots cover nearly all of it. Nothing is ever moved aside - a record
+ * stays where it was written until retention expires, read or not - so every
+ * dead-letter, retry and pending shape is absent. Nothing keeps a reader's
+ * position: a classic consumer stores one in DynamoDB and a registered one
+ * stores none, so nothing about progress can be read or written. And AWS runs
+ * the service, so there is no node, no process and no setting an operator here
+ * could reach.
+ */
+func TestConnDeclaresNoConceptKinesisDoesNotHave(t *testing.T) {
+	absent := []struct {
+		capability model.Capability
+		because    string
+	}{
+		{
+			model.CapPartitions,
+			"a stream is divided into shards, and a shard is not a partition number. " +
+				"It has an id, a hash key range that decides which records land on it, a " +
+				"read quota of its own, and a parent it was split from - none of which " +
+				"survives a map keyed by an index, which is what DestinationStats answers. " +
+				"The concept has a port and a capability of its own instead.",
+		},
+		{
+			model.CapSubscriptionLag,
+			"declared as degraded rather than absent, which the backlog test above " +
+				"pins: the family has subscriptions and no reader position anywhere.",
+		},
+		{
+			model.CapOffsetReset,
+			"there is no position to move. A reader holds a shard iterator, which is a " +
+				"cursor it created and nobody else can see, and the KCL's checkpoint is a " +
+				"row in a DynamoDB table this connection is not signed for.",
+		},
+		{
+			model.CapSubscriptionPosition,
+			"and nothing that names a place for a subscription to be moved to. A " +
+				"sequence number addresses a record within one shard; there is no call " +
+				"that points a consumer at one.",
+		},
+		{
+			model.CapQueueOffset,
+			"per shard makes it no more possible: the position is the reader's, wherever " +
+				"it chose to keep it.",
+		},
+		{
+			model.CapOffsetClone,
+			"and with no stored position there is nothing to copy from one reader onto " +
+				"another.",
+		},
+		{
+			model.CapSubscriptionRuntime,
+			"a registered consumer is a registration rather than a connection. The " +
+				"service reports that it exists and never reports whether anything is " +
+				"attached to it, so there is no member to ask what it is working on.",
+		},
+		{
+			model.CapDLQ,
+			"nothing is ever moved aside. A record stays on its shard until the " +
+				"retention period expires whether it was read once, many times or not at " +
+				"all, so there is no dead-letter store to browse.",
+		},
+		{
+			model.CapDeadLetterTopology,
+			"and no topology pointing at one either. A stream references no other " +
+				"stream, so there is nothing to walk backwards.",
+		},
+		{
+			model.CapMessageResend,
+			"a retry is the reader's own business: it re-reads from a sequence number " +
+				"it kept. Nothing is put back, because nothing was taken.",
+		},
+		{
+			model.CapMessageReplay,
+			"and there is no connected consumer to hand a record to. The service knows " +
+				"a consumer is registered and nothing about who is running it.",
+		},
+		{
+			model.CapPendingEntries,
+			"nothing is owed. A read hands out a copy and records nothing, so there is " +
+				"no delivery to be outstanding and no list of what has not been " +
+				"acknowledged.",
+		},
+		{
+			model.CapPendingAdmin,
+			"and with no such list there is nothing to acknowledge or reassign.",
+		},
+		{
+			model.CapMessageTrack,
+			"there is no trace. A record carries what the sender wrote and the sequence " +
+				"number the service assigned, and nothing about who has read it.",
+		},
+		{
+			model.CapMessageLiveTail,
+			"not offered, and it is the one absence here that is this driver's rather " +
+				"than the service's: a shard iterator is exactly the cursor a tail needs, " +
+				"and following a stream costs five GetRecords a second per shard shared " +
+				"with its consumers. It is left out until there is a page that spends that " +
+				"deliberately rather than as a background poll.",
+		},
+		{
+			model.CapLiveStream,
+			"nothing is pushed to a caller that did not ask. SubscribeToShard streams to " +
+				"one registered consumer over HTTP/2, which is a reader this app would " +
+				"have to become rather than a broker pushing at it.",
+		},
+		{
+			model.CapDelayedDelivery,
+			"nothing holds a record back. A record is readable the moment the service " +
+				"accepts it, and there is no scheduled send anywhere in the API.",
+		},
+		{
+			model.CapPublishRich,
+			"a record is bytes, a partition key and an optional hash key. There is no " +
+				"exchange, no routing key, no header table and no delivery mode for a " +
+				"richer console to collect.",
+		},
+		{
+			model.CapEntryPublish,
+			"nor is a record an ordered set of named fields. What is inside the bytes is " +
+				"the sender's business and the service never looks.",
+		},
+		{
+			model.CapProducerInspect,
+			"nothing is connected. A producer is whoever signs a PutRecord, and the " +
+				"service keeps no record of who that was.",
+		},
+		{
+			model.CapDestinationPurge,
+			"a stream cannot be emptied. Retention is the only thing that removes a " +
+				"record, and lowering it is a setting on the stream rather than an " +
+				"operation on its contents - which is why it is on the edit form.",
+		},
+		{
+			model.CapStreamTrim,
+			"and there is no trim either. A trim names a bound to keep and removes the " +
+				"rest; the retention period is a duration the service enforces on its own " +
+				"schedule, and nothing here chooses which records go.",
+		},
+		{
+			model.CapDestinationMove,
+			"nothing drains one stream into another. A record is read by whoever wants " +
+				"it and stays where it is.",
+		},
+		{
+			model.CapQueueRebalance,
+			"placement is AWS's. Shards are spread across the service's own capacity and " +
+				"there is no node here to spread them over.",
+		},
+		{
+			model.CapReassign,
+			"and a shard has no replica list. How many copies the service keeps is not " +
+				"reported anywhere and is not an administrator's to edit.",
+		},
+		{
+			model.CapClusterTopology,
+			"there is no cluster. Kinesis is a regional service with no node, address or " +
+				"process an operator here could be shown, and a topology board would have " +
+				"exactly one invented row on it.",
+		},
+		{
+			model.CapClusterMetrics,
+			"and no node to attribute a figure to. What the service reports is per " +
+				"stream, which the streams board already shows; the rates live in " +
+				"CloudWatch, a different service with a different credential.",
+		},
+		{
+			model.CapDirectory,
+			"there is no discovery tier. A region resolves to an endpoint by name, and " +
+				"nothing has to be asked where a stream lives.",
+		},
+		{
+			model.CapNodeConfig,
+			"a stream's settings are already on its own page, and there is no node " +
+				"underneath with settings of its own.",
+		},
+		{
+			model.CapNodeMaintenance,
+			"nothing here is maintained by its user. Retention is a stream setting AWS " +
+				"enforces on its own schedule.",
+		},
+		{
+			model.CapNodeWritePerm,
+			"and nothing can be taken out of the write path. A shard closes by being " +
+				"split or merged, which is a capacity change rather than a drain.",
+		},
+		{
+			model.CapLogDirs,
+			"AWS reports no storage figure at all - not size, not free space, not a " +
+				"percentage. A stream is billed by shard hour and payload, not by what it " +
+				"is holding.",
+		},
+		{
+			model.CapSlowLog,
+			"nothing records what has been slow. Latency is a CloudWatch metric, and it " +
+				"is an aggregate rather than a request.",
+		},
+		{
+			model.CapClusterHealth,
+			"Kinesis answers no question about itself. Service health is the AWS Health " +
+				"Dashboard, which is a different API this connection is not signed for.",
+		},
+		{
+			model.CapClusterCensus,
+			"there is no account-wide total. Every figure the service reports is one " +
+				"stream's, and summing them would mean a request per stream and a number " +
+				"that was never true at any single moment.",
+		},
+		{
+			model.CapClientInspect,
+			"nothing holds a connection. Every call is a signed HTTPS request that stands " +
+				"alone, so there is no session to list.",
+		},
+		{
+			model.CapClientClose,
+			"and nothing to disconnect for the same reason.",
+		},
+		{
+			model.CapAccessControl,
+			"access is IAM's, not the stream's. A stream carries a resource policy, but " +
+				"who may call what is decided by identities in a service this connection " +
+				"is not signed for - and a page editing half of that would claim to " +
+				"control access it cannot see.",
+		},
+		{
+			model.CapAccessDirectory,
+			"same reason: the directory of principals is IAM, one service further out.",
+		},
+		{
+			model.CapAclUsers,
+			"and Kinesis keeps no users of its own to attach rules to.",
+		},
+		{
+			model.CapNamespaceList,
+			"a stream name is flat and unique within an account and region. There is no " +
+				"tenant, vhost or account inside Kinesis for one to live in.",
+		},
+		{
+			model.CapTransactions,
+			"a send is one record, or a batch of five hundred that succeed and fail " +
+				"individually. Nothing spans shards, so there is no transaction with an " +
+				"identity to list.",
+		},
+		{
+			model.CapQuotaList,
+			"the limits are the service's own and are the same for every caller. They " +
+				"are per shard and per account rather than per identity, cannot be read " +
+				"back through this API, and nothing here could change one.",
+		},
+		{
+			model.CapRouting,
+			"there is no exchange and no binding. Which shard takes a record is decided " +
+				"by hashing its partition key, which is arithmetic rather than a topology " +
+				"anybody configured.",
+		},
+		{
+			model.CapConnectionScope,
+			"the stream prefix on this form filters a listing; it does not re-point the " +
+				"connection. A name outside it is still perfectly reachable, which is not " +
+				"what a scope means anywhere else in this app.",
+		},
+	}
+
+	live := offlineConn().Capabilities()
+	for _, entry := range absent {
+		if live.Has(entry.capability) {
+			t.Errorf("declares %s, but %s", entry.capability, entry.because)
+		}
+		// The backlog is the one entry that is deliberately degraded, and its
+		// own test asserts the reason - so only the others must not be.
+		if entry.capability == model.CapSubscriptionLag {
+			continue
+		}
+		if _, degraded := live.DegradedReason(entry.capability); degraded {
+			t.Errorf("degrades %s, which implies the family has it; %s",
+				entry.capability, entry.because)
+		}
+	}
+}
+
+/*
+ * The sidebar contract, from the Go side.
+ *
+ * The list below is the one frontend/src/mq/navigation.kinesis.test.ts holds,
+ * and that test asserts which pages those capabilities make reachable. This
+ * one asserts the driver still declares exactly them.
+ *
+ * Neither half is worth much alone. A capability dropped here takes a finished
+ * page out of the sidebar and nothing else notices; a page added there with no
+ * capability behind it is drawn and fails when opened. Together they cannot
+ * drift without one of them going red.
+ *
+ * The failure messages say what to do rather than what is different, because
+ * the fix is never in this file alone.
+ */
+func TestCapabilitiesMatchTheSidebarContract(t *testing.T) {
+	sidebar := []string{
+		"destination.list",
+		"destination.create",
+		"destination.update",
+		"destination.delete",
+		"destination.shards",
+		"message.query",
+		"message.byId",
+		"message.publish",
+		"subscription.list",
+		"subscription.create",
+		"subscription.delete",
+	}
+
+	declared := make(map[string]bool, len(capabilities()))
+	for _, capability := range capabilities() {
+		declared[string(capability)] = true
+	}
+	expected := make(map[string]bool, len(sidebar))
+	for _, capability := range sidebar {
+		expected[capability] = true
+	}
+
+	for _, capability := range sidebar {
+		if !declared[capability] {
+			t.Errorf("the sidebar expects %s and the driver no longer declares it; "+
+				"restore it or drop the page, and update navigation.kinesis.test.ts in the same commit",
+				capability)
+		}
+	}
+	for capability := range declared {
+		if !expected[capability] {
+			t.Errorf("the driver declares %s and the sidebar contract does not list it; "+
+				"add it to navigation.kinesis.test.ts in the same commit", capability)
+		}
+	}
+}

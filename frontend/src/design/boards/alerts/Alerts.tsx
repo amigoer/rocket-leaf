@@ -66,6 +66,11 @@ const RULE_SEVERITY: Record<AlertRuleKey, AlertSeverity> = {
   // leak if it is left. Neither is visible anywhere else in the app.
   subscriptionUnroutable: "warn",
   entityDisabled: "warn",
+  // Kinesis's two, warnings because a snapshot cannot tell a resize that
+  // started a minute ago from one that has been stuck for an hour. Both are
+  // states in which every other call to the object is being refused.
+  streamNotActive: "warn",
+  consumerNotActive: "warn",
   slowConsumer: "warn",
 };
 

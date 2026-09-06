@@ -210,7 +210,9 @@
       "topicUnsubscribed": "Topic with no subscription",
       "subscriptionOrphaned": "Subscription whose topic is gone",
       "subscriptionUnroutable": "Subscription with no rule",
-      "entityDisabled": "Entity switched off"
+      "entityDisabled": "Entity switched off",
+      "streamNotActive": "Stream still settling",
+      "consumerNotActive": "Consumer registration settling"
     },
     "tabs": {
       "active": "Active",
@@ -268,7 +270,9 @@
       "topicUnsubscribed": "{{topic}} · nothing subscribes; every message published here is accepted and discarded",
       "subscriptionOrphaned": "{{subscription}} · its topic has been deleted; it will never receive another message and still holds what it has",
       "subscriptionUnroutable": "{{subscription}} · no rules, so nothing can reach it; it stays Active with an empty backlog because nothing arrives",
-      "entityDisabled": "{{entity}} · status {{status}}; work is refused at the client and leaves no mark on any board"
+      "entityDisabled": "{{entity}} · status {{status}}; work is refused at the client and leaves no mark on any board",
+      "streamNotActive": "{{stream}} · status {{status}}; every other call that names this stream is refused as \"resource in use\" until it is ACTIVE",
+      "consumerNotActive": "{{consumer}} on {{stream}} · status {{status}}; an application pointed at it now fails with an error about the consumer rather than the stream"
     },
     "duration": {
       "minutes": "for {{count}} min",
@@ -5376,6 +5380,25 @@
           "registration": "Registration"
         },
         "note": "Enhanced fan-out consumers only, because they are the only readers a stream knows about. Anything else reading — the KCL, a Lambda event source, any call to GetRecords — registers nothing and keeps its position in a DynamoDB table this connection never sees, which is also why there is no backlog here."
+      },
+      "overview": {
+        "subtitle": "{{region}} · {{streams}} streams",
+        "streams": "Streams",
+        "streamsHint": "Every stream in the region the connection's prefix lets through.",
+        "openShards": "Open shards",
+        "openShardsHint": "Shards taking writes, across every stream. This is what a provisioned stream is billed for and what bounds its throughput.",
+        "onDemand": "On demand",
+        "onDemandHint": "Streams whose capacity AWS chooses. The rest are provisioned and have a shard count somebody set.",
+        "consumers": "Registered consumers",
+        "consumersHint": "Enhanced fan-out consumers, which are the only readers a stream knows about. At most 20 per stream.",
+        "settling": "Settling",
+        "settlingHint": "Streams that are not ACTIVE. Every call naming one is refused until it is.",
+        "widest": "Widest streams",
+        "state": "State",
+        "stateSettling": "{{status}}",
+        "stateOnDemand": "On demand",
+        "stateProvisioned": "Provisioned",
+        "note": "No throughput and no depth: both are CloudWatch metrics, a different service under a different permission, and neither is on any call this connection makes. Closed shards are not counted here — the shards page lists them, and they hold their records until retention expires."
       }
     }
   }

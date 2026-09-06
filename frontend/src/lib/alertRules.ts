@@ -89,7 +89,28 @@ export type AlertRuleKey =
    * per-entity status this can read.
    */
   | "subscriptionUnroutable"
-  | "entityDisabled";
+  | "entityDisabled"
+  /*
+   * Kinesis's two, and no other family here can raise either.
+   *
+   * Every operation that changes a stream is asynchronous, and while one is
+   * running every other call that names the stream is refused - as "resource
+   * in use", which describes nothing anybody did. A resize is a normal minute
+   * in that state; a stream still in it an hour later is a stuck operation,
+   * and no other page in this app says so.
+   *
+   * A registration is the same shape on a different object, and it is a
+   * separate switch because it is a separate fault with a separate fix: a
+   * consumer that never went ACTIVE is one an application is failing to
+   * subscribe to, and an operator resizing a region wants the first alert off
+   * without losing this one.
+   *
+   * Neither is brokerOffline, which needs a node, and neither is
+   * topicUnsubscribed - which on this family would fire on nearly every
+   * healthy stream, because the ordinary way to read one registers nothing.
+   */
+  | "streamNotActive"
+  | "consumerNotActive";
 
 export type AlertRulePrefs = Record<AlertRuleKey, boolean>;
 
@@ -102,6 +123,8 @@ export const ALERT_RULE_KEYS: readonly AlertRuleKey[] = [
   "subscriptionOrphaned",
   "subscriptionUnroutable",
   "entityDisabled",
+  "streamNotActive",
+  "consumerNotActive",
   "subscriptionBlocked",
   "resourceAlarm",
   "nodePartition",
@@ -304,6 +327,30 @@ const RULES_BY_KIND: Partial<Record<MQKind, readonly AlertRuleKey[]>> = {
     "entityDisabled",
     "dlqGrowth",
   ],
+  /*
+   * Two, and the absences here are sharper than any other family's: two of
+   * the rules a reader would expect would not merely stay quiet, they would
+   * fire on healthy streams.
+   *
+   * topicUnsubscribed is the dangerous one. A registered consumer is the
+   * enhanced fan-out kind, and the ordinary way to read a Kinesis stream -
+   * the KCL, a Lambda event source, a plain GetRecords loop - registers
+   * nothing at all. So "no consumers" is the normal state of a stream three
+   * applications are reading, and the rule would report every one of them.
+   * queueNoConsumer is the same mistake with a number attached, and there is
+   * no number: nothing counts what a stream holds.
+   *
+   * The rest are absent because there is nothing to read. brokerOffline needs
+   * a node and AWS shows none; groupLag and queueBacklog need a position, and
+   * no Kinesis connection can report one; diskUsage needs a storage figure,
+   * and the service publishes none; dlqGrowth needs a dead-letter store, and
+   * nothing here is ever moved aside.
+   *
+   * What is left costs nothing the sweep was not already paying for: the
+   * stream listing carries every status, and the consumer listing carries
+   * every registration's.
+   */
+  [MQKind.KindKinesis]: ["streamNotActive", "consumerNotActive"],
 };
 
 const ROCKETMQ_RULES: readonly AlertRuleKey[] = [
@@ -338,6 +385,7 @@ export const DESTINATION_RULES: readonly AlertRuleKey[] = [
   "deliveryPaused",
   "topicUnsubscribed",
   "entityDisabled",
+  "streamNotActive",
   "queueNoConsumer",
   "queueBacklog",
   "dlqGrowth",
@@ -369,6 +417,7 @@ export const KINDS_NEEDING_DESTINATIONS: readonly MQKind[] = [
   MQKind.KindSQS,
   MQKind.KindGooglePubSub,
   MQKind.KindAzureServiceBus,
+  MQKind.KindKinesis,
 ];
 
 export const DEFAULT_ALERT_RULES: AlertRulePrefs = {
@@ -395,6 +444,8 @@ export const DEFAULT_ALERT_RULES: AlertRulePrefs = {
   subscriptionOrphaned: true,
   subscriptionUnroutable: true,
   entityDisabled: true,
+  streamNotActive: true,
+  consumerNotActive: true,
 };
 
 function read(): AlertRulePrefs {
