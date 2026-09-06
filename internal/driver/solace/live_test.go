@@ -832,3 +832,130 @@ func TestLiveValidateScopeMatchesWhatTheBrokerRefuses(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * Browsing takes nothing, measured rather than assumed.
+ *
+ * The claim behind the caveat is that a SEMP browse leaves the queue
+ * byte-for-byte as it was, which is what puts this family beside Service Bus
+ * rather than beside SQS, Pub/Sub and Kinesis. Every figure that would move if
+ * it did not is read on both sides of ten browses: the depth, the spool usage,
+ * the unacknowledged count and the redelivery count.
+ *
+ * The seed's orders queue is used because it has a backlog and nothing is
+ * consuming it, so anything that changed here changed because of the browse.
+ */
+func TestLiveBrowseTakesNothing(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	before, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: seedOrdersQueue})
+	if err != nil {
+		e2e.Missing(t, "%s is not there; run: npm run e2e:solace:seed (%v)", seedOrdersQueue, err)
+	}
+	if before.Depth <= 0 {
+		e2e.Missing(t, "%s holds nothing; run: npm run e2e:solace:seed", seedOrdersQueue)
+	}
+
+	for range 10 {
+		if _, browseErr := conn.QueryMessages(ctx, model.MessageQueryParams{
+			Topic: seedOrdersQueue, MaxResults: 100,
+		}); browseErr != nil {
+			t.Fatalf("browse: %v", browseErr)
+		}
+	}
+
+	after, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: seedOrdersQueue})
+	if err != nil {
+		t.Fatalf("re-reading %s: %v", seedOrdersQueue, err)
+	}
+	if after.Depth != before.Depth {
+		t.Errorf("depth went from %d to %d across ten browses", before.Depth, after.Depth)
+	}
+	for _, attribute := range []string{AttrSpoolUsage, AttrUnacked, AttrRedelivered} {
+		if before.Attributes[attribute] != after.Attributes[attribute] {
+			t.Errorf("%s went from %q to %q across ten browses",
+				attribute, before.Attributes[attribute], after.Attributes[attribute])
+		}
+	}
+}
+
+/*
+ * The browse lists what is there and carries no body, which is the caveat this
+ * family declares.
+ *
+ * Asserted rather than assumed, because it is the sort of thing a later SEMP
+ * version could quietly fix - and if it ever does, the caveat stops being true
+ * and this is what says so.
+ */
+func TestLiveBrowseListsMetadataAndNoBody(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	items, err := conn.QueryMessages(ctx, model.MessageQueryParams{
+		Topic: seedOrdersQueue, MaxResults: 5,
+	})
+	if err != nil {
+		t.Fatalf("browse: %v", err)
+	}
+	if len(items) == 0 {
+		e2e.Missing(t, "%s holds nothing; run: npm run e2e:solace:seed", seedOrdersQueue)
+	}
+
+	first := items[0]
+	if first.Body != "" {
+		t.Errorf("the browse returned a body of %d bytes; semp is not supposed to carry one, "+
+			"and the caveat on CapMessageQuery says so", len(first.Body))
+	}
+	if first.MessageID == "" {
+		t.Error("a browsed message has no id, so nothing could be opened from the list")
+	}
+	if first.StoreTimestamp <= 0 {
+		t.Error("a browsed message has no spooled time")
+	}
+	if first.Properties[PropAttachmentSize] == "" && first.Properties[PropContentSize] == "" {
+		t.Error("neither size is reported, and they are what the board shows instead of a body")
+	}
+
+	// Newest first, which is what every other family's browse gives and what
+	// the page opens on. SEMP hands them back oldest first.
+	for index := 1; index < len(items); index++ {
+		if items[index-1].StoreTimestamp < items[index].StoreTimestamp {
+			t.Errorf("message %d is older than the one before it; the list is not newest first", index)
+			break
+		}
+	}
+}
+
+// One message read by id, and an id the queue does not have read as gone.
+func TestLiveMessageByIDReadsOneAndSaysWhenItIsGone(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	items, err := conn.QueryMessages(ctx, model.MessageQueryParams{
+		Topic: seedOrdersQueue, MaxResults: 1,
+	})
+	if err != nil {
+		t.Fatalf("browse: %v", err)
+	}
+	if len(items) == 0 {
+		e2e.Missing(t, "%s holds nothing; run: npm run e2e:solace:seed", seedOrdersQueue)
+	}
+
+	one, err := conn.MessageByID(ctx, seedOrdersQueue, items[0].MessageID)
+	if err != nil {
+		t.Fatalf("message by id: %v", err)
+	}
+	if one.MessageID != items[0].MessageID {
+		t.Errorf("read %s, want %s", one.MessageID, items[0].MessageID)
+	}
+
+	if _, err := conn.MessageByID(ctx, seedOrdersQueue, "999999999"); err == nil {
+		t.Error("read a message id the queue does not have")
+	}
+	// A Solace message id is a number per queue, so anything else is a
+	// question the broker cannot be asked rather than a message that is gone.
+	if _, err := conn.MessageByID(ctx, seedOrdersQueue, "not-a-number"); err == nil {
+		t.Error("accepted a message id that is not a number")
+	}
+}

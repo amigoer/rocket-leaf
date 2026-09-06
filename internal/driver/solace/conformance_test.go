@@ -302,3 +302,70 @@ func TestSEMPErrorsAreReadFromTheEnvelope(t *testing.T) {
 		t.Errorf("the error drops the broker's own description: %v", missing)
 	}
 }
+
+/*
+ * The browse caveat is this family's own, and it says the opposite of three of
+ * the four it could have been copied from.
+ *
+ * Every other family that browses pays for it in one way or another: an SQS
+ * receive hides what it returns, a Pub/Sub pull delivers it, a Kinesis read
+ * spends the shard's allowance every consumer shares. A SEMP browse costs
+ * nothing at all - the queue is byte-for-byte the same afterwards - which puts
+ * Solace beside Service Bus rather than beside those three. What it cannot do
+ * is hand back the message, which is a limit none of the others has.
+ *
+ * The four keys below are named rather than described because a caveat is a
+ * hand-copied string in two places, and the copy that gets made is whichever
+ * one the last driver used.
+ */
+func TestBrowseCaveatIsThisFamilysOwn(t *testing.T) {
+	declared := (&Conn{vpn: "default", closed: make(chan struct{})}).declare(tiers{})
+
+	caveat, present := declared.Caveat(model.CapMessageQuery)
+	if !present {
+		t.Fatal("browsing carries no caveat, and it shows no message body")
+	}
+	if caveat != browseNoPayload {
+		t.Errorf("caveat = %q, want %q", caveat, browseNoPayload)
+	}
+	for _, borrowed := range []string{
+		"mq.sqs.caveat.receiveHides",
+		"mq.google-pubsub.caveat.pullDelivers",
+		"mq.kinesis.caveat.readQuota",
+		"mq.ibmmq.caveat.browseCharacterOnly",
+	} {
+		if caveat == borrowed {
+			t.Errorf("the caveat is %s, which is another family's and says something "+
+				"this browse does not do", borrowed)
+		}
+	}
+	if !strings.HasPrefix(caveat, "mq.solace.caveat.") {
+		t.Errorf("caveat %q is not in this family's namespace", caveat)
+	}
+}
+
+/*
+ * The REST tier's reasons stay reasons and never become caveats.
+ *
+ * They are different states with different renderings - a degraded capability
+ * is drawn disabled with an explanation, a caveat is drawn normally with a
+ * warning - and a driver that put a reason in the wrong map produces a send
+ * console that looks usable and is not.
+ */
+func TestRESTReasonsAreDegradedRatherThanCaveats(t *testing.T) {
+	for _, reason := range []string{restUnreachable, restForbidden} {
+		declared := (&Conn{vpn: "default", closed: make(chan struct{})}).
+			declare(tiers{restReason: reason})
+		for _, capability := range restCapabilities() {
+			if declared.Has(capability) {
+				t.Errorf("%s is still supported with the rest tier reported %s", capability, reason)
+			}
+			if got, present := declared.DegradedReason(capability); !present || got != reason {
+				t.Errorf("%s degraded reason = %q, want %q", capability, got, reason)
+			}
+			if _, isCaveat := declared.Caveat(capability); isCaveat {
+				t.Errorf("%s carries a caveat as well as a reason", capability)
+			}
+		}
+	}
+}

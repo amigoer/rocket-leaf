@@ -124,6 +124,11 @@ const CAVEATS: Record<string, string[]> = {
   // a body it cannot read as text, and on the way in it refuses one outright
   // and has no topic endpoint to send to at all.
   ibmmq: ["browseCharacterOnly", "sendQueueOnly"],
+  // internal/driver/solace/conn.go - one, and it says the opposite of every
+  // other browse caveat here. A SEMP browse takes nothing at all; what it
+  // cannot do is return the message, because the API carries no payload
+  // field at any version.
+  solace: ["browseNoPayload"],
 };
 
 type Bundle = Record<string, unknown>;

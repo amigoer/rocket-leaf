@@ -780,6 +780,9 @@
         "restUnreachable": "REST 消息端口没有响应，此连接无法发送消息。SEMP 只负责管理，不传输消息；消息接口在另一个端口上，端口号由 Message VPN 配置决定。请确认该 VPN 已开启 REST 服务，或在连接里填写它实际发布的地址。",
         "restForbidden": "Broker 拒绝了 REST 消息接口上的这个客户端用户名。从 SEMP 读取的内容仍然可用，但在凭据修正之前无法发送。客户端用户名是 Message VPN 内部的对象，与 SEMP 管理账号不是一回事。"
       },
+      "caveat": {
+        "browseNoPayload": "浏览不会取走任何东西：队列深度、存储占用和投递计数在之后完全相同，任意数量的读取方都可以查看同一条消息。SEMP 做不到的是返回消息本身——该 API 的任何版本都没有正文字段——因此浏览列出的是每条消息的标识、大小、投递次数与标记，读取正文需要使用消息协议上的客户端。"
+      },
       "scope": {
         "label": "Message VPN：{{scope}}",
         "unscoped": "Broker 默认",
@@ -5803,6 +5806,37 @@
         "deleteHolding": "该队列中还有 {{count}} 条消息。它们会随队列一起被丢弃——不会进入死信队列——且无法撤销。",
         "deleted": "已删除 {{name}}",
         "deleteFailed": "删除队列失败"
+      },
+      "messages": {
+        "title": "消息",
+        "subtitle": "浏览队列中当前的消息",
+        "pickQueue": "选择队列",
+        "read": "浏览",
+        "found": "已列出 {{count}} 条",
+        "readNote": "浏览不会取走任何东西，队列在之后完全不变。SEMP 不返回消息正文，因此这里列出的是每条消息的元数据。",
+        "startHere": "选择一个队列并浏览。",
+        "nothingThere": "该队列当前没有消息。",
+        "messageId": "消息",
+        "spooled": "入队时间",
+        "size": "正文",
+        "attachment": "附件",
+        "content": "结构化内容",
+        "redelivery": "投递次数",
+        "state": "状态",
+        "undelivered": "等待中",
+        "delivered": "已投递",
+        "dmqEligible": "可进入死信队列",
+        "dmqYes": "是——放弃投递时会转入死信队列",
+        "dmqNo": "否——除非队列另有设置，否则直接丢弃",
+        "partitionKey": "分区键",
+        "publisher": "发布者",
+        "replicationId": "复制 ID",
+        "replicationState": "复制状态",
+        "body": "正文",
+        "noBody": "SEMP 的任何版本都不返回消息正文，因此这里没有内容可展示。上方的大小说明这条消息是否带有正文。要读取正文需要使用消息协议上的客户端。",
+        "section": {
+          "properties": "其他字段"
+        }
       }
     }
   }

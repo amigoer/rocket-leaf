@@ -780,6 +780,9 @@
         "restUnreachable": "Nothing answered on the REST messaging port, so this connection cannot send. SEMP manages the broker and carries no messages, and the messaging interface is a separate port whose number is a Message VPN setting. Check that the VPN serves REST, or give the connection the address it is published on.",
         "restForbidden": "The broker refused this client username on the REST messaging interface. Everything read from SEMP still works; sending will not until that credential is right. Client usernames are objects inside the Message VPN and are not the SEMP management account."
       },
+      "caveat": {
+        "browseNoPayload": "Browsing takes nothing away: the queue's depth, its spool usage and its delivery counters are all the same afterwards, and any number of readers can look at the same message. What SEMP will not do is return the message itself — there is no payload field in the API at any version — so a browse lists each message's identifier, sizes, delivery count and flags, and reading a body needs a client on the messaging protocol."
+      },
       "scope": {
         "label": "Message VPN: {{scope}}",
         "unscoped": "Broker default",
@@ -5803,6 +5806,37 @@
         "deleteHolding": "The queue holds {{count}} messages. They are discarded with it — not moved to a dead message queue — and this cannot be undone.",
         "deleted": "Deleted {{name}}",
         "deleteFailed": "Could not delete the queue"
+      },
+      "messages": {
+        "title": "Messages",
+        "subtitle": "Browse what a queue is holding",
+        "pickQueue": "Choose a queue",
+        "read": "Browse",
+        "found": "{{count}} listed",
+        "readNote": "Browsing takes nothing: the queue is unchanged afterwards. SEMP carries no message payload, so what is listed is each message's metadata.",
+        "startHere": "Choose a queue and browse it.",
+        "nothingThere": "This queue is holding nothing.",
+        "messageId": "Message",
+        "spooled": "Spooled",
+        "size": "Payload",
+        "attachment": "Attachment",
+        "content": "Structured content",
+        "redelivery": "Tries",
+        "state": "State",
+        "undelivered": "waiting",
+        "delivered": "delivered",
+        "dmqEligible": "Dead-message eligible",
+        "dmqYes": "yes — moved when given up on",
+        "dmqNo": "no — discarded unless the queue overrides it",
+        "partitionKey": "Partition key",
+        "publisher": "Publisher",
+        "replicationId": "Replication id",
+        "replicationState": "Replication state",
+        "body": "Payload",
+        "noBody": "SEMP does not return message payloads at any version, so there is nothing to show here. The sizes above say whether this message carries one. Reading it needs a client on the messaging protocol.",
+        "section": {
+          "properties": "Other fields"
+        }
       }
     }
   }

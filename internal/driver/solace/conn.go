@@ -31,6 +31,24 @@ const (
 	restForbidden   = "mq.solace.degraded.restForbidden"
 )
 
+// Caveats, which are a different thing from a degraded reason: the capability
+// works, and doing it has a consequence worth saying out loud.
+const (
+	// browseNoPayload is the one consequence of browsing here, and it is not
+	// the one any other family carries.
+	//
+	// A browse takes nothing: the queue's spool usage, its unacknowledged
+	// count and its delivery counters are identical afterwards, and any
+	// number of readers can look at the same message. That puts this family
+	// alongside Service Bus rather than alongside the three that pay for a
+	// look. What SEMP will not do is hand back the message: every field on
+	// the collection is metadata, there is no payload at any version, and the
+	// broker's own manager shows one by opening a browser flow over the
+	// messaging protocol - a wire client this driver deliberately does not
+	// have.
+	browseNoPayload = "mq.solace.caveat.browseNoPayload"
+)
+
 // defaultTimeout is what a profile that named none gets. SEMP is quick, but a
 // listing that walks several pages is several round trips.
 const defaultTimeout = 10 * time.Second
@@ -140,6 +158,9 @@ func capabilities() []model.Capability {
 		model.CapDestinationDelete,
 
 		model.CapConnectionScope,
+
+		model.CapMessageQuery,
+		model.CapMessageByID,
 	}
 }
 
@@ -192,6 +213,11 @@ func (c *Conn) declare(rest tiers) model.Capabilities {
 			declared.Degraded[capability] = rest.restReason
 		}
 	}
+
+	// The caveat does not vary, because what it describes is the API rather
+	// than the deployment: SEMP carries no message payload on any broker
+	// there is.
+	declared.Caveats[model.CapMessageQuery] = browseNoPayload
 	return declared
 }
 
