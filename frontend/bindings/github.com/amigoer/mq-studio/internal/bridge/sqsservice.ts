@@ -24,6 +24,15 @@ export function CreateQueue(connID: number, input: $models.SQSQueueInput): $Canc
 }
 
 /**
+ * Publish sends to one queue and reports how many the service accepted.
+ */
+export function Publish(connID: number, input: $models.SQSPublishInput): $CancellablePromise<$models.SQSPublishResult | null> {
+    return $Call.ByID(2574354685, connID, input).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
+/**
  * PurgeQueue discards everything the queue holds.
  * 
  * The call returning is not the queue being empty: SQS purges asynchronously,
@@ -49,3 +58,7 @@ export function RemoveQueue(connID: number, name: string): $CancellablePromise<v
 export function UpdateQueue(connID: number, input: $models.SQSQueueInput): $CancellablePromise<void> {
     return $Call.ByID(784278494, connID, input);
 }
+
+// Private type creation functions
+const $$createType0 = $models.SQSPublishResult.createFrom;
+const $$createType1 = $Create.Nullable($$createType0);

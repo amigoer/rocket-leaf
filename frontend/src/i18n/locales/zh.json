@@ -4566,6 +4566,40 @@
           "fifo": "FIFO",
           "attributes": "消息属性"
         }
+      },
+      "producer": {
+        "title": "发送消息",
+        "subtitle": "发一条，或者把同一条发多次",
+        "queue": "队列",
+        "queueHint": "以 .fifo 结尾的队列保证顺序，每次发送都必须带分组 ID。",
+        "body": "消息体",
+        "bodyHint": "默认最大 256 KB，队列自身设置的单条消息上限可能更小。",
+        "count": "份数",
+        "countHint": "把同一条消息发这么多次，每十条一批。最多 {{max}}。",
+        "delay": "延迟（秒）",
+        "delayHint": "让消息延后一段时间才对消费者可见。最多 {{max}}——十五分钟是服务本身的上限。",
+        "groupId": "分组 ID",
+        "groupIdHint": "这条消息按谁排序。同一分组内的消息按顺序投递，不同分组彼此独立。",
+        "deduplicationId": "去重 ID",
+        "deduplicationIdHint": "五分钟内两次发送用同一个 ID，SQS 会当成一条消息，第二条会被静默丢弃。留空则自动生成一个。",
+        "attributes": "消息属性",
+        "attributesHint": "消息体之外的命名值，按字符串发送。除了消息体本身，这是 SQS 消息唯一能携带的东西。",
+        "attributeName": "名称",
+        "attributeValue": "值",
+        "addAttribute": "添加属性",
+        "send": "发送",
+        "sent": "已发送 {{count}} 条",
+        "sentAs": "已发送 {{count}} 条，首条消息 {{id}}",
+        "failed": "发送失败",
+        "queueRequired": "请选择要发送到的队列。",
+        "bodyRequired": "消息需要有内容。",
+        "countRange": "份数需在 1 到 1000 之间。",
+        "delayRange": "延迟需在 0 到 900 秒之间。",
+        "groupRequired": "FIFO 队列按分组保证顺序，所以每次发送都要填分组 ID。",
+        "groupOnStandard": "只有 FIFO 队列才接受分组 ID，而这个队列名并不以 .fifo 结尾。",
+        "fifoNoDelay": "FIFO 队列不支持单条消息延迟——请改为在队列上设置投递延迟。",
+        "attributeNameRequired": "属性值需要有名称才能发送。",
+        "fifoRepeatNote": "SQS 会在五分钟内按消息体对 FIFO 发送去重，所以每一份都会分配各自的去重 ID——否则它们只会到达一条。"
       }
     }
   }

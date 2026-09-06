@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"context"
+	"time"
 
 	sqsdriver "github.com/amigoer/mq-studio/internal/driver/sqs"
 	sqsservice "github.com/amigoer/mq-studio/internal/service/sqs"
@@ -95,4 +96,54 @@ func (s *SQSService) RemoveQueue(connID int, name string) error {
 // delivering what was sent before it for about as long.
 func (s *SQSService) PurgeQueue(connID int, name string) error {
 	return s.service.PurgeQueue(context.Background(), connID, name)
+}
+
+// SQSPublishInput is a send as the SQS console collects it.
+//
+// Deliberately not MessageService.Send's shape. That one takes a topic, tags,
+// keys and a delay level - RocketMQ's vocabulary, of which an SQS message has
+// the destination and a delay in real seconds. What it cannot carry is the
+// table of named attributes an SQS message puts beside its body, or the two
+// fields a FIFO queue requires.
+type SQSPublishInput struct {
+	Queue string `json:"queue"`
+	Body  string `json:"body"`
+	// Count sends the same body more than once. One when left at zero.
+	Count int `json:"count"`
+	// DelaySec holds the message back from consumers, up to 900. A FIFO queue
+	// takes none: its delay is a queue setting.
+	DelaySec int `json:"delaySec"`
+	// Attributes are the producer's own, sent as SQS string attributes.
+	Attributes map[string]string `json:"attributes"`
+	// GroupID is required on a FIFO queue and refused on a standard one.
+	GroupID string `json:"groupId"`
+	// DeduplicationID is what SQS deduplicates a FIFO message by for five
+	// minutes. Blank lets the driver generate one, which is what keeps a
+	// repeat of ten from arriving as one message.
+	DeduplicationID string `json:"deduplicationId"`
+}
+
+// SQSPublishResult is what the send did.
+type SQSPublishResult struct {
+	Sent int `json:"sent"`
+	// MessageID is the first message's. It addresses nothing - no SQS call
+	// takes a message id - and is shown so a page can name what it produced.
+	MessageID string `json:"messageId"`
+}
+
+// Publish sends to one queue and reports how many the service accepted.
+func (s *SQSService) Publish(connID int, input SQSPublishInput) (*SQSPublishResult, error) {
+	result, err := s.service.Publish(context.Background(), connID, sqsdriver.PublishRequest{
+		Queue:           input.Queue,
+		Body:            input.Body,
+		Count:           input.Count,
+		Delay:           time.Duration(input.DelaySec) * time.Second,
+		Attributes:      input.Attributes,
+		GroupID:         input.GroupID,
+		DeduplicationID: input.DeduplicationID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &SQSPublishResult{Sent: result.Sent, MessageID: result.MessageID}, nil
 }

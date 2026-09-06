@@ -3084,6 +3084,120 @@ export class ResendInput {
 }
 
 /**
+ * SQSPublishInput is a send as the SQS console collects it.
+ * 
+ * Deliberately not MessageService.Send's shape. That one takes a topic, tags,
+ * keys and a delay level - RocketMQ's vocabulary, of which an SQS message has
+ * the destination and a delay in real seconds. What it cannot carry is the
+ * table of named attributes an SQS message puts beside its body, or the two
+ * fields a FIFO queue requires.
+ */
+export class SQSPublishInput {
+    "queue": string;
+    "body": string;
+
+    /**
+     * Count sends the same body more than once. One when left at zero.
+     */
+    "count": number;
+
+    /**
+     * DelaySec holds the message back from consumers, up to 900. A FIFO queue
+     * takes none: its delay is a queue setting.
+     */
+    "delaySec": number;
+
+    /**
+     * Attributes are the producer's own, sent as SQS string attributes.
+     */
+    "attributes": { [_ in string]?: string };
+
+    /**
+     * GroupID is required on a FIFO queue and refused on a standard one.
+     */
+    "groupId": string;
+
+    /**
+     * DeduplicationID is what SQS deduplicates a FIFO message by for five
+     * minutes. Blank lets the driver generate one, which is what keeps a
+     * repeat of ten from arriving as one message.
+     */
+    "deduplicationId": string;
+
+    /** Creates a new SQSPublishInput instance. */
+    constructor($$source: Partial<SQSPublishInput> = {}) {
+        if (!("queue" in $$source)) {
+            this["queue"] = "";
+        }
+        if (!("body" in $$source)) {
+            this["body"] = "";
+        }
+        if (!("count" in $$source)) {
+            this["count"] = 0;
+        }
+        if (!("delaySec" in $$source)) {
+            this["delaySec"] = 0;
+        }
+        if (!("attributes" in $$source)) {
+            this["attributes"] = {};
+        }
+        if (!("groupId" in $$source)) {
+            this["groupId"] = "";
+        }
+        if (!("deduplicationId" in $$source)) {
+            this["deduplicationId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SQSPublishInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SQSPublishInput {
+        const $$createField4_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("attributes" in $$parsedSource) {
+            $$parsedSource["attributes"] = $$createField4_0($$parsedSource["attributes"]);
+        }
+        return new SQSPublishInput($$parsedSource as Partial<SQSPublishInput>);
+    }
+}
+
+/**
+ * SQSPublishResult is what the send did.
+ */
+export class SQSPublishResult {
+    "sent": number;
+
+    /**
+     * MessageID is the first message's. It addresses nothing - no SQS call
+     * takes a message id - and is shown so a page can name what it produced.
+     */
+    "messageId": string;
+
+    /** Creates a new SQSPublishResult instance. */
+    constructor($$source: Partial<SQSPublishResult> = {}) {
+        if (!("sent" in $$source)) {
+            this["sent"] = 0;
+        }
+        if (!("messageId" in $$source)) {
+            this["messageId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SQSPublishResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SQSPublishResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SQSPublishResult($$parsedSource as Partial<SQSPublishResult>);
+    }
+}
+
+/**
  * SQSQueueInput is a queue as the queue form collects it.
  * 
  * Deliberately not TopicService.Create's shape. That one takes a broker

@@ -106,6 +106,9 @@ func capabilities() []model.Capability {
 		model.CapDestinationPurge,
 
 		model.CapMessageQuery,
+
+		model.CapPublish,
+		model.CapDelayedDelivery,
 	}
 }
 

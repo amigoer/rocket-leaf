@@ -119,3 +119,22 @@ func (s *Service) PurgeQueue(ctx context.Context, connID int, name string) error
 	defer cancel()
 	return api.PurgeQueue(ctx, model.DestinationRef{Name: name})
 }
+
+// Publish sends one body, or the same body several times, to one queue.
+//
+// Beside the canonical send rather than through it: MessageService.Send
+// collects a topic, tags, keys and a delay level - RocketMQ's vocabulary, of
+// which an SQS message has the destination and a delay in real seconds. What
+// it has that the canonical shape cannot carry is a table of named attributes
+// and, on a FIFO queue, the group a message is ordered within.
+func (s *Service) Publish(
+	ctx context.Context, connID int, request sqsdriver.PublishRequest,
+) (*sqsdriver.PublishResult, error) {
+	api, err := s.sqsConn(connID, model.CapPublish)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.Publish(ctx, request)
+}

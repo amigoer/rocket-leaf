@@ -856,3 +856,167 @@ func TestLiveMessageByIDIsRefused(t *testing.T) {
 		t.Fatal("looked a message up by id, which SQS has no call for")
 	}
 }
+
+// A send reaches the queue with what the console collected: the attributes
+// beside the body, and the count the form asked for.
+func TestLivePublishSendsWhatTheConsoleCollected(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: name})
+
+	result, err := conn.Publish(liveContext(t), PublishRequest{
+		Queue:      name,
+		Body:       "hello",
+		Count:      3,
+		Attributes: map[string]string{"tenant": "acme"},
+	})
+	if err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if result.Sent != 3 {
+		t.Errorf("sent = %d, want 3", result.Sent)
+	}
+	if result.MessageID == "" {
+		t.Error("the send reports no message id")
+	}
+	waitForDepth(t, conn, name, 3)
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: name, MaxResults: 3,
+	})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	for _, message := range messages {
+		if message.Body != "hello" {
+			t.Errorf("body = %q, want hello", message.Body)
+		}
+		if got := message.Properties["attr.tenant"]; got != "acme" {
+			t.Errorf("attr.tenant = %q, want acme", got)
+		}
+	}
+}
+
+// A send of more than ten is several batches, and every message has to arrive:
+// a batch's entries succeed and fail individually, so a driver that reported
+// the request rather than the entries would call a partial send clean.
+func TestLivePublishBatchesPastTen(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: name})
+
+	result, err := conn.Publish(liveContext(t), PublishRequest{Queue: name, Body: "batched", Count: 23})
+	if err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if result.Sent != 23 {
+		t.Errorf("sent = %d, want 23 across three batches", result.Sent)
+	}
+	waitForDepth(t, conn, name, 23)
+}
+
+// A delayed message is held and counted apart from what is available, which is
+// the whole reason the queues board shows the three counts separately.
+func TestLivePublishDelaysAMessage(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: name})
+
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Queue: name, Body: "later", Delay: 600 * time.Second,
+	}); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	waitForDepth(t, conn, name, 1)
+
+	queue, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if queue.Attribute(AttrDelayed) != "1" || queue.Attribute(AttrVisible) != "0" {
+		t.Errorf("delayed=%q visible=%q, want 1 and 0",
+			queue.Attribute(AttrDelayed), queue.Attribute(AttrVisible))
+	}
+
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Queue: name, Body: "too late", Delay: time.Hour,
+	}); err == nil {
+		t.Error("accepted a delay past the fifteen minutes SQS allows")
+	}
+}
+
+/*
+ * The FIFO rules, which the driver enforces rather than the service.
+ *
+ * SQS refuses a FIFO send with no group id and a standard send with one, and
+ * names MessageGroupId in both answers - so half the people reading its own
+ * message would be sent to the wrong field.
+ */
+func TestLivePublishHoldsTheFIFORules(t *testing.T) {
+	conn := liveConn(t)
+	fifo := testName(t, ".fifo")
+	standard := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: fifo, FIFO: true})
+	makeQueue(t, conn, QueueSpec{Name: standard})
+
+	if _, err := conn.Publish(liveContext(t), PublishRequest{Queue: fifo, Body: "unordered"}); err == nil {
+		t.Error("sent to a FIFO queue with no group id")
+	}
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Queue: standard, Body: "ordered", GroupID: "acme",
+	}); err == nil {
+		t.Error("sent a group id to a standard queue")
+	}
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Queue: fifo, Body: "later", GroupID: "acme", Delay: time.Minute,
+	}); err == nil {
+		t.Error("accepted a per-message delay on a FIFO queue")
+	}
+
+	/*
+	 * The repeat is the case worth proving. SQS deduplicates a FIFO send on
+	 * its body for five minutes, so ten identical copies with one
+	 * deduplication id arrive as one message - accepted, acknowledged and
+	 * silently discarded. The driver gives each copy its own.
+	 */
+	result, err := conn.Publish(liveContext(t), PublishRequest{
+		Queue: fifo, Body: "same body", Count: 4, GroupID: "acme",
+	})
+	if err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if result.Sent != 4 {
+		t.Fatalf("sent = %d, want 4", result.Sent)
+	}
+	waitForDepth(t, conn, fifo, 4)
+}
+
+/*
+ * The canonical port is RocketMQ's shape, and what it does with the three
+ * arguments SQS has no home for is a decision rather than an accident: a tag
+ * is refused because it would be silently dropped, and keys carries the FIFO
+ * group id because that is the value a reader groups by.
+ */
+func TestLiveSendMessageMapsTheCanonicalPort(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: name})
+
+	id, err := conn.SendMessage(liveContext(t), name, "", "", "canonical", 0)
+	if err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	if id == "" {
+		t.Error("the canonical send reports no message id")
+	}
+
+	if _, err := conn.SendMessage(liveContext(t), name, "orders", "", "tagged", 0); err == nil {
+		t.Error("accepted a tag, which an sqs message has nowhere to carry")
+	}
+
+	fifo := testName(t, ".fifo")
+	makeQueue(t, conn, QueueSpec{Name: fifo, FIFO: true})
+	if _, err := conn.SendMessage(liveContext(t), fifo, "", "acme", "ordered", 0); err != nil {
+		t.Errorf("the canonical send did not carry the group id through keys: %v", err)
+	}
+}

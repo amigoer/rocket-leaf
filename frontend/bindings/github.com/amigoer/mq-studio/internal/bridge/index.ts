@@ -107,6 +107,8 @@ export {
     RecordInput,
     ReplayInput,
     ResendInput,
+    SQSPublishInput,
+    SQSPublishResult,
     SQSQueueInput,
     SendInput,
     SettingsInput,

@@ -1,7 +1,12 @@
 import { SQSService } from "@bindings/bridge";
-import type { SQSQueueInput } from "@bindings/bridge/models";
+import type {
+  SQSPublishInput,
+  SQSPublishResult,
+  SQSQueueInput,
+} from "@bindings/bridge/models";
+import { required } from "./client";
 
-export type { SQSQueueInput };
+export type { SQSPublishInput, SQSPublishResult, SQSQueueInput };
 
 /**
  * The SQS-only half of the surface.
@@ -52,3 +57,13 @@ export const removeQueue = (connID: number, name: string): Promise<void> =>
  */
 export const purgeQueue = (connID: number, name: string): Promise<void> =>
   SQSService.PurgeQueue(connID, name);
+
+/**
+ * Send one body, or the same body several times, to one queue.
+ *
+ * Batched in tens, which is the service's own maximum, and a batch's entries
+ * succeed and fail individually - so a send that stopped partway reports how
+ * many the service took before it did.
+ */
+export const publish = (connID: number, input: SQSPublishInput): Promise<SQSPublishResult> =>
+  SQSService.Publish(connID, input).then(required);

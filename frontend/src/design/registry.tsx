@@ -80,6 +80,7 @@ import { NatsWorkbench } from "./boards/nats/NatsWorkbench";
 import { ActiveMQWorkbench } from "./boards/activemq/ActiveMQWorkbench";
 import { QueuesSqs } from "./boards/topics/QueuesSqs";
 import { MessagesSqs } from "./boards/messages/MessagesSqs";
+import { ProducerSqs } from "./boards/producer/ProducerSqs";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
 import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
@@ -239,6 +240,12 @@ export function renderBoard(
        console has: which nsqd takes the message, because the daemon that took
        it is the one holding it. */
     if (protocol === "nsq") return <ProducerNsq />;
+    /* SQS's own too: the shared console collects tags and a RocketMQ delay
+       level, and an SQS message is a body with a table of named attributes.
+       What it needs instead is the pair a FIFO queue requires - the group a
+       message is ordered within and the id it is deduplicated by - which
+       appear and disappear with the queue's name. */
+    if (protocol === "sqs") return <ProducerSqs />;
     return <Producer protocol={protocol} nav={nav} />;
   }
   /* Alerts is one board for every family: the rules are numeric comparisons

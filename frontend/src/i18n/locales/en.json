@@ -4566,6 +4566,40 @@
           "fifo": "FIFO",
           "attributes": "Message attributes"
         }
+      },
+      "producer": {
+        "title": "Send a message",
+        "subtitle": "One body, or the same body several times",
+        "queue": "Queue",
+        "queueHint": "A .fifo name orders its messages and needs a group id on every send.",
+        "body": "Body",
+        "bodyHint": "Up to 256 KB by default, and the queue's own maximum message size can be lower.",
+        "count": "Copies",
+        "countHint": "Sends the same body this many times, in batches of ten. Up to {{max}}.",
+        "delay": "Delay (seconds)",
+        "delayHint": "Holds the message back from consumers. Up to {{max}} — fifteen minutes is the service's ceiling.",
+        "groupId": "Group ID",
+        "groupIdHint": "What this message is ordered against. Messages in one group are delivered in order; different groups move independently.",
+        "deduplicationId": "Deduplication ID",
+        "deduplicationIdHint": "SQS treats two sends with the same id inside five minutes as one message and silently discards the second. Leave blank to have one generated.",
+        "attributes": "Message attributes",
+        "attributesHint": "Named values beside the body, sent as strings. They are the only thing an SQS message carries apart from its payload.",
+        "attributeName": "Name",
+        "attributeValue": "Value",
+        "addAttribute": "Add attribute",
+        "send": "Send",
+        "sent": "Sent {{count}}",
+        "sentAs": "Sent {{count}}, first message {{id}}",
+        "failed": "Could not send",
+        "queueRequired": "Pick a queue to send to.",
+        "bodyRequired": "A message needs a body.",
+        "countRange": "Between 1 and 1000 copies.",
+        "delayRange": "Between 0 and 900 seconds.",
+        "groupRequired": "A FIFO queue orders messages within a group, so every send needs a group id.",
+        "groupOnStandard": "Only a FIFO queue takes a group id, and this queue's name does not end in .fifo.",
+        "fifoNoDelay": "A FIFO queue takes no per-message delay — set a delivery delay on the queue instead.",
+        "attributeNameRequired": "An attribute value needs a name to be sent under.",
+        "fifoRepeatNote": "SQS deduplicates a FIFO send on its body for five minutes, so each copy is given its own deduplication id — otherwise all of them would arrive as one message."
       }
     }
   }
