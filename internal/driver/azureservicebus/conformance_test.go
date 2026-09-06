@@ -557,3 +557,105 @@ func TestResendRefusesSomethingThatIsNotASequenceNumber(t *testing.T) {
 		t.Error("accepted a message id where a sequence number belongs")
 	}
 }
+
+/*
+ * Rules are the routing topology, and the routing page is where they go.
+ *
+ * The two hosted families before this one declare no routing capability and
+ * are right not to: a Pub/Sub subscription's filter is a string field set once
+ * at creation, and an SQS queue has none at all. A Service Bus rule is an
+ * object - it has a name, several may sit on one subscription, and each is a
+ * filter plus an optional action that rewrites the message - so which messages
+ * reach which subscription is a topology, and it maps onto the same page
+ * RabbitMQ's exchanges and bindings do.
+ */
+func TestRulesAreDeclaredAsRouting(t *testing.T) {
+	declared := offlineConn().Capabilities()
+
+	for _, capability := range []model.Capability{model.CapRouting, model.CapRoutingAdmin} {
+		if !declared.Has(capability) {
+			t.Errorf("%s is not declared, and a rule is a routing decision made by an object",
+				capability)
+		}
+	}
+}
+
+// A rule is deleted by name and $Default is the one the service creates, so it
+// has to be nameable - unlike an entity, where a leading $ addresses a
+// sub-entity and is refused.
+func TestTheDefaultRuleCanBeNamed(t *testing.T) {
+	name, err := requiredRuleName(" " + DefaultRuleName + " ")
+	if err != nil {
+		t.Fatalf("requiredRuleName(%s): %v", DefaultRuleName, err)
+	}
+	if name != DefaultRuleName {
+		t.Errorf("name = %q", name)
+	}
+	// Any other sub-entity name is still refused: only this one is a rule.
+	if _, err := requiredRuleName("$DeadLetterQueue"); err == nil {
+		t.Error("accepted a sub-entity name as a rule")
+	}
+	// And an entity may never carry one.
+	if _, err := requiredName("topic", DefaultRuleName); err == nil {
+		t.Error("accepted $Default as an entity name")
+	}
+}
+
+/*
+ * A correlation filter is rendered the way its SQL equivalent would read, so
+ * one column can show both kinds.
+ *
+ * Worth pinning because the empty case is not empty: a correlation filter that
+ * sets no field matches everything, and printing nothing there would read as
+ * "matches nothing" - the opposite.
+ */
+func TestCorrelationFiltersReadLikeTheirSQLEquivalent(t *testing.T) {
+	if got := renderCorrelation(map[string]string{}); got != "1=1" {
+		t.Errorf("an empty correlation filter renders as %q, and it matches everything", got)
+	}
+	got := renderCorrelation(map[string]string{"subject": "order", "colour": "red"})
+	if got != "colour = 'red' AND subject = 'order'" {
+		t.Errorf("rendered %q", got)
+	}
+}
+
+/*
+ * A topic has no exchange type, and the port has a field for one.
+ *
+ * Refused rather than ignored: a RabbitMQ exchange's type is the whole of how
+ * it routes, and accepting one would let a form report that a fanout topic had
+ * been created when what exists is a topic whose routing is entirely in the
+ * rules on its subscriptions.
+ */
+func TestDeclaringAnExchangeRefusesWhatATopicDoesNotHave(t *testing.T) {
+	conn := offlineConn()
+	for _, spec := range []model.ExchangeSpec{
+		{Name: "events", Type: "fanout"},
+		{Name: "events", Transient: true},
+		{Name: "events", AutoDelete: true},
+	} {
+		if err := conn.DeclareExchange(t.Context(), spec); err == nil {
+			t.Errorf("accepted %#v, and a Service Bus topic has none of it", spec)
+		}
+	}
+}
+
+// The filter kind decides which text is sent, so a rule that names a kind and
+// leaves the text out has to be refused rather than sent empty.
+func TestARuleNeedsTheTextItsKindTakes(t *testing.T) {
+	if _, err := ruleOptions("red", model.Binding{
+		Arguments: map[string]string{ArgFilterType: FilterSQL},
+	}); err == nil {
+		t.Error("accepted a SQL rule with no expression")
+	}
+	if _, err := ruleOptions("orders", model.Binding{
+		Arguments: map[string]string{ArgFilterType: FilterCorrelation},
+	}); err == nil {
+		t.Error("accepted a correlation rule matching nothing at all")
+	}
+	// No kind at all is the one that matches everything, which is what the
+	// service's own $Default is - so it needs no text.
+	if _, err := ruleOptions(DefaultRuleName, model.Binding{}); err != nil {
+		t.Errorf("a rule with no kind was refused: %v", err)
+	}
+}

@@ -119,6 +119,9 @@ func capabilities() []model.Capability {
 
 		model.CapDLQ,
 		model.CapMessageResend,
+
+		model.CapRouting,
+		model.CapRoutingAdmin,
 	}
 }
 

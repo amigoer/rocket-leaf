@@ -253,3 +253,54 @@ func (s *AzureServiceBusService) CancelScheduled(
 ) error {
 	return s.service.CancelScheduled(context.Background(), connID, entity, sequences)
 }
+
+// AzureServiceBusRuleInput is a rule as the routing form collects it.
+//
+// A rule is what decides which of a topic's messages reach one subscription,
+// and it is an object rather than a field: it has a name, several may sit on
+// one subscription, and each is a filter of one of three kinds plus an
+// optional action that rewrites the message on the way in.
+type AzureServiceBusRuleInput struct {
+	Topic        string `json:"topic"`
+	Subscription string `json:"subscription"`
+	// Name is what deletes it: one subscription may have several rules, and
+	// nothing else tells them apart.
+	Name string `json:"name"`
+
+	// Kind is "sql", "correlation", "true" or "false". Empty means true,
+	// which is what the service's own $Default rule is.
+	Kind string `json:"kind"`
+
+	// Expression is the SQL filter's text, on a sql rule.
+	Expression string `json:"expression"`
+	// Correlation is the message fields a correlation rule compares by
+	// equality. A field left out matches anything.
+	Correlation map[string]string `json:"correlation"`
+
+	// Action is a SQL statement run on a matching message before it is copied
+	// in - the half of a rule that changes the message rather than selecting
+	// it. Optional on every kind.
+	Action string `json:"action"`
+}
+
+// CreateRule declares a rule on a subscription.
+func (s *AzureServiceBusService) CreateRule(connID int, input AzureServiceBusRuleInput) error {
+	return s.service.CreateRule(context.Background(), connID, servicebusdriver.RuleSpec{
+		Topic:        input.Topic,
+		Subscription: input.Subscription,
+		Name:         input.Name,
+		Kind:         input.Kind,
+		Expression:   input.Expression,
+		Correlation:  input.Correlation,
+		Action:       input.Action,
+	})
+}
+
+// RemoveRule deletes one rule by name.
+//
+// Deleting the last one leaves a subscription nothing can reach: it stays
+// Active, its backlog stays empty because nothing arrives, and only the
+// subscriptions board's status says so.
+func (s *AzureServiceBusService) RemoveRule(connID int, topic, subscription, name string) error {
+	return s.service.RemoveRule(context.Background(), connID, topic, subscription, name)
+}

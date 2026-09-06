@@ -81,6 +81,7 @@ import { ActiveMQWorkbench } from "./boards/activemq/ActiveMQWorkbench";
 import { QueuesSqs } from "./boards/topics/QueuesSqs";
 import { TopicsGooglePubSub } from "./boards/topics/TopicsGooglePubSub";
 import { EntitiesAzureServiceBus } from "./boards/topics/EntitiesAzureServiceBus";
+import { RulesAzureServiceBus } from "./boards/topics/RulesAzureServiceBus";
 import { SubscriptionsGooglePubSub } from "./boards/consumers/SubscriptionsGooglePubSub";
 import { SubscriptionsAzureServiceBus } from "./boards/consumers/SubscriptionsAzureServiceBus";
 import { MessagesSqs } from "./boards/messages/MessagesSqs";
@@ -167,7 +168,13 @@ const BOARDS: Partial<
     "google-pubsub": TopicsGooglePubSub,
     "azure-servicebus": EntitiesAzureServiceBus,
   },
-  exchanges: { rabbitmq: ExchangesRabbitMQ },
+  exchanges: {
+    rabbitmq: ExchangesRabbitMQ,
+    // The same slot for the same reason: a rule decides which of a topic's
+    // messages reach one subscription, which is a routing topology rather
+    // than a setting on the reader.
+    "azure-servicebus": RulesAzureServiceBus,
+  },
   vhosts: { rabbitmq: VhostsRabbitMQ, pulsar: NamespacesPulsar, nats: AccountsNats },
   policies: { rabbitmq: PoliciesRabbitMQ },
   definitions: { rabbitmq: DefinitionsRabbitMQ },

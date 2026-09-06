@@ -5119,6 +5119,48 @@
           "properties": "Sender properties"
         },
         "note": "A $DeadLetterQueue is part of its entity rather than an object of its own: it cannot be listed, sent to, renamed or shared, and it goes when the entity goes. Reading one takes nothing; putting a message back sends a copy and removes the original."
+      },
+      "rules": {
+        "count": "{{rules}} rule(s) across {{topics}} topic(s)",
+        "search": "Filter by topic, subscription or name",
+        "create": "New rule",
+        "created": "Created {{name}}",
+        "deleted": "Deleted {{name}}",
+        "deleteFailed": "Could not delete it",
+        "createTitle": "New rule",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "{{subscription}} keeps its other rules, so it goes on receiving whatever those let through.",
+        "deleteLastDesc": "This is {{subscription}}'s only rule. Without one it receives nothing at all — it stays Active and its backlog stays empty, because nothing can arrive.",
+        "topic": "Topic",
+        "subscription": "Subscription",
+        "name": "Rule",
+        "nameHint": "What deletes it: one subscription may have several rules, and nothing else tells them apart.",
+        "kind": "Kind",
+        "kindSql": "SQL",
+        "kindCorrelation": "Correlation",
+        "kindTrue": "Everything",
+        "kindHint": "A SQL rule is an expression; a correlation rule compares fields by equality and is cheaper; everything is what $Default is.",
+        "filter": "Filter",
+        "expression": "Expression",
+        "expressionHint": "Over the message's own fields and the sender's properties, such as colour = 'red' or sys.Label = 'order'.",
+        "subject": "Subject",
+        "subjectHint": "The message's subject, also called the label. A correlation filter compares it by equality — no patterns, no operators.",
+        "action": "Action",
+        "actionHint": "Optional. A SQL statement run on a matching message before the copy is placed in the subscription, such as SET routed = 'yes'.",
+        "actionNote": "This rule changes the message on the way in as well as selecting it.",
+        "defaultBadge": "default",
+        "everythingNote": "This rule matches every message on the topic, so the subscription receives all of it whatever else is set beside this.",
+        "nothingNote": "This rule can never match. It is legal and it is almost never what was meant.",
+        "nameProblem": {
+          "tooLong": "A rule name is at most 50 characters.",
+          "charset": "Letters, digits and - . _ ~ only, and no /."
+        },
+        "section": {
+          "edge": "Where it routes",
+          "filter": "What it matches",
+          "action": "What it changes"
+        },
+        "note": "A rule is an object rather than a setting: it has a name, several may sit on one subscription, and each is a filter plus an optional action. A subscription with no rules receives nothing while still reporting itself Active."
       }
     }
   }

@@ -31,6 +31,13 @@ export function CreateEntity(connID: number, input: $models.AzureServiceBusEntit
 }
 
 /**
+ * CreateRule declares a rule on a subscription.
+ */
+export function CreateRule(connID: number, input: $models.AzureServiceBusRuleInput): $CancellablePromise<void> {
+    return $Call.ByID(2773513569, connID, input);
+}
+
+/**
  * CreateSubscription declares a subscription on a topic.
  */
 export function CreateSubscription(connID: number, input: $models.AzureServiceBusSubscriptionInput): $CancellablePromise<void> {
@@ -43,6 +50,17 @@ export function CreateSubscription(connID: number, input: $models.AzureServiceBu
  */
 export function RemoveEntity(connID: number, name: string): $CancellablePromise<void> {
     return $Call.ByID(2875084004, connID, name);
+}
+
+/**
+ * RemoveRule deletes one rule by name.
+ * 
+ * Deleting the last one leaves a subscription nothing can reach: it stays
+ * Active, its backlog stays empty because nothing arrives, and only the
+ * subscriptions board's status says so.
+ */
+export function RemoveRule(connID: number, topic: string, subscription: string, name: string): $CancellablePromise<void> {
+    return $Call.ByID(907920453, connID, topic, subscription, name);
 }
 
 /**

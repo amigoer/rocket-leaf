@@ -647,6 +647,88 @@ export class AzureServiceBusEntityInput {
 }
 
 /**
+ * AzureServiceBusRuleInput is a rule as the routing form collects it.
+ * 
+ * A rule is what decides which of a topic's messages reach one subscription,
+ * and it is an object rather than a field: it has a name, several may sit on
+ * one subscription, and each is a filter of one of three kinds plus an
+ * optional action that rewrites the message on the way in.
+ */
+export class AzureServiceBusRuleInput {
+    "topic": string;
+    "subscription": string;
+
+    /**
+     * Name is what deletes it: one subscription may have several rules, and
+     * nothing else tells them apart.
+     */
+    "name": string;
+
+    /**
+     * Kind is "sql", "correlation", "true" or "false". Empty means true,
+     * which is what the service's own $Default rule is.
+     */
+    "kind": string;
+
+    /**
+     * Expression is the SQL filter's text, on a sql rule.
+     */
+    "expression": string;
+
+    /**
+     * Correlation is the message fields a correlation rule compares by
+     * equality. A field left out matches anything.
+     */
+    "correlation": { [_ in string]?: string };
+
+    /**
+     * Action is a SQL statement run on a matching message before it is copied
+     * in - the half of a rule that changes the message rather than selecting
+     * it. Optional on every kind.
+     */
+    "action": string;
+
+    /** Creates a new AzureServiceBusRuleInput instance. */
+    constructor($$source: Partial<AzureServiceBusRuleInput> = {}) {
+        if (!("topic" in $$source)) {
+            this["topic"] = "";
+        }
+        if (!("subscription" in $$source)) {
+            this["subscription"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("kind" in $$source)) {
+            this["kind"] = "";
+        }
+        if (!("expression" in $$source)) {
+            this["expression"] = "";
+        }
+        if (!("correlation" in $$source)) {
+            this["correlation"] = {};
+        }
+        if (!("action" in $$source)) {
+            this["action"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AzureServiceBusRuleInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AzureServiceBusRuleInput {
+        const $$createField5_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("correlation" in $$parsedSource) {
+            $$parsedSource["correlation"] = $$createField5_0($$parsedSource["correlation"]);
+        }
+        return new AzureServiceBusRuleInput($$parsedSource as Partial<AzureServiceBusRuleInput>);
+    }
+}
+
+/**
  * AzureServiceBusSendInput is a send as the Service Bus console collects it.
  * 
  * Deliberately not MessageService.Send's shape. That one takes a topic, tags,

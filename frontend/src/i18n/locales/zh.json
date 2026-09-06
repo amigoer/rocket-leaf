@@ -5119,6 +5119,48 @@
           "properties": "发送方属性"
         },
         "note": "$DeadLetterQueue 属于所在实体，本身不是独立对象：它不会出现在任何列表里，不能被发送、改名或共享，实体删掉它也随之消失。读取它不取走任何东西；放回消息则是发送一份副本并删除原件。"
+      },
+      "rules": {
+        "count": "{{topics}} 个主题上共 {{rules}} 条规则",
+        "search": "按主题、订阅或名称筛选",
+        "create": "新建规则",
+        "created": "已创建 {{name}}",
+        "deleted": "已删除 {{name}}",
+        "deleteFailed": "删除失败",
+        "createTitle": "新建规则",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "{{subscription}} 的其他规则还在，仍会继续接收它们放行的消息。",
+        "deleteLastDesc": "这是 {{subscription}} 唯一的规则。删掉之后它什么都收不到——状态仍是 Active，积压也仍是 0，因为根本没有消息能进来。",
+        "topic": "主题",
+        "subscription": "订阅",
+        "name": "规则",
+        "nameHint": "删除时就是按它定位：一个订阅可以有多条规则，除了名称没有别的区分方式。",
+        "kind": "类型",
+        "kindSql": "SQL",
+        "kindCorrelation": "关联",
+        "kindTrue": "全部",
+        "kindHint": "SQL 规则是一个表达式；关联规则按相等比较字段，开销更小；“全部”就是 $Default 的行为。",
+        "filter": "过滤条件",
+        "expression": "表达式",
+        "expressionHint": "可引用消息自身字段和发送方属性，例如 colour = 'red' 或 sys.Label = 'order'。",
+        "subject": "主题标签",
+        "subjectHint": "消息的 subject，也叫 label。关联过滤器按相等比较——没有通配，也没有运算符。",
+        "action": "动作",
+        "actionHint": "可选。命中的消息在放进订阅之前会先执行这条 SQL 语句，例如 SET routed = 'yes'。",
+        "actionNote": "这条规则不只是筛选，还会在消息进入时修改它。",
+        "defaultBadge": "默认",
+        "everythingNote": "这条规则匹配主题上的每一条消息，所以无论旁边还设了什么，这个订阅都会全收。",
+        "nothingNote": "这条规则永远不会命中。它是合法的，但几乎从来不是本意。",
+        "nameProblem": {
+          "tooLong": "规则名称最多 50 个字符。",
+          "charset": "只能使用字母、数字和 - . _ ~，且不能含 /。"
+        },
+        "section": {
+          "edge": "路由到哪里",
+          "filter": "匹配什么",
+          "action": "改动什么"
+        },
+        "note": "规则是对象而不是设置项：它有名称，一个订阅可以挂多条，每条是一个过滤条件加一个可选动作。没有规则的订阅什么都收不到，状态却依然显示为 Active。"
       }
     }
   }

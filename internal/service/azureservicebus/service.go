@@ -196,3 +196,35 @@ func (s *Service) CancelScheduled(
 	defer cancel()
 	return api.CancelScheduled(ctx, entity, sequences)
 }
+
+// CreateRule declares a rule on a subscription.
+//
+// Beside the canonical routing service because that one only reads: a rule is
+// created and deleted through the family's own vocabulary, and RoutingMutator
+// speaks in bindings with a source, a destination and a routing key, which is
+// not what a form filling in a SQL filter or a correlation filter collects.
+func (s *Service) CreateRule(ctx context.Context, connID int, spec servicebusdriver.RuleSpec) error {
+	api, err := s.serviceBusConn(connID, model.CapRoutingAdmin)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.CreateRule(ctx, spec)
+}
+
+// RemoveRule deletes one rule.
+//
+// Worth knowing before the last one goes: a subscription with no rules
+// receives nothing at all, while reporting itself Active with an empty
+// backlog. The subscriptions board reports that state as offline rather than
+// letting it look healthy.
+func (s *Service) RemoveRule(ctx context.Context, connID int, topic, subscription, name string) error {
+	api, err := s.serviceBusConn(connID, model.CapRoutingAdmin)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.RemoveRule(ctx, topic, subscription, name)
+}

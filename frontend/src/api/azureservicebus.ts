@@ -1,6 +1,7 @@
 import { AzureServiceBusService } from "@bindings/bridge";
 import type {
   AzureServiceBusEntityInput,
+  AzureServiceBusRuleInput,
   AzureServiceBusSendInput,
   AzureServiceBusSendResult,
   AzureServiceBusSubscriptionInput,
@@ -9,6 +10,7 @@ import { required } from "./client";
 
 export type {
   AzureServiceBusEntityInput,
+  AzureServiceBusRuleInput,
   AzureServiceBusSendInput,
   AzureServiceBusSendResult,
   AzureServiceBusSubscriptionInput,
@@ -93,3 +95,27 @@ export const cancelScheduled = (
   entity: string,
   sequences: number[],
 ): Promise<void> => AzureServiceBusService.CancelScheduled(connID, entity, sequences);
+
+/**
+ * Declare a rule on a subscription.
+ *
+ * A rule is an object rather than a field: it has a name, several may sit on
+ * one subscription, and each is a filter plus an optional action. Editing one
+ * is a delete and a create, because the filter kind cannot change.
+ */
+export const createRule = (connID: number, input: AzureServiceBusRuleInput): Promise<void> =>
+  AzureServiceBusService.CreateRule(connID, input);
+
+/**
+ * Delete one rule by name.
+ *
+ * Deleting the last one leaves a subscription nothing can reach: it stays
+ * Active, its backlog stays empty because nothing arrives, and only the
+ * subscriptions board's status says so.
+ */
+export const removeRule = (
+  connID: number,
+  topic: string,
+  subscription: string,
+  name: string,
+): Promise<void> => AzureServiceBusService.RemoveRule(connID, topic, subscription, name);

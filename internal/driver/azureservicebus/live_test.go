@@ -1564,3 +1564,292 @@ func TestLiveResendPutsADeadLetterBack(t *testing.T) {
 		t.Error("resent a dead letter that is not there")
 	}
 }
+
+/*
+ * The routing page, which this family earns and the two before it did not.
+ *
+ * A rule is an object: it has a name, several may sit on one subscription, and
+ * each is a filter plus an optional action. That is a topology rather than a
+ * setting on the reader, and this pins the mapping onto the canonical shapes -
+ * the source is the topic, the destination is the subscription, the routing
+ * key is the filter, and the properties key is the rule's name, which is the
+ * only thing a delete can take.
+ */
+func TestLiveRulesAreTheRoutingTopology(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	exchanges, err := conn.ListExchanges(ctx, "")
+	if err != nil {
+		t.Fatalf("ListExchanges: %v", err)
+	}
+	names := map[string]bool{}
+	for _, exchange := range exchanges {
+		names[exchange.Ref.Name] = true
+		// Only topics. A queue keeps what is sent to it, which is what an
+		// exchange never does.
+		if exchange.Attributes[AttrEntityType] != EntityTopic {
+			t.Errorf("%s is listed as a routing point and is a %q",
+				exchange.Ref.Name, exchange.Attributes[AttrEntityType])
+		}
+	}
+	if !names[seedEvents] {
+		e2e.Missing(t, "%s is not among the routing points; run npm run e2e:azure-servicebus:seed",
+			seedEvents)
+	}
+	if names[seedOrders] {
+		t.Errorf("%s is a queue and is listed as a routing point", seedOrders)
+	}
+
+	bindings, err := conn.ListBindings(ctx, "")
+	if err != nil {
+		t.Fatalf("ListBindings: %v", err)
+	}
+	byRule := map[string]*model.Binding{}
+	for _, binding := range bindings {
+		byRule[binding.Destination+"/"+binding.PropertiesKey] = binding
+		if binding.DestinationKind != "subscription" {
+			t.Errorf("a rule binds to a %q; a rule's destination is always a subscription",
+				binding.DestinationKind)
+		}
+		if binding.PropertiesKey == "" {
+			t.Errorf("a rule on %s/%s carries no name, and a name is what deletes it",
+				binding.Source, binding.Destination)
+		}
+	}
+
+	// The three seeded subscriptions, each with a different kind of rule.
+	unfiltered := byRule[seedSubAll+"/"+DefaultRuleName]
+	if unfiltered == nil {
+		e2e.Missing(t, "%s has no %s rule; run npm run e2e:azure-servicebus:seed",
+			seedSubAll, DefaultRuleName)
+	}
+	if unfiltered.Arguments[ArgFilterType] != FilterTrue {
+		t.Errorf("%s is a %q filter, want the one that matches everything",
+			DefaultRuleName, unfiltered.Arguments[ArgFilterType])
+	}
+
+	sql := byRule[seedSubRed+"/red-only"]
+	if sql == nil {
+		e2e.Missing(t, "%s has no red-only rule; run npm run e2e:azure-servicebus:seed", seedSubRed)
+	}
+	if sql.Arguments[ArgFilterType] != FilterSQL {
+		t.Errorf("red-only is a %q filter, want sql", sql.Arguments[ArgFilterType])
+	}
+	if !strings.Contains(sql.RoutingKey, "colour") {
+		t.Errorf("red-only's routing key is %q, and the filter selects on colour", sql.RoutingKey)
+	}
+
+	correlation := byRule[seedSubOrders+"/orders-only"]
+	if correlation == nil {
+		e2e.Missing(t, "%s has no orders-only rule; run npm run e2e:azure-servicebus:seed",
+			seedSubOrders)
+	}
+	if correlation.Arguments[ArgFilterType] != FilterCorrelation {
+		t.Errorf("orders-only is a %q filter, want correlation",
+			correlation.Arguments[ArgFilterType])
+	}
+	// A correlation filter's fields are rendered the way its SQL equivalent
+	// would read, so the column says the same thing for both kinds.
+	if !strings.Contains(correlation.RoutingKey, "subject") {
+		t.Errorf("orders-only's routing key is %q, and it matches on the subject",
+			correlation.RoutingKey)
+	}
+	if correlation.Arguments[ArgCorrelationPrefix+"subject"] != "order" {
+		t.Errorf("orders-only matches subject %q, want order",
+			correlation.Arguments[ArgCorrelationPrefix+"subject"])
+	}
+}
+
+/*
+ * Creating and deleting rules, and what each kind actually routes.
+ *
+ * Three rules on one topic and three subscriptions behind them, then a send
+ * through the lot: the counts afterwards are what proves a rule is routing
+ * rather than merely being stored.
+ */
+func TestLiveRulesDecideWhatReachesEachSubscription(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	removeEntities(t, conn, testTopic)
+
+	if err := conn.CreateEntity(ctx, EntitySpec{Name: testTopic, Kind: EntityTopic}); err != nil {
+		t.Fatalf("CreateEntity: %v", err)
+	}
+	for _, name := range []string{"everything", "sql", "correlated"} {
+		if err := conn.CreateSubscriptionFrom(ctx, SubscriptionSpec{
+			Topic: testTopic, Name: name,
+		}); err != nil {
+			t.Fatalf("CreateSubscriptionFrom(%s): %v", name, err)
+		}
+	}
+
+	// Narrow two of the three. Deleting the default first is the point: a
+	// subscription that kept it would receive everything whatever was added.
+	for _, name := range []string{"sql", "correlated"} {
+		if err := conn.RemoveRule(ctx, testTopic, name, DefaultRuleName); err != nil {
+			t.Fatalf("RemoveRule(%s): %v", name, err)
+		}
+	}
+	if err := conn.CreateRule(ctx, RuleSpec{
+		Topic: testTopic, Subscription: "sql", Name: "red-only",
+		Kind: FilterSQL, Expression: "colour = 'red'",
+	}); err != nil {
+		t.Fatalf("CreateRule(sql): %v", err)
+	}
+	if err := conn.CreateRule(ctx, RuleSpec{
+		Topic: testTopic, Subscription: "correlated", Name: "orders-only",
+		Kind: FilterCorrelation, Correlation: map[string]string{"subject": "order"},
+		Action: "SET routed = 'yes'",
+	}); err != nil {
+		t.Fatalf("CreateRule(correlation): %v", err)
+	}
+
+	// A rule cannot be created twice under one name.
+	if err := conn.CreateRule(ctx, RuleSpec{
+		Topic: testTopic, Subscription: "sql", Name: "red-only",
+		Kind: FilterSQL, Expression: "colour = 'blue'",
+	}); err == nil {
+		t.Error("created two rules with one name")
+	}
+
+	sends := []struct {
+		colour  string
+		subject string
+	}{
+		{"red", "order"}, {"red", "shipment"}, {"blue", "order"}, {"blue", "shipment"},
+	}
+	for _, send := range sends {
+		if _, err := conn.Send(ctx, SendRequest{
+			Entity:     testTopic,
+			Body:       send.colour + "/" + send.subject,
+			Subject:    send.subject,
+			Properties: map[string]string{"colour": send.colour},
+		}); err != nil {
+			t.Fatalf("Send: %v", err)
+		}
+	}
+
+	for name, want := range map[string]int{"everything": 4, "sql": 2, "correlated": 2} {
+		held, err := conn.QueryMessages(ctx, model.MessageQueryParams{
+			Topic:      testTopic,
+			MaxResults: 20,
+			Filters:    map[string]string{FilterSubscription: name},
+		})
+		if err != nil {
+			t.Fatalf("QueryMessages(%s): %v", name, err)
+		}
+		if len(held) != want {
+			t.Errorf("%s holds %d of the 4 sent, want %d", name, len(held), want)
+		}
+	}
+
+	// The action is the half of a rule that changes the message rather than
+	// selecting it, and it runs before the copy is placed.
+	routed, err := conn.QueryMessages(ctx, model.MessageQueryParams{
+		Topic:      testTopic,
+		MaxResults: 20,
+		Filters:    map[string]string{FilterSubscription: "correlated"},
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	for _, message := range routed {
+		if message.Properties[PropAttributePrefix+"routed"] != "yes" {
+			t.Errorf("sequence %d reached a subscription whose rule sets routed and does not carry it: %v",
+				message.QueueOffset, message.Properties)
+		}
+	}
+}
+
+/*
+ * A subscription with no rules receives nothing, and the service allows it.
+ *
+ * The state this page exists to make visible: it stays Active, its backlog
+ * stays empty because nothing arrives, and only the subscriptions board's
+ * status column says otherwise.
+ */
+func TestLiveDeletingTheLastRuleStopsEverything(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	removeEntities(t, conn, testTopic)
+
+	if err := conn.CreateEntity(ctx, EntitySpec{Name: testTopic, Kind: EntityTopic}); err != nil {
+		t.Fatalf("CreateEntity: %v", err)
+	}
+	if err := conn.CreateSubscriptionFrom(ctx, SubscriptionSpec{
+		Topic: testTopic, Name: "stranded",
+	}); err != nil {
+		t.Fatalf("CreateSubscriptionFrom: %v", err)
+	}
+	if err := conn.RemoveRule(ctx, testTopic, "stranded", DefaultRuleName); err != nil {
+		t.Fatalf("RemoveRule: %v", err)
+	}
+
+	if _, err := conn.Send(ctx, SendRequest{Entity: testTopic, Body: "nobody gets this"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	held, err := conn.QueryMessages(ctx, model.MessageQueryParams{
+		Topic:      testTopic,
+		MaxResults: 10,
+		Filters:    map[string]string{FilterSubscription: "stranded"},
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(held) != 0 {
+		t.Errorf("a subscription with no rules received %d messages", len(held))
+	}
+
+	// And it says so, which is the only place it shows.
+	found, err := conn.SubscriptionDetail(ctx,
+		model.SubscriptionRef{Namespace: testTopic, Name: "stranded"})
+	if err != nil {
+		t.Fatalf("SubscriptionDetail: %v", err)
+	}
+	if found.Status != model.SubscriptionOffline {
+		t.Errorf("status = %q; nothing can reach this subscription", found.Status)
+	}
+
+	if err := conn.RemoveRule(ctx, testTopic, "stranded", DefaultRuleName); err == nil {
+		t.Error("deleted a rule that is not there")
+	}
+}
+
+/*
+ * A topic has no exchange type, and the routing port has a field for one.
+ *
+ * Refused rather than ignored: a RabbitMQ exchange's type is the whole of how
+ * it routes, and accepting one here would let a form report that a fanout
+ * topic had been created when what exists is a topic whose routing is entirely
+ * in its subscriptions' rules.
+ */
+func TestLiveDeclaringAnExchangeRefusesAType(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	removeEntities(t, conn, testTopic)
+
+	err := conn.DeclareExchange(ctx, model.ExchangeSpec{Name: testTopic, Type: "fanout"})
+	if err == nil {
+		t.Fatal("created a fanout topic, and Service Bus has no such thing")
+	}
+	if !strings.Contains(err.Error(), "exchange type") {
+		t.Errorf("the refusal does not say why: %v", err)
+	}
+
+	// With no type it is an ordinary topic, created where the entities board
+	// would have created one.
+	if err := conn.DeclareExchange(ctx, model.ExchangeSpec{Name: testTopic}); err != nil {
+		t.Fatalf("DeclareExchange: %v", err)
+	}
+	created, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: testTopic})
+	if err != nil {
+		t.Fatalf("DestinationDetail: %v", err)
+	}
+	if created.Attributes[AttrEntityType] != EntityTopic {
+		t.Errorf("DeclareExchange made a %q", created.Attributes[AttrEntityType])
+	}
+	if err := conn.RemoveExchange(ctx, "", testTopic); err != nil {
+		t.Errorf("RemoveExchange: %v", err)
+	}
+}
