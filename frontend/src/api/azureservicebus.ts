@@ -1,7 +1,10 @@
 import { AzureServiceBusService } from "@bindings/bridge";
-import type { AzureServiceBusEntityInput } from "@bindings/bridge/models";
+import type {
+  AzureServiceBusEntityInput,
+  AzureServiceBusSubscriptionInput,
+} from "@bindings/bridge/models";
 
-export type { AzureServiceBusEntityInput };
+export type { AzureServiceBusEntityInput, AzureServiceBusSubscriptionInput };
 
 /**
  * The Service Bus-only half of the surface.
@@ -36,3 +39,29 @@ export const updateEntity = (connID: number, input: AzureServiceBusEntityInput):
  */
 export const removeEntity = (connID: number, name: string): Promise<void> =>
   AzureServiceBusService.RemoveEntity(connID, name);
+
+/** Declare a subscription on a topic. */
+export const createSubscription = (
+  connID: number,
+  input: AzureServiceBusSubscriptionInput,
+): Promise<void> => AzureServiceBusService.CreateSubscription(connID, input);
+
+/**
+ * Change what a subscription lets be changed.
+ *
+ * The topic and sessions are fixed at creation, and so is what reaches it:
+ * a rule is an object with a name, and the routing page is where those live.
+ */
+export const updateSubscription = (
+  connID: number,
+  input: AzureServiceBusSubscriptionInput,
+): Promise<void> => AzureServiceBusService.UpdateSubscription(connID, input);
+
+/**
+ * Delete a subscription and everything it had not delivered.
+ *
+ * Nothing is handed back to the topic: a copy that reached this subscription
+ * was never the topic's again.
+ */
+export const removeSubscription = (connID: number, topic: string, name: string): Promise<void> =>
+  AzureServiceBusService.RemoveSubscription(connID, topic, name);

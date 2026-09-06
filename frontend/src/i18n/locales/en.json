@@ -4984,6 +4984,50 @@
           "reserved": "A name starting with $ addresses a sub-entity such as $DeadLetterQueue, which has a page of its own.",
           "separator": "A / separates path segments, so a name cannot start or end with one."
         }
+      },
+      "subscriptions": {
+        "count": "{{count}} subscription(s)",
+        "search": "Filter by name or topic",
+        "create": "New subscription",
+        "created": "Created {{name}}",
+        "updated": "Saved {{name}}",
+        "deleted": "Deleted {{name}}",
+        "deleteFailed": "Could not delete it",
+        "createTitle": "New subscription",
+        "editTitle": "Edit {{name}}",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "Whatever it has not delivered goes with it. A copy that reached this subscription was never {{topic}}'s again, so nothing is handed back.",
+        "name": "Name",
+        "nameHint": "Letters, digits and - . _ ~, at most 50 characters. It cannot be changed afterwards.",
+        "topic": "Topic",
+        "topicHint": "The one topic it reads, chosen once. Moving a subscription would mean a different object with a different backlog.",
+        "backlog": "Backlog",
+        "deadLetters": "Dead letters",
+        "rules": "Rules",
+        "status": "Status",
+        "lockDuration": "Lock duration",
+        "maxDelivery": "Delivery limit",
+        "ttl": "Time to live",
+        "autoDelete": "Auto-delete on idle",
+        "forwardTo": "Forward to",
+        "forwardDeadLettersTo": "Forward dead letters to",
+        "deadLetterOnRuleError": "Dead-letter on a rule error",
+        "deadLetterOnRuleErrorHint": "A rule whose expression fails to evaluate discards what it was looking at unless this is on.",
+        "sessionsHint": "Fixed once the subscription exists — the service refuses to change it.",
+        "noRuleBadge": "no rule",
+        "noRuleNote": "This subscription has no rules, so nothing can reach it. A new one is created with $Default, which matches everything; deleting that without adding another leaves an object that looks healthy and receives nothing.",
+        "section": {
+          "holding": "Holding",
+          "delivery": "Delivery"
+        },
+        "nameProblem": {
+          "empty": "Give it a name.",
+          "tooLong": "A subscription name is at most 50 characters.",
+          "charset": "Letters, digits and - . _ ~ only, and no / — a subscription cannot be nested.",
+          "reserved": "A name starting with $ addresses a sub-entity such as $DeadLetterQueue, which has a page of its own.",
+          "separator": "A subscription name cannot start or end with a separator."
+        },
+        "note": "A subscription is where a topic's messages actually are: each send is copied into every subscription whose rules let it through. Nothing registers as a consumer, so there is no reader count to show."
       }
     }
   }

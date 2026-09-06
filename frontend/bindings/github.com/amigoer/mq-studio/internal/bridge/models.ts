@@ -647,6 +647,95 @@ export class AzureServiceBusEntityInput {
 }
 
 /**
+ * AzureServiceBusSubscriptionInput is a subscription as its form collects it.
+ * 
+ * Deliberately not ConsumerService.Create's shape. That one takes a cluster, a
+ * broker address, a consume mode and a retry count - RocketMQ's vocabulary, of
+ * which a Service Bus subscription has none. What it has is the same delivery
+ * contract a queue has, because on this family a subscription is where the
+ * messages actually are.
+ * 
+ * What is not here is what reaches it: a new subscription comes with a
+ * $Default rule matching everything, and narrowing that is the routing page's
+ * job. A rule is an object with a name, so putting one in this form would hide
+ * a second write inside the first.
+ */
+export class AzureServiceBusSubscriptionInput {
+    /**
+     * Topic is required on a create and fixed afterwards: a subscription reads
+     * exactly one topic, chosen when it is made.
+     */
+    "topic": string;
+    "name": string;
+    "lockDurationSec": number;
+    "maxDeliveryCount": number;
+    "ttlSec": number;
+    "autoDeleteOnIdleSec": number;
+    "deadLetterOnExpiry": boolean;
+
+    /**
+     * DeadLetterOnRuleError moves a message aside when a rule's expression
+     * fails to evaluate. Without it such a message is discarded silently.
+     */
+    "deadLetterOnRuleError": boolean;
+
+    /**
+     * RequiresSession is fixed at creation: the service refuses it in an
+     * update, so the form only offers it on a create.
+     */
+    "requiresSession": boolean;
+    "forwardTo": string;
+    "forwardDeadLettersTo": string;
+
+    /** Creates a new AzureServiceBusSubscriptionInput instance. */
+    constructor($$source: Partial<AzureServiceBusSubscriptionInput> = {}) {
+        if (!("topic" in $$source)) {
+            this["topic"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("lockDurationSec" in $$source)) {
+            this["lockDurationSec"] = 0;
+        }
+        if (!("maxDeliveryCount" in $$source)) {
+            this["maxDeliveryCount"] = 0;
+        }
+        if (!("ttlSec" in $$source)) {
+            this["ttlSec"] = 0;
+        }
+        if (!("autoDeleteOnIdleSec" in $$source)) {
+            this["autoDeleteOnIdleSec"] = 0;
+        }
+        if (!("deadLetterOnExpiry" in $$source)) {
+            this["deadLetterOnExpiry"] = false;
+        }
+        if (!("deadLetterOnRuleError" in $$source)) {
+            this["deadLetterOnRuleError"] = false;
+        }
+        if (!("requiresSession" in $$source)) {
+            this["requiresSession"] = false;
+        }
+        if (!("forwardTo" in $$source)) {
+            this["forwardTo"] = "";
+        }
+        if (!("forwardDeadLettersTo" in $$source)) {
+            this["forwardDeadLettersTo"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AzureServiceBusSubscriptionInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AzureServiceBusSubscriptionInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AzureServiceBusSubscriptionInput($$parsedSource as Partial<AzureServiceBusSubscriptionInput>);
+    }
+}
+
+/**
  * BindingInput describes one route.
  */
 export class BindingInput {

@@ -677,3 +677,249 @@ func TestLiveCreateRefusesSettingsTheServiceWould(t *testing.T) {
 		}
 	}
 }
+
+const testSubscription = "mqs-test-sub"
+
+/*
+ * Subscriptions, which is where a topic's messages actually are.
+ *
+ * The listing walks every topic, because the management API lists one topic's
+ * subscriptions at a time and has no call that lists them all - so what this
+ * pins is that a subscription arrives with its topic attached, and with the
+ * rules that decide what reaches it.
+ */
+func TestLiveListSubscriptionsWalksEveryTopic(t *testing.T) {
+	conn := liveConn(t)
+
+	found, err := conn.ListSubscriptions(liveContext(t))
+	if err != nil {
+		t.Fatalf("ListSubscriptions: %v", err)
+	}
+
+	byName := make(map[string]*model.Subscription, len(found))
+	for _, subscription := range found {
+		byName[subscription.Ref.Name] = subscription
+	}
+
+	for _, name := range []string{seedSubAll, seedSubRed, seedSubOrders} {
+		row, listed := byName[name]
+		if !listed {
+			e2e.Missing(t, "%s is not in the listing; run npm run e2e:azure-servicebus:seed", name)
+		}
+		if row.Ref.Namespace != seedEvents {
+			t.Errorf("%s belongs to %q, want %s", name, row.Ref.Namespace, seedEvents)
+		}
+		if row.Attributes[SubAttrTopic] != seedEvents {
+			t.Errorf("%s names topic %q", name, row.Attributes[SubAttrTopic])
+		}
+		// Exactly one topic, chosen at creation.
+		if row.Destinations != 1 {
+			t.Errorf("%s reads %d destinations, and a subscription reads one", name, row.Destinations)
+		}
+		// Nothing registers as a consumer, so this must be unknown rather
+		// than a zero that would read as "nothing is consuming this".
+		if row.Members != model.UnknownMetric {
+			t.Errorf("%s reports %d members, and Service Bus registers none", name, row.Members)
+		}
+		if row.Attributes[SubAttrRuleNames] == "" {
+			t.Errorf("%s carries no rule names, so the board cannot say what reaches it", name)
+		}
+	}
+
+	// The rules are the point of the seeded topic: three subscriptions on one
+	// topic, each with a different rule, so each holds a different set.
+	if got := byName[seedSubAll].Attributes[SubAttrRuleNames]; got != "$Default" {
+		t.Errorf("%s has rules %q, want the default that matches everything", seedSubAll, got)
+	}
+	if got := byName[seedSubRed].Attributes[SubAttrRuleNames]; got != "red-only" {
+		t.Errorf("%s has rules %q, want the SQL filter the config declares", seedSubRed, got)
+	}
+	if got := byName[seedSubOrders].Attributes[SubAttrRuleNames]; got != "orders-only" {
+		t.Errorf("%s has rules %q, want the correlation filter the config declares",
+			seedSubOrders, got)
+	}
+}
+
+// A subscription is addressed as (topic, name), so a ref carrying only a name
+// addresses nothing - and the message has to say which half is missing.
+func TestLiveSubscriptionNeedsItsTopic(t *testing.T) {
+	conn := liveConn(t)
+
+	_, err := conn.SubscriptionDetail(liveContext(t), model.SubscriptionRef{Name: seedSubAll})
+	if err == nil {
+		t.Fatal("described a subscription without naming its topic")
+	}
+	if !strings.Contains(err.Error(), "topic") {
+		t.Errorf("the refusal does not mention the topic: %v", err)
+	}
+
+	found, err := conn.SubscriptionDetail(liveContext(t),
+		model.SubscriptionRef{Namespace: seedEvents, Name: seedSubAll})
+	if err != nil {
+		t.Fatalf("SubscriptionDetail: %v", err)
+	}
+	if found.Ref.Name != seedSubAll {
+		t.Errorf("described %q", found.Ref.Name)
+	}
+}
+
+/*
+ * Creating and deleting a subscription, and the $Default rule that comes with
+ * one.
+ *
+ * Worth asserting rather than assuming: the create form deliberately offers no
+ * filter, so what decides that a brand-new subscription receives anything at
+ * all is the rule the service adds by itself.
+ */
+func TestLiveCreateSubscriptionComesWithADefaultRule(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	t.Cleanup(func() {
+		_ = conn.RemoveSubscription(context.Background(),
+			model.SubscriptionRef{Namespace: seedEvents, Name: testSubscription})
+	})
+
+	if err := conn.CreateSubscriptionFrom(ctx, SubscriptionSpec{
+		Topic:            seedEvents,
+		Name:             testSubscription,
+		LockDurationSec:  30,
+		MaxDeliveryCount: 4,
+	}); err != nil {
+		t.Fatalf("CreateSubscriptionFrom: %v", err)
+	}
+
+	created, err := conn.SubscriptionDetail(ctx,
+		model.SubscriptionRef{Namespace: seedEvents, Name: testSubscription})
+	if err != nil {
+		t.Fatalf("SubscriptionDetail: %v", err)
+	}
+	if created.Attributes[SubAttrRuleNames] != "$Default" {
+		t.Errorf("a new subscription has rules %q, want the $Default that matches everything",
+			created.Attributes[SubAttrRuleNames])
+	}
+	if created.Attributes[SubAttrLockDurationSec] != "30" {
+		t.Errorf("lock duration = %q, want 30", created.Attributes[SubAttrLockDurationSec])
+	}
+	if created.Status != model.SubscriptionOnline {
+		t.Errorf("status = %q, want online", created.Status)
+	}
+
+	// An omitted setting survives an update, the way it does on an entity.
+	if err := conn.UpdateSubscriptionFrom(ctx, SubscriptionSpec{
+		Topic: seedEvents, Name: testSubscription, MaxDeliveryCount: 6,
+	}); err != nil {
+		t.Fatalf("UpdateSubscriptionFrom: %v", err)
+	}
+	after, err := conn.SubscriptionDetail(ctx,
+		model.SubscriptionRef{Namespace: seedEvents, Name: testSubscription})
+	if err != nil {
+		t.Fatalf("SubscriptionDetail: %v", err)
+	}
+	if after.Attributes[SubAttrMaxDeliveryCount] != "6" {
+		t.Errorf("delivery limit = %q, want the 6 that was sent",
+			after.Attributes[SubAttrMaxDeliveryCount])
+	}
+	if after.Attributes[SubAttrLockDurationSec] != "30" {
+		t.Errorf("lock duration = %q; the update reset a setting it was not given",
+			after.Attributes[SubAttrLockDurationSec])
+	}
+
+	if err := conn.RemoveSubscription(ctx,
+		model.SubscriptionRef{Namespace: seedEvents, Name: testSubscription}); err != nil {
+		t.Fatalf("RemoveSubscription: %v", err)
+	}
+	if _, err := conn.SubscriptionDetail(ctx,
+		model.SubscriptionRef{Namespace: seedEvents, Name: testSubscription}); err == nil {
+		t.Error("a deleted subscription is still described")
+	}
+}
+
+/*
+ * A subscription with no rules at all reports itself offline.
+ *
+ * It is the quiet failure this family has: a subscription is created with a
+ * $Default rule matching everything, and deleting that without adding another
+ * leaves an object that exists, reports Active, has an empty backlog because
+ * nothing can arrive, and will never receive a message again. Every figure on
+ * the board looks healthy, which is why the status has to say otherwise.
+ */
+func TestLiveASubscriptionWithNoRulesIsOffline(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	t.Cleanup(func() {
+		_ = conn.RemoveSubscription(context.Background(),
+			model.SubscriptionRef{Namespace: seedEvents, Name: testSubscription})
+	})
+
+	if err := conn.CreateSubscriptionFrom(ctx, SubscriptionSpec{
+		Topic: seedEvents, Name: testSubscription,
+	}); err != nil {
+		t.Fatalf("CreateSubscriptionFrom: %v", err)
+	}
+	if _, err := conn.management.DeleteRule(ctx, seedEvents, testSubscription, "$Default", nil); err != nil {
+		t.Fatalf("deleting the default rule: %v", err)
+	}
+
+	stranded, err := conn.SubscriptionDetail(ctx,
+		model.SubscriptionRef{Namespace: seedEvents, Name: testSubscription})
+	if err != nil {
+		t.Fatalf("SubscriptionDetail: %v", err)
+	}
+	if stranded.Status != model.SubscriptionOffline {
+		t.Errorf("status = %q; a subscription nothing can reach is not online", stranded.Status)
+	}
+	if stranded.Attributes[SubAttrRuleNames] != "" {
+		t.Errorf("rule names = %q, want none", stranded.Attributes[SubAttrRuleNames])
+	}
+}
+
+/*
+ * The backlog is degraded against the emulator and only against it.
+ *
+ * Service Bus reports it as the subscription's active message count. The
+ * emulator sends a CountDetails element whose five children are renamed to
+ * tokens the SDK cannot read - and reading it there is not merely useless, it
+ * is what makes the SDK dereference a nil pointer, which is the reason the
+ * driver asks for none of these figures against an emulator.
+ *
+ * Pinned as a narrowing rather than as a family-wide gap: a real namespace
+ * answers this, and declaring it absent everywhere would be a lie about Azure.
+ */
+func TestLiveBacklogIsDegradedOnlyAgainstTheEmulator(t *testing.T) {
+	conn := liveConn(t)
+
+	declared := conn.Capabilities()
+	if declared.Has(model.CapSubscriptionLag) {
+		t.Error("the backlog is offered as a figure, and this endpoint reports none")
+	}
+	reason, degraded := declared.DegradedReason(model.CapSubscriptionLag)
+	if !degraded {
+		t.Fatal("the backlog is neither supported nor explained, so the page says nothing at all")
+	}
+	if reason != countsNotInEmulator {
+		t.Errorf("reason = %q, want %q", reason, countsNotInEmulator)
+	}
+
+	// The subscriptions page is still reachable: listing, creating and
+	// deleting all work, and only the one figure is missing.
+	if !declared.Has(model.CapSubscriptionList) {
+		t.Error("the subscriptions page is unreachable because one figure is missing")
+	}
+
+	found, err := conn.SubscriptionDetail(liveContext(t),
+		model.SubscriptionRef{Namespace: seedEvents, Name: seedSubRed})
+	if err != nil {
+		t.Fatalf("SubscriptionDetail: %v", err)
+	}
+	if found.Backlog != model.UnknownMetric {
+		t.Errorf("backlog = %d against an emulator that reports none", found.Backlog)
+	}
+
+	// And a namespace that is not an emulator declares it supported. Built
+	// rather than dialled: what is asserted is the narrowing rule, and the
+	// only way to dial the other side of it is a real Azure subscription.
+	real := &Conn{closed: make(chan struct{}), config: clientConfig{namespace: "real.servicebus.windows.net"}}
+	if !real.declare().Has(model.CapSubscriptionLag) {
+		t.Error("a real namespace does not offer the backlog, and Service Bus reports it")
+	}
+}

@@ -4984,6 +4984,50 @@
           "reserved": "以 $ 开头的名称指向 $DeadLetterQueue 这类子实体，它有自己的页面。",
           "separator": "/ 用来分隔路径分段，名称不能以它开头或结尾。"
         }
+      },
+      "subscriptions": {
+        "count": "{{count}} 个订阅",
+        "search": "按名称或主题筛选",
+        "create": "新建订阅",
+        "created": "已创建 {{name}}",
+        "updated": "已保存 {{name}}",
+        "deleted": "已删除 {{name}}",
+        "deleteFailed": "删除失败",
+        "createTitle": "新建订阅",
+        "editTitle": "编辑 {{name}}",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "它尚未投递的消息会一并删除。进入这个订阅的副本已不再属于 {{topic}}，因此不会退回任何地方。",
+        "name": "名称",
+        "nameHint": "可用字母、数字和 - . _ ~，最多 50 个字符。创建后不能修改。",
+        "topic": "主题",
+        "topicHint": "它读取的唯一主题，只在创建时选择。换一个主题就意味着换成另一个对象，积压也随之不同。",
+        "backlog": "积压",
+        "deadLetters": "死信",
+        "rules": "规则",
+        "status": "状态",
+        "lockDuration": "锁定时长",
+        "maxDelivery": "投递上限",
+        "ttl": "存活时间",
+        "autoDelete": "空闲自动删除",
+        "forwardTo": "转发到",
+        "forwardDeadLettersTo": "死信转发到",
+        "deadLetterOnRuleError": "规则出错时转入死信",
+        "deadLetterOnRuleErrorHint": "如果不开启，规则表达式求值失败时会直接丢弃正在判断的那条消息。",
+        "sessionsHint": "订阅创建后即固定，服务不接受修改。",
+        "noRuleBadge": "无规则",
+        "noRuleNote": "这个订阅没有任何规则，因此没有消息能进来。新建订阅自带匹配一切的 $Default 规则；删掉它又不补上新的，就会留下一个看起来正常、却永远收不到消息的对象。",
+        "section": {
+          "holding": "持有",
+          "delivery": "投递"
+        },
+        "nameProblem": {
+          "empty": "请填写名称。",
+          "tooLong": "订阅名称最多 50 个字符。",
+          "charset": "只能使用字母、数字和 - . _ ~，且不能含 /——订阅不能再嵌套。",
+          "reserved": "以 $ 开头的名称指向 $DeadLetterQueue 这类子实体，它有自己的页面。",
+          "separator": "订阅名称不能以分隔符开头或结尾。"
+        },
+        "note": "订阅才是主题消息真正所在的地方：每次发送都会复制进规则放行的每个订阅。这里没有任何东西登记为消费者，所以也没有读取方数量可显示。"
       }
     }
   }

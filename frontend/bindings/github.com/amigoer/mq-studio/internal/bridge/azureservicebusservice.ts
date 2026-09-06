@@ -24,6 +24,13 @@ export function CreateEntity(connID: number, input: $models.AzureServiceBusEntit
 }
 
 /**
+ * CreateSubscription declares a subscription on a topic.
+ */
+export function CreateSubscription(connID: number, input: $models.AzureServiceBusSubscriptionInput): $CancellablePromise<void> {
+    return $Call.ByID(1036100098, connID, input);
+}
+
+/**
  * RemoveEntity deletes a queue or a topic, and everything it was holding.
  * A topic takes every subscription on it, and their backlogs with them.
  */
@@ -32,9 +39,25 @@ export function RemoveEntity(connID: number, name: string): $CancellablePromise<
 }
 
 /**
+ * RemoveSubscription deletes a subscription and everything it had not
+ * delivered. Those messages were never the topic's to hand out again.
+ */
+export function RemoveSubscription(connID: number, topic: string, name: string): $CancellablePromise<void> {
+    return $Call.ByID(2936189950, connID, topic, name);
+}
+
+/**
  * UpdateEntity changes an existing entity's settings. Sessions, duplicate
  * detection and partitioning are fixed at creation and are not among them.
  */
 export function UpdateEntity(connID: number, input: $models.AzureServiceBusEntityInput): $CancellablePromise<void> {
     return $Call.ByID(3236131605, connID, input);
+}
+
+/**
+ * UpdateSubscription changes what a subscription lets be changed. The topic
+ * and sessions are fixed at creation and are not among them.
+ */
+export function UpdateSubscription(connID: number, input: $models.AzureServiceBusSubscriptionInput): $CancellablePromise<void> {
+    return $Call.ByID(149240795, connID, input);
 }

@@ -106,6 +106,11 @@ func capabilities() []model.Capability {
 		model.CapDestinationCreate,
 		model.CapDestinationUpdate,
 		model.CapDestinationDelete,
+
+		model.CapSubscriptionList,
+		model.CapSubscriptionCreate,
+		model.CapSubscriptionDelete,
+		model.CapSubscriptionLag,
 	}
 }
 
@@ -147,16 +152,34 @@ func open(ctx context.Context, profile model.ConnectionProfile) (*Conn, error) {
 	return conn, nil
 }
 
-// declare turns what answered into the capability set the pages gate on.
-//
-// Nothing here varies by endpoint yet. What does vary is a figure rather than
-// a capability: an emulator reports no message counts, so a depth is a dash
-// there and a number against a real namespace. That narrowing arrives with the
-// capability it belongs to.
+/*
+ * declare turns what answered into the capability set the pages gate on.
+ *
+ * One entry varies by endpoint, and it is the reason declare() exists rather
+ * than capabilities() being handed straight through: a subscription's backlog
+ * is a real figure on a real namespace and unavailable against the emulator.
+ * Service Bus reports it in the CountDetails element of the subscription's
+ * description; the emulator sends that element with its five children renamed
+ * to tokens the SDK cannot read, so there is no number to report and nothing a
+ * user could change to produce one.
+ *
+ * Degraded rather than absent, because the family does have the concept - and
+ * degraded only there, because a real namespace answers it.
+ */
 func (c *Conn) declare() model.Capabilities {
+	degraded := map[model.Capability]string{}
+	if c.config.emulator() {
+		degraded[model.CapSubscriptionLag] = countsNotInEmulator
+	}
+	supported := make([]model.Capability, 0, len(capabilities()))
+	for _, capability := range capabilities() {
+		if _, hidden := degraded[capability]; !hidden {
+			supported = append(supported, capability)
+		}
+	}
 	return model.Capabilities{
-		Supported: capabilities(),
-		Degraded:  map[model.Capability]string{},
+		Supported: supported,
+		Degraded:  degraded,
 		Caveats:   map[model.Capability]string{},
 	}
 }

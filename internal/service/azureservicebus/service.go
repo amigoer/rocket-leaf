@@ -113,3 +113,50 @@ func (s *Service) RemoveEntity(ctx context.Context, connID int, name string) err
 	defer cancel()
 	return api.RemoveDestination(ctx, model.DestinationRef{Name: name})
 }
+
+// CreateSubscription declares a subscription on a topic.
+//
+// Beside the canonical create rather than through it, for the reason the
+// package comment gives: ConsumerService.Create collects a cluster, a broker
+// address, a consume mode and a retry count, and a Service Bus subscription
+// has none of those - what it has is the same delivery contract a queue has,
+// because on this family a subscription is where the messages are.
+func (s *Service) CreateSubscription(
+	ctx context.Context, connID int, spec servicebusdriver.SubscriptionSpec,
+) error {
+	api, err := s.serviceBusConn(connID, model.CapSubscriptionCreate)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.CreateSubscriptionFrom(ctx, spec)
+}
+
+// UpdateSubscription changes what a subscription lets be changed. The topic
+// and sessions are fixed at creation and are not among them.
+func (s *Service) UpdateSubscription(
+	ctx context.Context, connID int, spec servicebusdriver.SubscriptionSpec,
+) error {
+	api, err := s.serviceBusConn(connID, model.CapSubscriptionCreate)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.UpdateSubscriptionFrom(ctx, spec)
+}
+
+// RemoveSubscription deletes a subscription and everything it was holding.
+//
+// Its dead letters go with it, and nothing is handed back to the topic: a copy
+// that reached this subscription was never the topic's again.
+func (s *Service) RemoveSubscription(ctx context.Context, connID int, topic, name string) error {
+	api, err := s.serviceBusConn(connID, model.CapSubscriptionDelete)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.RemoveSubscription(ctx, model.SubscriptionRef{Namespace: topic, Name: name})
+}

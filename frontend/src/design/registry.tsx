@@ -82,6 +82,7 @@ import { QueuesSqs } from "./boards/topics/QueuesSqs";
 import { TopicsGooglePubSub } from "./boards/topics/TopicsGooglePubSub";
 import { EntitiesAzureServiceBus } from "./boards/topics/EntitiesAzureServiceBus";
 import { SubscriptionsGooglePubSub } from "./boards/consumers/SubscriptionsGooglePubSub";
+import { SubscriptionsAzureServiceBus } from "./boards/consumers/SubscriptionsAzureServiceBus";
 import { MessagesSqs } from "./boards/messages/MessagesSqs";
 import { MessagesGooglePubSub } from "./boards/messages/MessagesGooglePubSub";
 import { ProducerSqs } from "./boards/producer/ProducerSqs";
@@ -179,6 +180,7 @@ const BOARDS: Partial<
     activemq: SubscriptionsActiveMQ,
     nsq: ChannelsNsq,
     "google-pubsub": SubscriptionsGooglePubSub,
+    "azure-servicebus": SubscriptionsAzureServiceBus,
   },
   subscribe: { mqtt: MqttWorkbench, nats: NatsWorkbench, activemq: ActiveMQWorkbench },
   clients: {
