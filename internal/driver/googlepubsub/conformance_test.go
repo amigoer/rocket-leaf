@@ -350,3 +350,58 @@ func TestMessageByIDIsNotOffered(t *testing.T) {
 		t.Error("returned a message for an id nothing can look up")
 	}
 }
+
+/*
+ * The sidebar contract, from the Go side.
+ *
+ * The list below is the one frontend/src/mq/navigation.google-pubsub.test.ts
+ * holds, and that test asserts which pages those capabilities make reachable.
+ * This one asserts the driver still declares exactly them.
+ *
+ * Neither half is worth much alone. A capability dropped here takes a finished
+ * page out of the sidebar and nothing else notices; a page added there with no
+ * capability behind it is drawn and fails when opened. Together they cannot
+ * drift without one of them going red.
+ *
+ * The failure messages say what to do rather than what is different, because
+ * the fix is never in this file alone.
+ */
+func TestCapabilitiesMatchTheSidebarContract(t *testing.T) {
+	sidebar := []string{
+		"destination.list",
+		"destination.create",
+		"destination.update",
+		"destination.delete",
+		"subscription.list",
+		"subscription.create",
+		"subscription.delete",
+		"subscription.position",
+		"subscription.resetOffset",
+		"message.query",
+		"message.publish",
+		"message.dlqTopology",
+	}
+
+	declared := make(map[string]bool, len(capabilities()))
+	for _, capability := range capabilities() {
+		declared[string(capability)] = true
+	}
+	expected := make(map[string]bool, len(sidebar))
+	for _, capability := range sidebar {
+		expected[capability] = true
+	}
+
+	for _, capability := range sidebar {
+		if !declared[capability] {
+			t.Errorf("the sidebar expects %s and the driver no longer declares it; "+
+				"restore it or drop the page, and update navigation.google-pubsub.test.ts "+
+				"in the same commit", capability)
+		}
+	}
+	for capability := range declared {
+		if !expected[capability] {
+			t.Errorf("the driver declares %s and the sidebar contract does not list it; "+
+				"add it to navigation.google-pubsub.test.ts in the same commit", capability)
+		}
+	}
+}

@@ -206,7 +206,9 @@
       "streamNoLeader": "Stream with no leader",
       "streamUnderReplicated": "Stream replica behind or offline",
       "deliveryPaused": "Delivery paused",
-      "slowConsumer": "Clients dropped for falling behind"
+      "slowConsumer": "Clients dropped for falling behind",
+      "topicUnsubscribed": "Topic with no subscription",
+      "subscriptionOrphaned": "Subscription whose topic is gone"
     },
     "tabs": {
       "active": "Active",
@@ -260,7 +262,9 @@
       "streamNoLeader": "{{stream}} · {{replicas}} replica(s), none leading — the stream takes no publishes and answers no reads",
       "streamUnderReplicated": "{{stream}} · not all {{replicas}} replicas are current",
       "deliveryPaused": "{{target}} · {{lag}} waiting; publishing carries on and nothing is delivered while it is paused",
-      "slowConsumer": "{{broker}} · {{count}} client(s) disconnected since the server started; what they missed is gone"
+      "slowConsumer": "{{broker}} · {{count}} client(s) disconnected since the server started; what they missed is gone",
+      "topicUnsubscribed": "{{topic}} · nothing subscribes; every message published here is accepted and discarded",
+      "subscriptionOrphaned": "{{subscription}} · its topic has been deleted; it will never receive another message and still holds what it has"
     },
     "duration": {
       "minutes": "for {{count}} min",
@@ -4854,6 +4858,21 @@
         "noReaderNote": "Nothing subscribes to this topic, so every dead letter that arrives is discarded on the spot. The messages a system gave up on are the ones nobody notices disappearing.",
         "orphaned": "No subscription points here any more. It will never receive another dead letter, and whatever it holds is waiting on subscriptions that no longer exist.",
         "note": "A dead-letter topic is an ordinary topic a subscription's policy points at. The policy is on the subscription, so each source names both the topic and the reader that stopped trying."
+      },
+      "overview": {
+        "subtitle": "{{project}} · {{topics}} topics",
+        "topics": "Topics",
+        "topicsHint": "In this project, narrowed by the connection's name prefix.",
+        "subscriptions": "Subscriptions",
+        "subscriptionsHint": "Each with its own backlog. Two on one topic fall behind separately.",
+        "unsubscribed": "Nothing reads",
+        "unsubscribedHint": "Topics with no subscription. Every message published to one is accepted and discarded.",
+        "orphaned": "Topic deleted",
+        "orphanedHint": "Subscriptions whose topic is gone. They hold what they have and will never receive more.",
+        "withDeadLetters": "With dead letters",
+        "withDeadLettersHint": "Subscriptions that give up into another topic after a set number of attempts.",
+        "busiest": "Most-read topics",
+        "note": "No backlog and no throughput here: both are Cloud Monitoring metrics, under a different API and a different credential."
       }
     }
   }

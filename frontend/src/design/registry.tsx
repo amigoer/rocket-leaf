@@ -88,6 +88,7 @@ import { ProducerGooglePubSub } from "./boards/producer/ProducerGooglePubSub";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
 import { DlqGooglePubSub } from "./boards/dlq/DlqGooglePubSub";
 import { OverviewSqs } from "./boards/overview/OverviewSqs";
+import { OverviewGooglePubSub } from "./boards/overview/OverviewGooglePubSub";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
 import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
@@ -145,6 +146,7 @@ const BOARDS: Partial<
     activemq: OverviewActiveMQ,
     nsq: OverviewNsq,
     sqs: OverviewSqs,
+    "google-pubsub": OverviewGooglePubSub,
   },
   topics: {
     rocketmq: TopicsRocketMQ,

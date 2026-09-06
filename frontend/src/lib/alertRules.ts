@@ -53,7 +53,25 @@ export type AlertRuleKey =
    * that gets left on. Neither of the backlog rules describes it: nothing is
    * wrong with the consumers, and there may not be any.
    */
-  | "deliveryPaused";
+  | "deliveryPaused"
+  /*
+   * Pub/Sub's two, and no other family here can raise either. Both describe
+   * something only a fan-out service does: accept a message, report success,
+   * and have nowhere to put it.
+   *
+   * A topic with no subscription discards every publish on arrival, and
+   * nothing downstream records it - there is no backlog to notice it by and
+   * the publisher is told the send succeeded. A subscription whose topic has
+   * been deleted is the mirror image: it will never receive another message,
+   * still holds what it had not delivered, and is still billed for it while
+   * every other figure about it looks ordinary.
+   *
+   * Neither is queueNoConsumer, whose sentence reads "N waiting, no consumer
+   * attached": there is no N here, and on the second there is no consumer the
+   * alert is about.
+   */
+  | "topicUnsubscribed"
+  | "subscriptionOrphaned";
 
 export type AlertRulePrefs = Record<AlertRuleKey, boolean>;
 
@@ -62,6 +80,8 @@ export const ALERT_RULE_KEYS: readonly AlertRuleKey[] = [
   "brokerOffline",
   "streamNoLeader",
   "deliveryPaused",
+  "topicUnsubscribed",
+  "subscriptionOrphaned",
   "subscriptionBlocked",
   "resourceAlarm",
   "nodePartition",
@@ -222,6 +242,21 @@ const RULES_BY_KIND: Partial<Record<MQKind, readonly AlertRuleKey[]>> = {
    * every source row in the same listing already carries that target.
    */
   [MQKind.KindSQS]: ["dlqGrowth", "queueBacklog"],
+  /*
+   * Two, and every other rule is absent because the service cannot answer it.
+   *
+   * There is no node, so brokerOffline cannot fire. There is no storage figure
+   * anywhere, so diskUsage has nothing to read. Every rule about a backlog -
+   * groupLag, queueBacklog, dlqGrowth - would need num_undelivered_messages,
+   * which is a Cloud Monitoring metric under a different API. And Pub/Sub
+   * keeps no record of who is pulling a subscription, so groupOffline and
+   * queueNoConsumer would be asserting something the service cannot support.
+   *
+   * What is left costs nothing the sweep was not already paying for: the topic
+   * listing already carries every topic's subscription count, and the
+   * subscription listing already says whose topic has been deleted.
+   */
+  [MQKind.KindGooglePubSub]: ["topicUnsubscribed", "subscriptionOrphaned"],
 };
 
 const ROCKETMQ_RULES: readonly AlertRuleKey[] = [
@@ -254,6 +289,7 @@ const STORAGE_KEY = "mq-studio:alert-rules";
  */
 export const DESTINATION_RULES: readonly AlertRuleKey[] = [
   "deliveryPaused",
+  "topicUnsubscribed",
   "queueNoConsumer",
   "queueBacklog",
   "dlqGrowth",
@@ -283,6 +319,7 @@ export const KINDS_NEEDING_DESTINATIONS: readonly MQKind[] = [
   MQKind.KindActiveMQ,
   MQKind.KindNSQ,
   MQKind.KindSQS,
+  MQKind.KindGooglePubSub,
 ];
 
 export const DEFAULT_ALERT_RULES: AlertRulePrefs = {
@@ -305,6 +342,8 @@ export const DEFAULT_ALERT_RULES: AlertRulePrefs = {
   streamUnderReplicated: true,
   slowConsumer: true,
   deliveryPaused: true,
+  topicUnsubscribed: true,
+  subscriptionOrphaned: true,
 };
 
 function read(): AlertRulePrefs {

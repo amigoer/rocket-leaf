@@ -206,7 +206,9 @@
       "streamNoLeader": "流没有 leader",
       "streamUnderReplicated": "流的副本落后或离线",
       "deliveryPaused": "投递已暂停",
-      "slowConsumer": "有客户端因为跟不上被踢掉"
+      "slowConsumer": "有客户端因为跟不上被踢掉",
+      "topicUnsubscribed": "主题没有任何订阅",
+      "subscriptionOrphaned": "订阅的主题已被删除"
     },
     "tabs": {
       "active": "活跃告警",
@@ -260,7 +262,9 @@
       "streamNoLeader": "{{stream}} · {{replicas}} 个副本，没有一个是 leader——这个流既写不进也读不出",
       "streamUnderReplicated": "{{stream}} · {{replicas}} 个副本里有跟不上的",
       "deliveryPaused": "{{target}} · {{lag}} 条在等待；暂停期间发送照常，但一条也不会投递",
-      "slowConsumer": "{{broker}} · 服务器启动以来断开了 {{count}} 个客户端；它们错过的消息没有了"
+      "slowConsumer": "{{broker}} · 服务器启动以来断开了 {{count}} 个客户端；它们错过的消息没有了",
+      "topicUnsubscribed": "{{topic}} · 没有任何订阅；发布到这里的消息会被接受然后丢弃",
+      "subscriptionOrphaned": "{{subscription}} · 它的主题已被删除；再也收不到任何消息，而已有的内容仍然留在那里"
     },
     "duration": {
       "minutes": "持续 {{count}} 分钟",
@@ -4854,6 +4858,21 @@
         "noReaderNote": "没有任何订阅指向这个主题，所以到达的死信会当场被丢弃。系统放弃掉的那些消息，恰恰是最不容易被发现消失的。",
         "orphaned": "已经没有订阅指向这里了。它不会再收到任何死信，已有的内容也只在等待早已不存在的订阅。",
         "note": "死信主题只是一个被某个订阅的策略指向的普通主题。策略挂在订阅上，所以每条来源同时标出主题和放弃它的那个读取方。"
+      },
+      "overview": {
+        "subtitle": "{{project}} · {{topics}} 个主题",
+        "topics": "主题",
+        "topicsHint": "本项目下的主题，按连接的名称前缀筛选。",
+        "subscriptions": "订阅",
+        "subscriptionsHint": "每个订阅都有自己的积压。同一主题下的两个订阅各自落后。",
+        "unsubscribed": "无人读取",
+        "unsubscribedHint": "没有任何订阅的主题。发布到这类主题的消息会被接受然后丢弃。",
+        "orphaned": "主题已删除",
+        "orphanedHint": "主题已被删除的订阅。它们保留着现有内容，且再也不会收到新消息。",
+        "withDeadLetters": "配了死信",
+        "withDeadLettersHint": "达到指定投递次数后把消息转入另一个主题的订阅。",
+        "busiest": "被读取最多的主题",
+        "note": "这里没有积压和吞吐：两者都是 Cloud Monitoring 指标，属于另一套 API 和另一份凭据。"
       }
     }
   }

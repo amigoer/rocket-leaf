@@ -53,6 +53,13 @@ const RULE_SEVERITY: Record<AlertRuleKey, AlertSeverity> = {
   // raising at all is that it is invisible everywhere else - publishing keeps
   // working and every other figure keeps looking healthy.
   deliveryPaused: "warn",
+  // Both of Pub/Sub's are warnings for the same reason: each is a state
+  // somebody arrived at deliberately - a topic created ahead of its
+  // subscription, a topic deleted with readers still on it - that stops being
+  // a plan and starts being a leak if it is left. Neither is an outage while
+  // it lasts, and neither shows up anywhere else at all.
+  topicUnsubscribed: "warn",
+  subscriptionOrphaned: "warn",
   slowConsumer: "warn",
 };
 
