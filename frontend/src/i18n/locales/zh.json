@@ -1198,7 +1198,7 @@
         },
         "pulsar": {
           "service": "服务地址",
-          "serviceHint": "收发",
+          "serviceHint": "收发消息都走这个地址",
           "admin": "管理 API",
           "adminHint": "Topic/租户管理",
           "auth": "认证方式",
@@ -1239,7 +1239,7 @@
           "brokerHint": "mqtt/ws",
           "version": "协议版本",
           "sessionExpiry": "会话过期",
-          "sessionExpiryHint": "5.0",
+          "sessionExpiryHint": "仅 5.0 可用",
           "advanced": "客户端 ID、心跳、清理会话、TLS 与管理 API",
           "note": "遗嘱消息与消息顺序不在这里设置",
           "versionHint": "两个版本是不同的线上协议",
