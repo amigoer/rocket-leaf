@@ -1480,7 +1480,16 @@
       "serviceUrlRequired": "A service URL is required",
       "adminUrlRequired": "An admin API address is required",
       "scopeRequired": "A tenant and a namespace are required",
-      "tokenRequired": "A token is required"
+      "tokenRequired": "A token is required",
+      "group": {
+        "selfHosted": "Self-hosted",
+        "hosted": "Cloud-hosted",
+        "enterprise": "Enterprise"
+      },
+      "protocolSearch": "Search protocols",
+      "protocolNoMatch": "No protocol matches that.",
+      "dialogTitleProtocol": "Choose a protocol",
+      "protocolBack": "‹ Back"
     },
     "settings": {
       "title": "Settings",

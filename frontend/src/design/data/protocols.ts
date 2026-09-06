@@ -694,6 +694,52 @@ const READY: ReadonlySet<ProtocolId> = new Set<ProtocolId>([
   "solace",
 ]);
 
+/**
+ * Which of the three families a protocol belongs to.
+ *
+ * The same split the roadmap and the README already sort drivers into, and the
+ * distinction a reader is actually making: whether they run the broker
+ * themselves, rent it from a cloud, or bought it.
+ *
+ * A Record rather than three arrays, so a protocol added to the union without
+ * a family stops the build here instead of quietly vanishing from the picker.
+ */
+export type ProtocolGroupId = "self-hosted" | "hosted" | "enterprise";
+
+const GROUP_OF: Record<ProtocolId, ProtocolGroupId> = {
+  rocketmq: "self-hosted",
+  kafka: "self-hosted",
+  rabbitmq: "self-hosted",
+  pulsar: "self-hosted",
+  redis: "self-hosted",
+  mqtt: "self-hosted",
+  nats: "self-hosted",
+  activemq: "self-hosted",
+  nsq: "self-hosted",
+  sqs: "hosted",
+  "google-pubsub": "hosted",
+  "azure-servicebus": "hosted",
+  kinesis: "hosted",
+  ibmmq: "enterprise",
+  solace: "enterprise",
+};
+
+/** `label` is a translation key, resolved at render like every other one. */
+export const PROTOCOL_GROUPS: { id: ProtocolGroupId; label: string }[] = [
+  { id: "self-hosted", label: "page.connections.group.selfHosted" },
+  { id: "hosted", label: "page.connections.group.hosted" },
+  { id: "enterprise", label: "page.connections.group.enterprise" },
+];
+
+/** The protocols in one family, in the order the picker lists them. */
+export function protocolsIn(group: ProtocolGroupId): ProtocolId[] {
+  return PROTOCOL_ORDER.filter((protocol) => GROUP_OF[protocol] === group);
+}
+
+export function groupOf(protocol: ProtocolId): ProtocolGroupId {
+  return GROUP_OF[protocol];
+}
+
 export function isProtocolReady(protocol: ProtocolId): boolean {
   return READY.has(protocol);
 }

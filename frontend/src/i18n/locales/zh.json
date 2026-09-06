@@ -1480,7 +1480,16 @@
       "serviceUrlRequired": "请填写服务地址",
       "adminUrlRequired": "请填写管理 API 地址",
       "scopeRequired": "请填写租户和命名空间",
-      "tokenRequired": "请填写 Token"
+      "tokenRequired": "请填写 Token",
+      "group": {
+        "selfHosted": "自托管",
+        "hosted": "云托管",
+        "enterprise": "企业"
+      },
+      "protocolSearch": "搜索协议",
+      "protocolNoMatch": "没有匹配的协议。",
+      "dialogTitleProtocol": "选择协议",
+      "protocolBack": "‹ 返回"
     },
     "settings": {
       "title": "设置",
