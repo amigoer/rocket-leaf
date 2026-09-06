@@ -201,9 +201,16 @@ describe("the Kafka overview board", () => {
     expect(render(<OverviewKafka />)).toContain("未连接");
   });
 
-  it("draws the loading notice before the first answer", () => {
+  /*
+   * Busy, not yet spinning. A read that lands inside the spinner's delay never
+   * draws one - what has to hold is that the board does not render as though
+   * it had answered.
+   */
+  it("marks itself busy before the first answer", () => {
     clusterState.current = stateOf({ loading: true });
-    expect(render(<OverviewKafka />)).toContain("正在读取");
+    const html = render(<OverviewKafka />);
+    expect(html).toContain('aria-busy="true"');
+    expect(html).not.toContain("正在读取");
   });
 
   it("draws the failure and its reason", () => {
@@ -525,11 +532,17 @@ const transaction = (over: Record<string, unknown> = {}) => ({
  * offset while every other figure reads healthy.
  */
 describe("the Kafka transactions panel", () => {
-  it("says so while it is loading", () => {
+  /*
+   * Busy, not yet spinning. A read that lands inside the spinner's delay never
+   * draws one - what has to hold is that the panel does not render as though
+   * it had answered, which for this one would mean no transactions in flight.
+   */
+  it("marks itself busy while it is loading", () => {
     const html = render(
       <KafkaTransactionsPanel state={stateOf({ loading: true })} now={NOW} />,
     );
-    expect(html).toContain("正在读取");
+    expect(html).toContain('aria-busy="true"');
+    expect(html).not.toContain("正在读取");
   });
 
   it("shows the reason when the cluster would not answer", () => {

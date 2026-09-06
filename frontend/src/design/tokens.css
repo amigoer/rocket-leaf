@@ -1323,9 +1323,17 @@ html[data-animations='off'] .mqs-toaster [data-sonner-toast] {
 .mqs-view {
   animation: view-in var(--mo-base) var(--mo-ease-out);
 }
+/*
+ * A little travel, not just a fade. Opacity alone changes the whole column at
+ * once and reads as a flash; 6px of rise gives the eye something to follow, so
+ * the same 180ms reads as the page arriving. The ease-out spends most of that
+ * distance early, which is what keeps it from feeling slow on a page somebody
+ * clicks through quickly.
+ */
 @keyframes view-in {
   from {
     opacity: 0;
+    transform: translateY(6px);
   }
 }
 

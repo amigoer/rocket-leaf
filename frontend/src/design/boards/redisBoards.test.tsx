@@ -174,10 +174,17 @@ describe("the Redis streams board", () => {
     expect(html).not.toContain("orders:events");
   });
 
-  it("says it is reading while the first load is in flight", () => {
+  /*
+   * Busy, not yet spinning. A read that lands inside the spinner's delay never
+   * draws one - what has to hold is that the board does not render as though
+   * it had answered.
+   */
+  it("marks itself busy while the first load is in flight", () => {
     streamsState.current = stateOf({ loading: true });
     streamDetailState.current = stateOf({ loading: true });
-    expect(render(<StreamsRedis />)).toContain("正在读取");
+    const html = render(<StreamsRedis />);
+    expect(html).toContain('aria-busy="true"');
+    expect(html).not.toContain("正在读取");
   });
 
   /*
@@ -308,10 +315,17 @@ describe("the Redis consumer groups board", () => {
     expect(html).not.toContain("settle-group");
   });
 
-  it("says it is reading while the first load is in flight", () => {
+  /*
+   * Busy, not yet spinning. A read that lands inside the spinner's delay never
+   * draws one - what has to hold is that the board does not render as though
+   * it had answered.
+   */
+  it("marks itself busy while the first load is in flight", () => {
     groupsState.current = stateOf({ loading: true });
     streamsState.current = stateOf({ loading: true });
-    expect(render(<ConsumersRedis />)).toContain("正在读取");
+    const html = render(<ConsumersRedis />);
+    expect(html).toContain('aria-busy="true"');
+    expect(html).not.toContain("正在读取");
   });
 
   it("shows the driver's reason when the read failed", () => {
