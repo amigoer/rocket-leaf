@@ -5091,6 +5091,34 @@
         "propertyNameRequired": "填了值的属性必须有名称。",
         "delayNegative": "延迟不能为负数。",
         "noSubscriberWarning": "没有任何订阅读取这个主题，消息会被接收后立刻丢弃，任何地方都不会留下积压。"
+      },
+      "dlq": {
+        "subtitle": "每个队列、每个订阅都自带一个死信存储，由代理自动命名",
+        "stores": "队列与订阅",
+        "entity": "实体",
+        "held": "死信数",
+        "pickOne": "选择队列或订阅",
+        "noEntities": "这个命名空间里没有队列或订阅。",
+        "startHere": "在左侧选一个。读取它的死信只是窥视：不会取走，也不会锁定。",
+        "nothingGivenUp": "这里没有被放弃的消息。",
+        "sequence": "序号",
+        "reason": "原因",
+        "description": "说明",
+        "deliveries": "投递次数",
+        "enqueued": "入队时间",
+        "subject": "主题标签",
+        "body": "消息体",
+        "forwardedFrom": "由 {{source}} 转发而来，真正出问题的是那里。",
+        "resend": "放回去",
+        "resent": "序号 {{sequence}} 已回到队列",
+        "resendFailed": "放回失败",
+        "resendTitle": "把序号 {{sequence}} 放回去？",
+        "resendDesc": "会先从死信里接收它，作为新消息发到 {{entity}}，成功之后才从这里删除。死信是按顺序取出的，排在它前面的会被读取后放回——那些消息的投递次数会加一，而死信存储不会因此做任何事。",
+        "section": {
+          "whyItStopped": "为什么停在这里",
+          "properties": "发送方属性"
+        },
+        "note": "$DeadLetterQueue 属于所在实体，本身不是独立对象：它不会出现在任何列表里，不能被发送、改名或共享，实体删掉它也随之消失。读取它不取走任何东西；放回消息则是发送一份副本并删除原件。"
       }
     }
   }

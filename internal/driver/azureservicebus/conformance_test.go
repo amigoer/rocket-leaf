@@ -1,6 +1,7 @@
 package azureservicebus
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -455,5 +456,104 @@ func TestBrowseLabelNamesWhatWasRead(t *testing.T) {
 			t.Errorf("browseLabel(%q, %q, %v) = %q, want %q",
 				test.entity, test.subscription, test.deadLetters, got, test.want)
 		}
+	}
+}
+
+/*
+ * Which dead-letter shape this family has, and why it is the other one.
+ *
+ * CapDLQ is a per-entity store the broker names and fills;
+ * CapDeadLetterTopology is an ordinary object that something else points at,
+ * found by walking every object's configuration backwards. The two hosted
+ * families before this one are both the second: an SQS dead-letter queue is a
+ * queue another queue's redrive policy names, and a Pub/Sub one is a topic a
+ * subscription's policy names. Either can be deleted, renamed or shared, and
+ * an account that has configured none has an empty page.
+ *
+ * A Service Bus $DeadLetterQueue is none of that. Every queue and every
+ * subscription is created with one, it is addressed by suffixing the entity's
+ * own path, and it cannot be listed, sent to, renamed or shared - it goes when
+ * the entity goes. Nothing points at it and there is nothing to invert.
+ *
+ * ForwardDeadLetteredMessagesTo is the one thing that looks like the other
+ * shape, and it is not: it is an optional forwarding rule laid over the
+ * built-in store, and an entity that sets it still has a $DeadLetterQueue.
+ */
+func TestDeadLettersAreAStoreRatherThanATopology(t *testing.T) {
+	declared := offlineConn().Capabilities()
+
+	if !declared.Has(model.CapDLQ) {
+		t.Error("the per-entity dead-letter store is not declared, and every entity has one")
+	}
+	if declared.Has(model.CapDeadLetterTopology) {
+		t.Error("declares the topology shape; nothing here points at a dead-letter queue, " +
+			"because the broker names one for every entity")
+	}
+	if _, degraded := declared.DegradedReason(model.CapDeadLetterTopology); degraded {
+		t.Error("degrades the topology shape, which implies the family has it")
+	}
+}
+
+/*
+ * There is no retry store, and the driver says so rather than showing one.
+ *
+ * RocketMQ moves a failed message to a %RETRY% topic per consumer group, which
+ * is what DeadLetterReader's second method is for. Service Bus redelivers in
+ * place: an abandoned message goes back into the same entity with its delivery
+ * count raised, and only when that count passes the limit does it move
+ * anywhere - into the dead-letter store. Answering this with the ordinary
+ * backlog would show every waiting message under a name that says it failed.
+ */
+func TestThereIsNoRetryStoreToRead(t *testing.T) {
+	_, err := offlineConn().RetryMessages(t.Context(), "orders", 10)
+	if err == nil {
+		t.Fatal("returned a retry backlog, and Service Bus keeps none")
+	}
+	if !errors.Is(err, errNoRetryStore) {
+		t.Errorf("the refusal is not the one that explains why: %v", err)
+	}
+}
+
+// A dead letter is addressed by entity path and sequence number, so both have
+// to be refused where the message can name them rather than at the call.
+func TestEntityPathSplitsAQueueFromASubscription(t *testing.T) {
+	tests := []struct {
+		path         string
+		entity       string
+		subscription string
+		refused      bool
+	}{
+		{"orders", "orders", "", false},
+		{"events/worker", "events", "worker", false},
+		{"  events/worker  ", "events", "worker", false},
+		{"", "", "", true},
+		// Already a sub-entity path: appending $DeadLetterQueue to it would
+		// address something that does not exist.
+		{"orders/$DeadLetterQueue", "", "", true},
+	}
+	for _, test := range tests {
+		entity, subscription, err := entityPath(test.path)
+		if test.refused {
+			if err == nil {
+				t.Errorf("entityPath(%q) was accepted", test.path)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("entityPath(%q): %v", test.path, err)
+			continue
+		}
+		if entity != test.entity || subscription != test.subscription {
+			t.Errorf("entityPath(%q) = (%q, %q), want (%q, %q)",
+				test.path, entity, subscription, test.entity, test.subscription)
+		}
+	}
+}
+
+// The resend takes a sequence number, which is the only thing that addresses a
+// message here - a message id is the sender's own and need not be unique.
+func TestResendRefusesSomethingThatIsNotASequenceNumber(t *testing.T) {
+	if _, err := offlineConn().ResendMessage(t.Context(), "orders", "", "", "abc"); err == nil {
+		t.Error("accepted a message id where a sequence number belongs")
 	}
 }

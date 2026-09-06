@@ -91,6 +91,7 @@ import { ProducerGooglePubSub } from "./boards/producer/ProducerGooglePubSub";
 import { ProducerAzureServiceBus } from "./boards/producer/ProducerAzureServiceBus";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
 import { DlqGooglePubSub } from "./boards/dlq/DlqGooglePubSub";
+import { DlqAzureServiceBus } from "./boards/dlq/DlqAzureServiceBus";
 import { OverviewSqs } from "./boards/overview/OverviewSqs";
 import { OverviewGooglePubSub } from "./boards/overview/OverviewGooglePubSub";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
@@ -212,6 +213,7 @@ const BOARDS: Partial<
     activemq: DlqActiveMQ,
     sqs: DlqSqs,
     "google-pubsub": DlqGooglePubSub,
+    "azure-servicebus": DlqAzureServiceBus,
   },
   cluster: {
     rocketmq: ClusterRocketMQ,

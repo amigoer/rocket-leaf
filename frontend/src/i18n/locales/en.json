@@ -5091,6 +5091,34 @@
         "propertyNameRequired": "A property with a value needs a name.",
         "delayNegative": "A delay cannot be negative.",
         "noSubscriberWarning": "Nothing subscribes to this topic, so the message will be accepted and discarded on arrival. It will leave no backlog anywhere."
+      },
+      "dlq": {
+        "subtitle": "Every queue and every subscription has a dead-letter store of its own, built in and named by the broker",
+        "stores": "Queues & subscriptions",
+        "entity": "Entity",
+        "held": "Dead letters",
+        "pickOne": "Pick a queue or a subscription",
+        "noEntities": "This namespace holds no queues or subscriptions.",
+        "startHere": "Pick one on the left. Reading its dead letters is a peek: nothing is taken and nothing is locked.",
+        "nothingGivenUp": "Nothing has been given up on here.",
+        "sequence": "Seq",
+        "reason": "Reason",
+        "description": "Description",
+        "deliveries": "Deliveries",
+        "enqueued": "Enqueued",
+        "subject": "Subject",
+        "body": "Body",
+        "forwardedFrom": "Forwarded here from {{source}}, which is where it actually failed.",
+        "resend": "Put it back",
+        "resent": "Sequence {{sequence}} is back on the queue",
+        "resendFailed": "Could not put it back",
+        "resendTitle": "Put sequence {{sequence}} back?",
+        "resendDesc": "It is received from the dead letters, sent to {{entity}} as a new message, and only then removed here. Dead letters are offered in order, so the ones in front of it are read and released — their delivery counts go up, which nothing on a dead-letter store acts on.",
+        "section": {
+          "whyItStopped": "Why it stopped",
+          "properties": "Sender properties"
+        },
+        "note": "A $DeadLetterQueue is part of its entity rather than an object of its own: it cannot be listed, sent to, renamed or shared, and it goes when the entity goes. Reading one takes nothing; putting a message back sends a copy and removes the original."
       }
     }
   }

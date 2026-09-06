@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus"
 	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus/admin"
 
 	"github.com/amigoer/mq-studio/internal/e2e"
@@ -1330,5 +1331,236 @@ func TestLiveCanonicalSendMapsRocketMQsArguments(t *testing.T) {
 	}
 	if held[0].Keys != "customer-1" {
 		t.Errorf("keys = %q, want the session that was sent", held[0].Keys)
+	}
+}
+
+/*
+ * Dead letters, read from the store the broker keeps for every entity.
+ *
+ * The seed dead-letters four messages on mqs-seed-failures on purpose, so what
+ * this pins is that they are reachable at all - and that reading them is a
+ * peek, which is what makes a dead-letter page safe to open twice.
+ */
+func TestLiveDeadLettersAreReadFromTheEntitysOwnStore(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	held, err := conn.DLQMessages(ctx, seedFailures, 50)
+	if err != nil {
+		t.Fatalf("DLQMessages: %v", err)
+	}
+	if len(held) != 4 {
+		e2e.Missing(t, "%s holds %d dead letters, seeded 4; run npm run e2e:azure-servicebus:seed",
+			seedFailures, len(held))
+	}
+	for _, message := range held {
+		if message.Status != model.MsgDLQ {
+			t.Errorf("sequence %d is not marked as a dead letter", message.QueueOffset)
+		}
+		if message.Topic != seedFailures+"/$DeadLetterQueue" {
+			t.Errorf("a dead letter says it came from %q", message.Topic)
+		}
+		// The reason and description are the service's own annotations on the
+		// failed delivery, and they are the whole point of the page.
+		if message.Properties[PropDeadLetterReason] == "" {
+			t.Errorf("sequence %d says nothing about why it stopped", message.QueueOffset)
+		}
+	}
+
+	// A second read sees the same four: a dead-letter read is a peek.
+	again, err := conn.DLQMessages(ctx, seedFailures, 50)
+	if err != nil {
+		t.Fatalf("DLQMessages, second run: %v", err)
+	}
+	if len(again) != len(held) {
+		t.Errorf("the second read saw %d dead letters and the first saw %d", len(again), len(held))
+	}
+
+	// The entity itself is empty: what was dead-lettered left it.
+	live, err := conn.QueryMessages(ctx, model.MessageQueryParams{Topic: seedFailures, MaxResults: 50})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(live) != 0 {
+		t.Errorf("%s still holds %d messages after they were dead-lettered", seedFailures, len(live))
+	}
+}
+
+/*
+ * A subscription has a dead-letter store of its own, addressed through its
+ * topic.
+ *
+ * Worth its own test because it is the half a topology-shaped page could not
+ * reach: a subscription is not an entity anything could point at, and its
+ * failures are not the topic's.
+ */
+func TestLiveASubscriptionHasItsOwnDeadLetters(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	t.Cleanup(func() {
+		_ = conn.RemoveSubscription(context.Background(),
+			model.SubscriptionRef{Namespace: seedEvents, Name: testSubscription})
+	})
+
+	if err := conn.CreateSubscriptionFrom(ctx, SubscriptionSpec{
+		Topic: seedEvents, Name: testSubscription,
+	}); err != nil {
+		t.Fatalf("CreateSubscriptionFrom: %v", err)
+	}
+
+	// Nothing has failed yet, and the store still exists: that is the
+	// difference from a topology, where there would be no object at all.
+	empty, err := conn.DLQMessages(ctx, seedEvents+"/"+testSubscription, 10)
+	if err != nil {
+		t.Fatalf("DLQMessages on a fresh subscription: %v", err)
+	}
+	if len(empty) != 0 {
+		t.Errorf("a subscription that has never failed holds %d dead letters", len(empty))
+	}
+
+	if _, err := conn.Send(ctx, SendRequest{
+		Entity: seedEvents, Body: "will fail", Subject: "order",
+	}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	receiver, err := conn.receiver(seedEvents, testSubscription, false)
+	if err != nil {
+		t.Fatalf("opening a receiver: %v", err)
+	}
+	waitCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	batch, err := receiver.ReceiveMessages(waitCtx, 1, nil)
+	cancel()
+	if err != nil {
+		t.Fatalf("ReceiveMessages: %v", err)
+	}
+	if len(batch) == 0 {
+		t.Fatal("the subscription received nothing to fail")
+	}
+	reason := "on purpose"
+	if err := receiver.DeadLetterMessage(ctx, batch[0], &azservicebus.DeadLetterOptions{
+		Reason: &reason,
+	}); err != nil {
+		t.Fatalf("DeadLetterMessage: %v", err)
+	}
+	_ = receiver.Close(context.Background())
+
+	dead, err := conn.DLQMessages(ctx, seedEvents+"/"+testSubscription, 10)
+	if err != nil {
+		t.Fatalf("DLQMessages: %v", err)
+	}
+	if len(dead) != 1 {
+		t.Fatalf("the subscription holds %d dead letters, want 1", len(dead))
+	}
+	if dead[0].Properties[PropDeadLetterReason] != reason {
+		t.Errorf("reason = %q, want %q", dead[0].Properties[PropDeadLetterReason], reason)
+	}
+	// And the topic's other subscriptions are untouched: a dead letter belongs
+	// to the subscription that gave up, not to the topic.
+	others, err := conn.DLQMessages(ctx, seedEvents+"/"+seedSubAll, 10)
+	if err != nil {
+		t.Fatalf("DLQMessages: %v", err)
+	}
+	if len(others) != 0 {
+		t.Errorf("%s holds %d dead letters that another subscription produced",
+			seedSubAll, len(others))
+	}
+}
+
+/*
+ * Putting a dead letter back, which is the one destructive thing this page
+ * does.
+ *
+ * Three steps with no atomicity: receive, send a copy to the parent entity,
+ * complete the original. The order is what the test pins along with the
+ * outcome - the message has to be gone from the dead letters and present in
+ * the queue, rather than in both or neither.
+ */
+func TestLiveResendPutsADeadLetterBack(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	removeEntities(t, conn, testQueue)
+
+	if err := conn.CreateEntity(ctx, EntitySpec{
+		Name: testQueue, LockDurationSec: 5, MaxDeliveryCount: 1,
+	}); err != nil {
+		t.Fatalf("CreateEntity: %v", err)
+	}
+	if _, err := conn.Send(ctx, SendRequest{
+		Entity:     testQueue,
+		Body:       "gave up",
+		Subject:    "order",
+		Properties: map[string]string{"colour": "red"},
+	}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	receiver, err := conn.receiver(testQueue, "", false)
+	if err != nil {
+		t.Fatalf("opening a receiver: %v", err)
+	}
+	waitCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	batch, err := receiver.ReceiveMessages(waitCtx, 1, nil)
+	cancel()
+	if err != nil || len(batch) == 0 {
+		t.Fatalf("ReceiveMessages: %d %v", len(batch), err)
+	}
+	reason := "on purpose"
+	if err := receiver.DeadLetterMessage(ctx, batch[0], &azservicebus.DeadLetterOptions{
+		Reason: &reason,
+	}); err != nil {
+		t.Fatalf("DeadLetterMessage: %v", err)
+	}
+	_ = receiver.Close(context.Background())
+
+	dead, err := conn.DLQMessages(ctx, testQueue, 10)
+	if err != nil {
+		t.Fatalf("DLQMessages: %v", err)
+	}
+	if len(dead) != 1 {
+		t.Fatalf("the queue holds %d dead letters, want 1", len(dead))
+	}
+	sequence := strconv.FormatInt(dead[0].QueueOffset, 10)
+
+	back, err := conn.ResendMessage(ctx, testQueue, "", "", sequence)
+	if err != nil {
+		t.Fatalf("ResendMessage: %v", err)
+	}
+	if back != sequence {
+		t.Errorf("ResendMessage reported %q, want %q", back, sequence)
+	}
+
+	// Gone from one place and in the other, rather than in both or neither.
+	remaining, err := conn.DLQMessages(ctx, testQueue, 10)
+	if err != nil {
+		t.Fatalf("DLQMessages: %v", err)
+	}
+	if len(remaining) != 0 {
+		t.Errorf("%d dead letters survived being put back", len(remaining))
+	}
+	live, err := conn.QueryMessages(ctx, model.MessageQueryParams{Topic: testQueue, MaxResults: 10})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(live) != 1 {
+		t.Fatalf("the queue holds %d messages after the resend, want 1", len(live))
+	}
+	// The copy carries what the sender set. It does not carry the dead-letter
+	// annotations: a message re-entering the queue has not failed yet.
+	if live[0].Tags != "order" {
+		t.Errorf("the resent message lost its subject: %q", live[0].Tags)
+	}
+	if live[0].Properties[PropAttributePrefix+"colour"] != "red" {
+		t.Errorf("the resent message lost its properties: %v", live[0].Properties)
+	}
+	if live[0].Properties[PropDeadLetterReason] != "" {
+		t.Errorf("the resent message still says it was dead-lettered: %q",
+			live[0].Properties[PropDeadLetterReason])
+	}
+
+	// A sequence number that is not there is an error naming it rather than a
+	// silent no-op, because the button reported success either way otherwise.
+	if _, err := conn.ResendMessage(ctx, testQueue, "", "", "999999"); err == nil {
+		t.Error("resent a dead letter that is not there")
 	}
 }
