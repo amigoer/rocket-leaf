@@ -4611,6 +4611,25 @@
         "redrivesHere": "redrives here",
         "orphaned": "Nothing redrives into this queue any more. Whatever is in it will stay there: the queues that pointed here were deleted or reconfigured, and no consumer of theirs is coming back for it.",
         "note": "Nothing marks a dead-letter queue in SQS — it is an ordinary queue another queue's redrive policy points at, so these were found by walking backwards from the queues this connection can see. Read one on the messages page; the receive limit that fills it is on the queue's own row."
+      },
+      "overview": {
+        "subtitle": "{{region}} · {{queues}} queues",
+        "queues": "Queues",
+        "queuesHint": "In this region, narrowed by the connection's prefix",
+        "visible": "Available",
+        "visibleHint": "Waiting for a consumer to ask",
+        "inFlight": "In flight",
+        "inFlightHint": "Handed out and not yet deleted",
+        "delayed": "Delayed",
+        "delayedHint": "Accepted and not due yet",
+        "deadLettered": "Dead lettered",
+        "deadLetteredHint": "Given up on, and nothing drains it",
+        "busiest": "Queues holding messages",
+        "state": "State",
+        "stateWaiting": "waiting",
+        "stateStalled": "all in flight",
+        "stateDeadLetter": "dead letters",
+        "note": "Every count is approximate and comes from the queue listing — the whole of what SQS reports. Rates, ages and per-queue history live in CloudWatch, under a different permission."
       }
     }
   }

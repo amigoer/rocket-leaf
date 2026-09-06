@@ -30,6 +30,7 @@ import { deriveRedisAlerts } from "@/mq/redis/alerts";
 import { deriveNatsAlerts } from "@/mq/nats/alerts";
 import { deriveActiveMQAlerts } from "@/mq/activemq/alerts";
 import { deriveNsqAlerts } from "@/mq/nsq/alerts";
+import { deriveSqsAlerts } from "@/mq/sqs/alerts";
 
 export type AlertSeverity = "crit" | "warn" | "info";
 
@@ -97,7 +98,9 @@ export function deriveAlerts(
                   ? deriveActiveMQAlerts(facts, rules, thresholds)
                   : kind === MQKind.KindNSQ
                     ? deriveNsqAlerts(facts, rules, thresholds)
-                    : /* Every other family is read with RocketMQ's rules, which is
+                    : kind === MQKind.KindSQS
+                      ? deriveSqsAlerts(facts, rules, thresholds)
+                      : /* Every other family is read with RocketMQ's rules, which is
                      what they were before this dispatch existed. A family whose
                      vocabulary they do not fit reports nothing rather than
                      something wrong, and gets its own rules when it gets its

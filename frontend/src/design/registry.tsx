@@ -82,6 +82,7 @@ import { QueuesSqs } from "./boards/topics/QueuesSqs";
 import { MessagesSqs } from "./boards/messages/MessagesSqs";
 import { ProducerSqs } from "./boards/producer/ProducerSqs";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
+import { OverviewSqs } from "./boards/overview/OverviewSqs";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
 import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
@@ -138,6 +139,7 @@ const BOARDS: Partial<
     nats: OverviewNats,
     activemq: OverviewActiveMQ,
     nsq: OverviewNsq,
+    sqs: OverviewSqs,
   },
   topics: {
     rocketmq: TopicsRocketMQ,

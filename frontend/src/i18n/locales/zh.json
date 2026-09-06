@@ -4611,6 +4611,25 @@
         "redrivesHere": "重驱到这里",
         "orphaned": "已经没有队列会把消息重驱到这里了。里面的东西会一直留着：原先指向这里的队列被删掉或改了配置，它们的消费者不会再回来取。",
         "note": "SQS 里没有任何标记表示某个队列是死信队列——它只是被另一个队列的重驱策略指向的普通队列，所以这些是从当前连接能看到的队列反向查出来的。要看内容请到消息页；把消息推进来的接收次数上限在队列自己那一行。"
+      },
+      "overview": {
+        "subtitle": "{{region}} · {{queues}} 个队列",
+        "queues": "队列",
+        "queuesHint": "该区域内，按连接的前缀筛选后",
+        "visible": "可取",
+        "visibleHint": "等待消费者来取",
+        "inFlight": "处理中",
+        "inFlightHint": "已取走但还没删除",
+        "delayed": "延迟中",
+        "delayedHint": "已接收但还没到时间",
+        "deadLettered": "进入死信",
+        "deadLetteredHint": "被放弃的消息，且无人清理",
+        "busiest": "有积压的队列",
+        "state": "状态",
+        "stateWaiting": "等待中",
+        "stateStalled": "全在处理中",
+        "stateDeadLetter": "死信",
+        "note": "所有计数都是近似值，来自队列列表——那是 SQS 报告的全部内容。速率、消息年龄和每队列的历史数据在 CloudWatch，需要另一份权限。"
       }
     }
   }

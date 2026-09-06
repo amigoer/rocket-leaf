@@ -205,6 +205,23 @@ const RULES_BY_KIND: Partial<Record<MQKind, readonly AlertRuleKey[]>> = {
     "queueNoConsumer",
     "groupLag",
   ],
+  /*
+   * Two, and every other rule is absent because the service cannot answer it.
+   *
+   * There is no node, so brokerOffline cannot fire: a credential that stops
+   * working fails the whole read rather than marking a row down. There is no
+   * storage figure anywhere, so diskUsage has nothing to read - a queue is
+   * billed by request rather than by what it holds. And SQS keeps no record of
+   * who reads a queue, so every rule about a consumer - groupOffline,
+   * groupLag, queueNoConsumer - would be asserting something the service
+   * cannot support.
+   *
+   * What is left reads the queue listing, which is the whole of what SQS
+   * reports. dlqGrowth is affordable here in a way it was not on Pulsar: a
+   * dead-letter queue is one another queue's redrive policy points at, and
+   * every source row in the same listing already carries that target.
+   */
+  [MQKind.KindSQS]: ["dlqGrowth", "queueBacklog"],
 };
 
 const ROCKETMQ_RULES: readonly AlertRuleKey[] = [
@@ -265,6 +282,7 @@ export const KINDS_NEEDING_DESTINATIONS: readonly MQKind[] = [
   MQKind.KindNATS,
   MQKind.KindActiveMQ,
   MQKind.KindNSQ,
+  MQKind.KindSQS,
 ];
 
 export const DEFAULT_ALERT_RULES: AlertRulePrefs = {

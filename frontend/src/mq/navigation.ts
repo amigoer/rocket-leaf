@@ -76,9 +76,15 @@ const requires: Record<string, Capability | Capability[]> = {
     Capability.CapIdentityPermissions,
     Capability.CapAclUsers,
   ],
-  // Alerts needs no particular capability, only a connection to draw metrics
-  // from, which the connected check below already covers.
-  alerts: Capability.CapClusterMetrics,
+  /*
+   * Alerts needs no particular capability, only a connection with figures to
+   * compare - which the connected check below already covers. What the two
+   * entries settle is where those figures come from: most families report
+   * cluster metrics, and a hosted one has no cluster at all. Every figure SQS
+   * reports belongs to a queue, so its rules read the queue listing, and
+   * gating on a metric it can never declare would hide a page that works.
+   */
+  alerts: [Capability.CapClusterMetrics, Capability.CapDestinationList],
 };
 
 /**
