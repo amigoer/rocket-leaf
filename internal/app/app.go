@@ -30,6 +30,7 @@ import (
 	"github.com/amigoer/mq-studio/internal/service/destination"
 	googlepubsubservice "github.com/amigoer/mq-studio/internal/service/googlepubsub"
 	kafkaservice "github.com/amigoer/mq-studio/internal/service/kafka"
+	kinesisservice "github.com/amigoer/mq-studio/internal/service/kinesis"
 	"github.com/amigoer/mq-studio/internal/service/message"
 	mqttservice "github.com/amigoer/mq-studio/internal/service/mqtt"
 	natsservice "github.com/amigoer/mq-studio/internal/service/nats"
@@ -67,6 +68,7 @@ type Services struct {
 	SQS          *sqsservice.Service
 	GooglePubSub *googlepubsubservice.Service
 	ServiceBus   *azureservicebusservice.Service
+	Kinesis      *kinesisservice.Service
 
 	// Conns resolves a profile id to a live connection. The bridge needs it to
 	// answer capability questions without going through a domain service.
@@ -133,6 +135,7 @@ func New() (*Services, error) {
 		SQS:          sqsservice.New(conns, settingsService),
 		GooglePubSub: googlepubsubservice.New(conns, settingsService),
 		ServiceBus:   azureservicebusservice.New(conns, settingsService),
+		Kinesis:      kinesisservice.New(conns, settingsService),
 		Conns:        conns,
 		Collector:    collector.New(sampleActiveConnection(clusterService, registry), registry.HasActive),
 		registry:     registry,

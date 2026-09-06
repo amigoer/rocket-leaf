@@ -317,3 +317,183 @@ func TestLiveDestinationDetailReadsOneStream(t *testing.T) {
 		t.Errorf("error does not name the missing stream: %v", err)
 	}
 }
+
+// testStream creates a stream the test owns and removes it afterwards.
+//
+// Every live test that changes anything works on one of these rather than on a
+// seeded stream: the seed is what the cross-check compares against, and a test
+// that resized or emptied one would take the other half of verification with
+// it.
+func testStream(t *testing.T, conn *Conn, name string, spec StreamSpec) string {
+	t.Helper()
+	spec.Name = name
+	if err := conn.CreateStream(liveContext(t), spec); err != nil {
+		t.Fatalf("CreateStream %s: %v", name, err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		_ = conn.RemoveDestination(ctx, model.DestinationRef{Name: name})
+	})
+	if err := conn.awaitActive(liveContext(t), name); err != nil {
+		t.Fatalf("%s never became active: %v", name, err)
+	}
+	return name
+}
+
+/*
+ * Create, describe, resize and delete, against the service rather than a mock.
+ *
+ * The resize is the part worth running live. It is not a field being written:
+ * UpdateShardCount splits and merges, which leaves the stream UPDATING and
+ * every subsequent call refused until it settles - so a driver that returned
+ * as soon as the call was accepted would work in isolation and fail the moment
+ * two settings changed at once.
+ */
+func TestLiveCreateResizeAndDeleteAStream(t *testing.T) {
+	conn := liveConn(t)
+	name := testStream(t, conn, "MQS-TEST-lifecycle", StreamSpec{Shards: 1, RetentionHours: 24})
+
+	created, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("DestinationDetail: %v", err)
+	}
+	if created.Partitions != 1 {
+		t.Errorf("created with %d open shards, want 1", created.Partitions)
+	}
+	if created.Attribute(AttrMode) != "PROVISIONED" {
+		t.Errorf("mode = %q, want PROVISIONED", created.Attribute(AttrMode))
+	}
+
+	if err := conn.UpdateStream(liveContext(t), StreamSpec{Name: name, Shards: 2}); err != nil {
+		t.Fatalf("UpdateStream to 2 shards: %v", err)
+	}
+	resized, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("DestinationDetail after resize: %v", err)
+	}
+	if resized.Partitions != 2 {
+		t.Errorf("after the resize %s reports %d open shards, want 2", name, resized.Partitions)
+	}
+
+	if err := conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: name}); err != nil {
+		t.Fatalf("RemoveDestination: %v", err)
+	}
+	if _, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name}); err == nil {
+		t.Error("the deleted stream still describes")
+	}
+}
+
+// The retention is not on CreateStream at all: a new stream keeps 24 hours and
+// is changed afterwards, by a call that is refused until it is ACTIVE. So a
+// create asking for anything else is two operations, and this asserts the
+// second one happened rather than being silently dropped.
+func TestLiveCreateAppliesARetentionCreateStreamCannotCarry(t *testing.T) {
+	conn := liveConn(t)
+	name := testStream(t, conn, "MQS-TEST-retention", StreamSpec{Shards: 1, RetentionHours: 72})
+
+	detail, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("DestinationDetail: %v", err)
+	}
+	if detail.Attribute(AttrRetentionHours) != "72" {
+		t.Errorf("retention = %q, want the 72 hours the create asked for",
+			detail.Attribute(AttrRetentionHours))
+	}
+
+	// Down as well as up: the service refuses a decrease sent to the increase
+	// endpoint, and the driver picks the call by direction rather than by what
+	// the caller thinks it is doing.
+	if err := conn.UpdateStream(liveContext(t), StreamSpec{Name: name, RetentionHours: 24}); err != nil {
+		t.Fatalf("UpdateStream down to 24 hours: %v", err)
+	}
+	lowered, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("DestinationDetail after the decrease: %v", err)
+	}
+	if lowered.Attribute(AttrRetentionHours) != "24" {
+		t.Errorf("retention = %q after a decrease, want 24", lowered.Attribute(AttrRetentionHours))
+	}
+}
+
+// An on-demand stream's capacity is the service's. A shard count sent beside
+// the mode is refused by CreateStream naming an argument the form never drew,
+// so the driver refuses it where the message can name the switch instead.
+func TestLiveOnDemandStreamTakesNoShardCount(t *testing.T) {
+	conn := liveConn(t)
+
+	// Removed whatever the assertion finds, because a stream left behind by a
+	// failed run is refused by name on the next one - which reports "already
+	// exists" where the real problem was this call succeeding.
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_ = conn.RemoveDestination(ctx, model.DestinationRef{Name: "MQS-TEST-ondemand-bad"})
+	})
+	err := conn.CreateStream(liveContext(t), StreamSpec{
+		Name: "MQS-TEST-ondemand-bad", OnDemand: true, Shards: 4,
+	})
+	if err == nil {
+		t.Fatal("accepted a shard count on an on-demand stream")
+	}
+	if !strings.Contains(err.Error(), "on-demand") {
+		t.Errorf("error does not name the mode that refused it: %v", err)
+	}
+
+	name := testStream(t, conn, "MQS-TEST-ondemand", StreamSpec{OnDemand: true})
+	detail, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("DestinationDetail: %v", err)
+	}
+	if detail.Attribute(AttrMode) != "ON_DEMAND" {
+		t.Errorf("mode = %q, want ON_DEMAND", detail.Attribute(AttrMode))
+	}
+	// The service still gives it shards; what it does not give is a number
+	// anybody here chose.
+	if detail.Partitions <= 0 {
+		t.Errorf("an on-demand stream reports %d open shards", detail.Partitions)
+	}
+	if err := conn.UpdateStream(liveContext(t), StreamSpec{
+		Name: name, OnDemand: true, Shards: 8,
+	}); err == nil {
+		t.Error("resized an on-demand stream, whose capacity is not the operator's")
+	}
+}
+
+// The retention window is the service's own, and it is checked here so the
+// message names the field rather than arriving as InvalidArgumentException.
+func TestLiveCreateRefusesARetentionOutsideTheWindow(t *testing.T) {
+	conn := liveConn(t)
+
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_ = conn.RemoveDestination(ctx, model.DestinationRef{Name: "MQS-TEST-retention-bad"})
+	})
+	for _, hours := range []int{1, 23, 9000} {
+		err := conn.CreateStream(liveContext(t), StreamSpec{
+			Name: "MQS-TEST-retention-bad", Shards: 1, RetentionHours: hours,
+		})
+		if err == nil {
+			t.Errorf("accepted a retention of %d hours, and created a stream doing it", hours)
+			continue
+		}
+		if !strings.Contains(err.Error(), "hours") {
+			t.Errorf("retention %d: error does not name the unit: %v", hours, err)
+		}
+	}
+}
+
+// Deleting a stream that is already gone has to say which one, rather than
+// letting the SDK report an operation the user never asked for by name.
+func TestLiveDeleteNamesAStreamThatIsNotThere(t *testing.T) {
+	conn := liveConn(t)
+
+	err := conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: "MQS-TEST-never-existed"})
+	if err == nil {
+		t.Fatal("deleted a stream that does not exist")
+	}
+	if !strings.Contains(err.Error(), "MQS-TEST-never-existed") {
+		t.Errorf("error does not name the missing stream: %v", err)
+	}
+}

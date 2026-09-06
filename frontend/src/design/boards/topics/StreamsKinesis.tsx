@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Page, PageBody, PageHeader, RefreshButton } from "@/design/shell";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -10,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KV, Panel, PanelHeader, SectionLabel } from "@/components";
+import { KV, Panel, PanelHeader, SectionLabel, useConfirm } from "@/components";
 import { BoardState } from "@/design/boards/BoardState";
 import { useKinesisDestinations } from "@/hooks/kinesis/useKinesisDestinations";
 import {
@@ -21,6 +23,10 @@ import {
 } from "@/mq/kinesis/destinations";
 import { formatCount } from "@/lib/format";
 import { formatMessageTime } from "@/lib/time";
+import { formatErrorMessage } from "@/lib/utils";
+import { useConnectionScope } from "@/mq/ConnectionScope";
+import * as kinesisApi from "@/api/kinesis";
+import { StreamDialogKinesis } from "./StreamDialogKinesis";
 
 const MONO11 = { fontSize: "11px" } as const;
 
@@ -49,8 +55,12 @@ function count(value: number | null): string {
 export function StreamsKinesis() {
   const { t } = useTranslation();
   const state = useKinesisDestinations();
+  const { id: connID } = useConnectionScope();
+  const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [editing, setEditing] = useState<KinesisStream | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
 
   const streams = useMemo(() => (state.data ?? []).map(readStream), [state.data]);
 
@@ -62,6 +72,49 @@ export function StreamsKinesis() {
   const detail = useMemo(
     () => shown.find((entry) => entry.name === selected) ?? shown[0] ?? null,
     [shown, selected],
+  );
+
+  const save = useCallback(
+    async (input: kinesisApi.KinesisStreamInput) => {
+      if (editing == null) {
+        await kinesisApi.createStream(connID, input);
+        toast.success(t("board.kinesis.streams.created", { name: input.name }));
+      } else {
+        await kinesisApi.updateStream(connID, input);
+        toast.success(t("board.kinesis.streams.updated", { name: input.name }));
+      }
+      await state.refresh();
+    },
+    [connID, editing, state, t],
+  );
+
+  /*
+   * The confirmation says what a delete takes rather than only what it is
+   * called. A stream's records go with it whether or not anything read them,
+   * and there is no undo - the name can be reused, but the data cannot be
+   * recovered from anywhere in the service.
+   */
+  const remove = useCallback(
+    async (entry: KinesisStream) => {
+      const ok = await confirm({
+        title: t("board.kinesis.streams.deleteTitle", { name: entry.name }),
+        description: t("board.kinesis.streams.deleteDesc", { count: entry.openShards ?? 0 }),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await kinesisApi.removeStream(connID, entry.name);
+        toast.success(t("board.kinesis.streams.deleted", { name: entry.name }));
+        setSelected(null);
+        await state.refresh();
+      } catch (deleteError) {
+        toast.error(t("board.kinesis.streams.deleteFailed"), {
+          description: formatErrorMessage(deleteError),
+        });
+      }
+    },
+    [confirm, connID, state, t],
   );
 
   return (
@@ -77,6 +130,15 @@ export function StreamsKinesis() {
               placeholder={t("board.kinesis.streams.search")}
               onChange={(event) => setSearch(event.target.value)}
             />
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              {t("board.kinesis.streams.create")}
+            </Button>
             <RefreshButton
               refreshing={state.refreshing}
               online={state.online}
@@ -84,6 +146,12 @@ export function StreamsKinesis() {
             />
           </div>
         }
+      />
+      <StreamDialogKinesis
+        open={formOpen}
+        editing={editing}
+        onOpenChange={setFormOpen}
+        onSubmit={save}
       />
       <BoardState state={state}>
         <PageBody>
@@ -149,7 +217,16 @@ export function StreamsKinesis() {
               </Table>
             </Panel>
 
-            {detail != null && <StreamDetail entry={detail} />}
+            {detail != null && (
+              <StreamDetail
+                entry={detail}
+                onEdit={() => {
+                  setEditing(detail);
+                  setFormOpen(true);
+                }}
+                onRemove={() => void remove(detail)}
+              />
+            )}
           </div>
           <p
             style={{
@@ -167,7 +244,15 @@ export function StreamsKinesis() {
   );
 }
 
-function StreamDetail({ entry }: { entry: KinesisStream }) {
+function StreamDetail({
+  entry,
+  onEdit,
+  onRemove,
+}: {
+  entry: KinesisStream;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
   const { t } = useTranslation();
   return (
     <Panel style={{ width: "300px", flex: "none", overflow: "auto" }}>
@@ -199,6 +284,20 @@ function StreamDetail({ entry }: { entry: KinesisStream }) {
             ],
           ]}
         />
+
+        <div style={{ display: "flex", gap: "6px", marginTop: "12px" }}>
+          <Button size="sm" variant="outline" disabled={settling(entry)} onClick={onEdit}>
+            {t("common.edit")}
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={settling(entry)}
+            onClick={onRemove}
+          >
+            {t("common.delete")}
+          </Button>
+        </div>
 
         {/* Said where the state is, because this is the reading that turns
             every button on the page into an error the service words badly:

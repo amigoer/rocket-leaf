@@ -5241,7 +5241,7 @@
         "encryption": "加密",
         "kmsKey": "KMS 密钥",
         "arn": "ARN",
-        "created": "创建于",
+        "created": "已创建 {{name}}",
         "shardMetrics": "分片指标",
         "shardMetricsNone": "未发布",
         "onDemandBadge": "按需",
@@ -5250,7 +5250,32 @@
           "identity": "标识"
         },
         "settling": "该流当前为 {{status}}。在它变为 ACTIVE 之前，任何指向它的调用都会被拒绝，而服务把这种拒绝写作「资源占用中」。",
-        "note": "没有深度也没有速率：Kinesis 既不统计流中存了多少记录，也不统计流动得多快。消费者指的是注册的扇出消费者——经典消费者把位点存在 DynamoDB 里，流本身并不知道它的存在。"
+        "note": "没有深度也没有速率：Kinesis 既不统计流中存了多少记录，也不统计流动得多快。消费者指的是注册的扇出消费者——经典消费者把位点存在 DynamoDB 里，流本身并不知道它的存在。",
+        "create": "新建流",
+        "createTitle": "新建流",
+        "editTitle": "编辑 {{name}}",
+        "updated": "已更新 {{name}}",
+        "deleted": "已删除 {{name}}",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "它 {{count}} 个分片里的记录会一并消失，无论是否被读过。名称可以再用，数据无法找回。",
+        "deleteFailed": "无法删除该流",
+        "nameHint": "可用字母、数字、下划线、连字符和点，最多 128 个字符。在区域内唯一。",
+        "nameProblem": {
+          "empty": "流需要一个名称。",
+          "tooLong": "流名称最多 128 个字符。",
+          "charset": "只能用字母、数字、下划线、连字符和点。"
+        },
+        "onDemandHint": "由 AWS 选择容量并按吞吐计费。关掉它就可以自己设定分片数。",
+        "shardsHint": "每个分片写入侧为 1 MB/s 或每秒 1000 条记录，读取侧为 2 MB/s，由它的读者共享。",
+        "resizeHint": "调整容量靠拆分与合并分片。旧分片会关闭但仍然存在，并保留其中的记录直到过期——所以分片页在那之前会显示比这个数字更多的分片。",
+        "shardsProblem": {
+          "tooFew": "预置模式的流至少需要一个分片。"
+        },
+        "retentionHint": "无论是否被读过，记录都会保留这么久。范围是 24 到 8760 小时。",
+        "retentionProblem": {
+          "tooShort": "Kinesis 至少保留记录 24 小时。",
+          "tooLong": "Kinesis 最多保留记录 8760 小时，也就是一年。"
+        }
       }
     }
   }

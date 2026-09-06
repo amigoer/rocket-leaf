@@ -48,14 +48,23 @@ func (c *Conn) CreateDestination(ctx context.Context, spec model.DestinationSpec
 		return errors.New("a stream needs a name")
 	}
 
+	// Everything the spec asks for is checked before anything is created. A
+	// retention outside the window is the case that matters: it is applied by
+	// a second call after the stream exists, so validating it afterwards would
+	// leave a stream behind and report a failure.
+	hours, wantRetention, err := retentionOf(spec.Attributes)
+	if err != nil {
+		return err
+	}
+
 	input := &awskinesis.CreateStreamInput{StreamName: aws.String(name)}
 	if onDemand(spec.Attributes[AttrMode]) {
-		input.StreamModeDetails = &types.StreamModeDetails{StreamMode: types.StreamModeOnDemand}
 		if spec.Partitions > 0 {
 			return errors.New(
 				"an on-demand stream has no shard count to set; AWS scales it, and a " +
 					"provisioned stream is what takes a number")
 		}
+		input.StreamModeDetails = &types.StreamModeDetails{StreamMode: types.StreamModeOnDemand}
 	} else {
 		if spec.Partitions <= 0 {
 			return errors.New("a provisioned stream needs at least one shard")
@@ -74,11 +83,7 @@ func (c *Conn) CreateDestination(ctx context.Context, spec model.DestinationSpec
 
 	// The retention is not on CreateStream at all: a new stream keeps 24 hours
 	// and is changed afterwards, by a call that is refused until it is ACTIVE.
-	hours, given, err := retentionOf(spec.Attributes)
-	if err != nil {
-		return err
-	}
-	if !given || hours == minRetentionHours {
+	if !wantRetention || hours == minRetentionHours {
 		return nil
 	}
 	if err := c.awaitActive(ctx, name); err != nil {
@@ -263,4 +268,60 @@ func retentionOf(attributes map[string]string) (hours int, given bool, err error
 // onDemand reads the stream mode a spec asked for.
 func onDemand(mode string) bool {
 	return strings.EqualFold(strings.TrimSpace(mode), string(types.StreamModeOnDemand))
+}
+
+/*
+ * StreamSpec is a stream as the stream form collects it.
+ *
+ * Deliberately not TopicService.Create's shape. That one takes a broker
+ * address, a read queue count, a write queue count and a permission string -
+ * RocketMQ's vocabulary, of which a Kinesis stream has none. What it has
+ * instead is a capacity mode, a shard count that only one of the two modes
+ * uses, and a retention the service enforces by discarding.
+ */
+type StreamSpec struct {
+	Name string
+	// OnDemand decides whether Shards means anything at all: AWS chooses an
+	// on-demand stream's capacity, and CreateStream refuses a count beside it.
+	OnDemand bool
+	// Shards is the target for a provisioned stream. On an edit it is the
+	// number to resize to, which the service reaches by splitting and merging
+	// rather than by rewriting the stream.
+	Shards int
+	// RetentionHours is how long a record is kept whether or not anybody read
+	// it. Zero means "leave it alone", which is what lets an edit change the
+	// shard count without restating it.
+	RetentionHours int
+}
+
+// spec turns the form's fields into the canonical destination spec, which is
+// what keeps the attribute keys private to this package.
+func (s StreamSpec) spec() model.DestinationSpec {
+	attributes := map[string]string{
+		AttrMode: string(types.StreamModeProvisioned),
+	}
+	if s.OnDemand {
+		attributes[AttrMode] = string(types.StreamModeOnDemand)
+	}
+	if s.RetentionHours > 0 {
+		attributes[AttrRetentionHours] = strconv.Itoa(s.RetentionHours)
+	}
+	// The shard count goes through as typed even when the mode is on demand.
+	// Dropping it here would turn a contradiction into a silent choice, and
+	// the create is where the refusal can name the switch that caused it.
+	return model.DestinationSpec{
+		Ref:        model.DestinationRef{Name: strings.TrimSpace(s.Name)},
+		Partitions: s.Shards,
+		Attributes: attributes,
+	}
+}
+
+// CreateStream declares a stream from a form submission.
+func (c *Conn) CreateStream(ctx context.Context, spec StreamSpec) error {
+	return c.CreateDestination(ctx, spec.spec())
+}
+
+// UpdateStream changes an existing stream's capacity or retention.
+func (c *Conn) UpdateStream(ctx context.Context, spec StreamSpec) error {
+	return c.UpdateDestination(ctx, spec.spec())
 }

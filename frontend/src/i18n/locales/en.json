@@ -5241,7 +5241,7 @@
         "encryption": "Encryption",
         "kmsKey": "KMS key",
         "arn": "ARN",
-        "created": "Created",
+        "created": "Created {{name}}",
         "shardMetrics": "Shard metrics",
         "shardMetricsNone": "None published",
         "onDemandBadge": "On demand",
@@ -5250,7 +5250,32 @@
           "identity": "Identity"
         },
         "settling": "This stream is {{status}}. Every call that names it is refused until it is ACTIVE, and the service words that refusal as \"resource in use\".",
-        "note": "No depth and no rates: Kinesis counts neither what a stream holds nor how fast it moves. Consumers are the registered fan-out kind — a classic consumer keeps its position in DynamoDB and the stream never learns of it."
+        "note": "No depth and no rates: Kinesis counts neither what a stream holds nor how fast it moves. Consumers are the registered fan-out kind — a classic consumer keeps its position in DynamoDB and the stream never learns of it.",
+        "create": "New stream",
+        "createTitle": "New stream",
+        "editTitle": "Edit {{name}}",
+        "updated": "Updated {{name}}",
+        "deleted": "Deleted {{name}}",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "Every record in its {{count}} shards goes with it, read or not. The name can be reused; the data cannot be recovered.",
+        "deleteFailed": "Could not delete the stream",
+        "nameHint": "Letters, digits, underscores, hyphens and dots, up to 128 characters. Unique within the region.",
+        "nameProblem": {
+          "empty": "A stream needs a name.",
+          "tooLong": "A stream name is at most 128 characters.",
+          "charset": "Only letters, digits, underscores, hyphens and dots."
+        },
+        "onDemandHint": "AWS chooses the capacity and bills by throughput. Turn it off to set a shard count yourself.",
+        "shardsHint": "Each shard takes 1 MB/s or 1000 records a second in, and 2 MB/s out shared by its readers.",
+        "resizeHint": "Resizing splits and merges shards. The old ones close but stay, holding their records until retention expires — so the shards page will show more than this number for a while.",
+        "shardsProblem": {
+          "tooFew": "A provisioned stream needs at least one shard."
+        },
+        "retentionHint": "How long a record is kept whether or not anybody read it. Between 24 and 8760 hours.",
+        "retentionProblem": {
+          "tooShort": "Kinesis keeps a record for at least 24 hours.",
+          "tooLong": "Kinesis keeps a record for at most 8760 hours, which is a year."
+        }
       }
     }
   }

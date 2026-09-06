@@ -1937,6 +1937,63 @@ export class KafkaTopicInput {
 }
 
 /**
+ * KinesisStreamInput is a stream as the stream form collects it.
+ * 
+ * Deliberately not TopicService.Create's shape. That one takes a broker
+ * address, two queue counts and a permission string - RocketMQ's vocabulary,
+ * of which a Kinesis stream has none.
+ */
+export class KinesisStreamInput {
+    "name": string;
+
+    /**
+     * OnDemand hands the capacity to AWS. It is the one field that decides
+     * whether Shards means anything: CreateStream refuses a shard count beside
+     * an on-demand mode, and UpdateShardCount refuses an on-demand stream.
+     */
+    "onDemand": boolean;
+
+    /**
+     * Shards is the target for a provisioned stream. On an edit the service
+     * reaches it by splitting and merging, which leaves the old shards closed
+     * and still holding their records.
+     */
+    "shards": number;
+
+    /**
+     * RetentionHours is between 24 and 8760. Zero on an edit means "keep what
+     * is stored", which is what lets a resize leave the retention alone.
+     */
+    "retentionHours": number;
+
+    /** Creates a new KinesisStreamInput instance. */
+    constructor($$source: Partial<KinesisStreamInput> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("onDemand" in $$source)) {
+            this["onDemand"] = false;
+        }
+        if (!("shards" in $$source)) {
+            this["shards"] = 0;
+        }
+        if (!("retentionHours" in $$source)) {
+            this["retentionHours"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new KinesisStreamInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): KinesisStreamInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new KinesisStreamInput($$parsedSource as Partial<KinesisStreamInput>);
+    }
+}
+
+/**
  * LogDirView is the cluster page's storage tab in one round trip.
  */
 export class LogDirView {
