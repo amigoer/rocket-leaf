@@ -152,8 +152,14 @@ This is the delivery plan. The contract it delivers against is
 | 8 | **MQTT** | Done. The first family with no admin plane of its own: what it can do is probed at connect time in three tiers — the protocol, the $SYS tree, and the broker's own REST API — and a tier that does not answer says why rather than going quiet |
 | 9 | **NATS** | Done. Additive as predicted - no canonical page changed shape - but the first family whose driver reads the profile's auth mechanism rather than only its secrets, which is what found a dial-time bug that reset that mechanism on every family but RocketMQ |
 | 10 | **ActiveMQ / Artemis** | Done. JMS semantics fit the canonical pages everywhere except where those pages assume a log: no offsets, no partitions, no trim. What they gained is a dead-letter page that is finally full, and the first retry in the app |
-| 11 | **NSQ** | Topics and channels, with no message history and therefore no browse |
-| 12 | **Amazon SQS**, **Google Cloud Pub/Sub**, **Azure Service Bus**, **Amazon Kinesis**, then **IBM MQ** and **Solace PubSub+** | The connection form can express "no address, only a region and a credential" |
+| 11 | **Connection shape** — the seam, not a driver | A family can declare it needs no address, and the connection form, the profile store and the probe path all honour that. The driver's own descriptor is what says so |
+| 12 | **NSQ** | Topics and channels, with no message history and therefore no browse |
+| 13 | **Amazon SQS** | Queues, messages and a send console, on a connection that carries a region and a credential rather than an address |
+| 14 | **Google Cloud Pub/Sub** | Subscriptions are objects in their own right rather than a reader's position, and their backlog maps onto lag |
+| 15 | **Azure Service Bus** | Peek is non-destructive, so this is the one hosted family whose messages page needs no caveat, and subscription rules reach the routing page |
+| 16 | **Amazon Kinesis** | Shards are not partitions: they get their own columns instead of borrowing the canonical ones |
+| 17 | **IBM MQ** | Channels are first-class and have no counterpart among the canonical pages, so they get a page of their own |
+| 18 | **Solace PubSub+** | A Message VPN is a scope selector, the shape Pulsar's namespaces already proved |
 
 Two ordering decisions worth keeping in view.
 
@@ -168,10 +174,11 @@ family reports and Kafka does not, and a dead-letter page the canonical page set
 answer in each case was to cut the column rather than to fill it in.
 
 **The hosted tier changes the connection form, not just the driver.** Every family through
-phase 7 is "an address plus optional credentials". The hosted tier is "a region plus a
+phase 12 is "an address plus optional credentials". The hosted tier is "a region plus a
 credential, and no address at all" — the first connection where an empty `Endpoints` is
-still valid. Whether the schema-driven form can express that should be settled while the
-page contract is being fixed, not in phase 8.
+still valid. Phase 11 is where that gets settled, before the first hosted driver rather
+than during it: the driver's own descriptor becomes what says whether a family needs an
+address, and the form, the profile store and the probe path follow it.
 
 ## Per-driver scope
 
@@ -240,16 +247,3 @@ the endpoint actually answers.
   flows as Go integration tests against the `tests/e2e/rocketmq` environment.
 - Dedicated UI for update download progress
 - Broader RocketMQ 5.x Proxy and ACL management features
-
-## Release history
-
-### v0.1.0
-
-Versioning restarts below 1.0 with the Wails 3 rewrite: the earlier 1.x line was built on a
-different architecture and is no longer published.
-
-- Migrate from Electron + local Go daemon back to Wails 3
-- Replace the loopback HTTP transport with in-process Wails bindings
-- Keep RocketMQ features, local settings, and encryption format compatible
-- Ship macOS, Windows, and Linux packages
-- Keep sensitive-field redaction in the bridge layer
