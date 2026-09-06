@@ -186,6 +186,32 @@ export function draftInvalidReason(draft: ProtocolDraft, t: Translate): string |
     }
     return null;
   }
+  if (draft.protocol === "sqs") {
+    // The region is this form's address. It is not decoration: SigV4 signs
+    // with it, so a request signed for one region is refused by another.
+    if (draft.value.region.trim() === "") {
+      return t("page.connections.form.sqs.regionRequired");
+    }
+    // The pair is genuinely optional - blank means the machine's own AWS
+    // identity - so only half of it is the mistake worth catching. Falling
+    // back to that identity would connect as whoever the machine is rather
+    // than as the account the user was typing.
+    const stored = draft.value.credentialsStored && !draft.value.clearCredentials;
+    if (!stored) {
+      const id = draft.value.accessKeyId.trim();
+      const secret = draft.value.secretAccessKey.trim();
+      if ((id === "") !== (secret === "")) {
+        return t("page.connections.form.sqs.credentialPairRequired");
+      }
+    }
+    // An override is a full URL, not a hostname: the SDK takes it verbatim
+    // and a bare host would be signed as a relative path.
+    const endpoint = draft.value.endpointUrl.trim();
+    if (endpoint !== "" && !/^https?:\/\//i.test(endpoint)) {
+      return t("page.connections.form.sqs.endpointScheme");
+    }
+    return null;
+  }
   if (draft.protocol === "rocketmq") {
     if (draft.value.endpoints.trim() === "") return t("page.connections.endpointsRequired");
     if (draft.value.version === "5.x" && draft.value.access === "proxy") {

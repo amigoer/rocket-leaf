@@ -8,6 +8,7 @@ import {
   emptyRabbitMQDraft,
   emptyRedisDraft,
   emptyRocketMQDraft,
+  emptySqsDraft,
   type KafkaDraft,
   type MqttDraft,
   type PulsarDraft,
@@ -805,6 +806,7 @@ describe("the draft registry", () => {
       "nats",
       "activemq",
       "nsq",
+      "sqs",
     ] as const) {
       expect(isDraftable(protocol)).toBe(true);
       expect(emptyDraft(protocol).protocol).toBe(protocol);
@@ -816,13 +818,148 @@ describe("the draft registry", () => {
   // has a form now, so the list of exceptions is empty and a loop over it
   // would pass vacuously. What is pinned instead is that every tile has one,
   // and that the gate still refuses a name that is not a protocol here at all
-  // - sqs is next on the roadmap and has no driver, which is what makes it the
-  // honest stand-in.
+  // - google-pubsub is next on the roadmap and has no driver, which is what
+  // makes it the honest stand-in.
   it("has a form for every protocol the picker can draw", () => {
     for (const protocol of Object.values(PROTOCOLS)) {
       expect(isDraftable(protocol.id)).toBe(true);
     }
-    expect(isDraftable("sqs" as unknown as ProtocolId)).toBe(false);
+    expect(isDraftable("google-pubsub" as unknown as ProtocolId)).toBe(false);
+  });
+});
+
+/**
+ * SQS is the one family with no address, so it is the one draft whose round
+ * trip has to survive an empty `endpoints` rather than carrying one.
+ *
+ * The credential is three fields and all of them are optional: blank means the
+ * machine's own AWS identity, which is how this runs on anything already
+ * inside AWS. That is what makes the mechanism conditional and the mode
+ * "preserve" - a user editing the region must not wipe whichever of the three
+ * they did not retype.
+ */
+describe("the SQS connection draft", () => {
+  const filled = () => ({
+    ...emptySqsDraft(),
+    name: "  sqs-orders  ",
+    region: "  eu-west-1  ",
+    accessKeyId: "  AKIA-example  ",
+    secretAccessKey: "  s3cret  ",
+    queuePrefix: "  team-orders-  ",
+    endpointUrl: "  https://vpce-0abc.example  ",
+  });
+
+  it("submits a region and no address", () => {
+    const { draft, credentialsMode } = toSubmission({ protocol: "sqs", value: filled() });
+
+    expect(draft.kind).toBe(MQKind.KindSQS);
+    expect(draft.name).toBe("sqs-orders");
+    expect(draft.endpoints).toBe("");
+    expect(draft.options).toEqual({
+      region: "eu-west-1",
+      queuePrefix: "team-orders-",
+      endpointUrl: "https://vpce-0abc.example",
+    });
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthPlain);
+    expect(credentialsMode).toBe("replace");
+  });
+
+  // The names matter more than they look. accessKey and secretKey are
+  // reserved for RocketMQ's ACL and are cleared on save for any other family,
+  // so a rename here loses the credential silently.
+  it("stores its credentials under names of its own", () => {
+    const { draft } = toSubmission({ protocol: "sqs", value: filled() });
+
+    expect(draft.secrets).toEqual({
+      awsAccessKeyId: "AKIA-example",
+      awsSecretAccessKey: "s3cret",
+      awsSessionToken: "",
+    });
+    expect(draft.secrets).not.toHaveProperty("accessKey");
+    expect(draft.secrets).not.toHaveProperty("secretKey");
+  });
+
+  // A blank pair is not an unfinished form: it is the SDK's default chain.
+  // Storing it as an authenticating connection would dial with nothing to
+  // sign with, so the mechanism has to drop.
+  it("submits no mechanism when it will use the machine's own identity", () => {
+    const { draft } = toSubmission({
+      protocol: "sqs",
+      value: { ...emptySqsDraft(), name: "sqs-role", region: "eu-west-1" },
+    });
+
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthNone);
+  });
+
+  it("keeps a stored credential when the form is reopened and nothing retyped", () => {
+    const { draft, credentialsMode } = toSubmission({
+      protocol: "sqs",
+      value: { ...emptySqsDraft(), name: "sqs-orders", region: "eu-west-1", credentialsStored: true },
+    });
+
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthPlain);
+    expect(credentialsMode).toBe("preserve");
+  });
+
+  it("clears on request rather than leaving a credential nothing shows", () => {
+    const { credentialsMode } = toSubmission({
+      protocol: "sqs",
+      value: {
+        ...emptySqsDraft(),
+        name: "sqs-orders",
+        region: "eu-west-1",
+        credentialsStored: true,
+        clearCredentials: true,
+      },
+    });
+
+    expect(credentialsMode).toBe("clear");
+  });
+
+  it("reads a stored profile back without inventing an address", () => {
+    const profile = {
+      id: 9,
+      name: "sqs-orders",
+      group: "",
+      kind: MQKind.KindSQS,
+      endpoints: "",
+      timeoutSec: 10,
+      authMechanism: AuthMechanism.AuthPlain,
+      options: { region: "eu-west-1", queuePrefix: "team-orders-", endpointUrl: "" },
+      secretsConfigured: ["awsAccessKeyId", "awsSecretAccessKey"],
+      remark: "",
+    } as unknown as ConnectionProfile;
+
+    const draft = toDraft(profile);
+    if (draft.protocol !== "sqs") throw new Error("expected an sqs draft");
+    expect(draft.value.region).toBe("eu-west-1");
+    expect(draft.value.queuePrefix).toBe("team-orders-");
+    expect(draft.value.credentialsStored).toBe(true);
+    // Secrets never come back from the store; blank plus credentialsStored is
+    // what tells the form to say "kept" rather than "empty".
+    expect(draft.value.accessKeyId).toBe("");
+    expect(draft.value.secretAccessKey).toBe("");
+  });
+
+  // A profile signing with the machine's own identity has no credential to
+  // keep, whatever an earlier edit left in the secret store.
+  it("does not offer to keep a credential a role-based profile will not send", () => {
+    const profile = {
+      id: 10,
+      name: "sqs-role",
+      group: "",
+      kind: MQKind.KindSQS,
+      endpoints: "",
+      timeoutSec: 10,
+      authMechanism: AuthMechanism.AuthNone,
+      options: { region: "eu-west-1" },
+      secretsConfigured: ["awsAccessKeyId"],
+      remark: "",
+    } as unknown as ConnectionProfile;
+
+    const draft = toDraft(profile);
+    if (draft.protocol !== "sqs") throw new Error("expected an sqs draft");
+    expect(draft.value.credentialsStored).toBe(false);
   });
 });
 

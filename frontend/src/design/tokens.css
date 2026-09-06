@@ -114,6 +114,7 @@
   --c-brand-kafka: #231f20;
   --c-brand-mqtt: #660066;
   --c-brand-nsq: #0e7490;
+  --c-brand-sqs: #be185d;
 
   /* the scrim a modal lays over the window */
   --c-scrim: rgba(23, 23, 23, 0.32);
@@ -197,6 +198,7 @@
   --c-brand-kafka: #e4e4e7;
   --c-brand-mqtt: #c4b5fd;
   --c-brand-nsq: #67e8f9;
+  --c-brand-sqs: #f9a8d4;
 
   /* Black rather than the ink: over a dark window, a lighter scrim lifts. */
   --c-scrim: rgba(0, 0, 0, 0.55);
@@ -602,6 +604,7 @@
 .pMQT { background: #ede9fe; color: #6d28d9; }
 .pNAT { background: #d9f7ee; color: #047857; }
 .pNSQ { background: #cffafe; color: #0e7490; }
+.pSQS { background: #fce7f3; color: #be185d; }
 :root.dark .pRMQ { background: #3a1f0c; color: #fdba74; }
 :root.dark .pKFK { background: #26262a; color: #e4e4e7; }
 :root.dark .pAMQ { background: #3a2a08; color: #fcd34d; }
@@ -610,6 +613,7 @@
 :root.dark .pMQT { background: #241a3a; color: #c4b5fd; }
 :root.dark .pNAT { background: #0c2f26; color: #6ee7b7; }
 :root.dark .pNSQ { background: #0b2f36; color: #67e8f9; }
+:root.dark .pSQS { background: #3a1024; color: #f9a8d4; }
 
 /* misc primitives */
 /*

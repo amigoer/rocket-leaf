@@ -20,8 +20,9 @@ import {
   emptyRabbitMQDraft,
   emptyRedisDraft,
   emptyRocketMQDraft,
+  emptySqsDraft,
 } from "./ConnectionForms";
-import { emptyDraft, type ProtocolDraft } from "./connectionDraft";
+import { emptyDraft, toSubmission, type ProtocolDraft } from "./connectionDraft";
 import { countAddresses, draftInvalidReason } from "./connectionValidation";
 
 /** i18n is not initialised here, so a rule's message comes back as its key. */
@@ -121,6 +122,20 @@ const RULES: Record<ProtocolDraft["protocol"], Rules> = {
     bare: { protocol: "nsq", value: { ...emptyNsqDraft(), name: NAME } },
     firstAsk: "page.connections.form.nsq.nsqdRequired",
   },
+  /*
+   * The saveable draft here carries no address, and there is no field it could
+   * have gone in. That is the whole of what this family adds: a region is what
+   * says where the queues are, and the credential pair is optional because a
+   * blank one means the machine's own AWS identity.
+   */
+  sqs: {
+    saveable: {
+      protocol: "sqs",
+      value: { ...emptySqsDraft(), name: NAME, region: "eu-west-1" },
+    },
+    bare: { protocol: "sqs", value: { ...emptySqsDraft(), name: NAME } },
+    firstAsk: "page.connections.form.sqs.regionRequired",
+  },
 };
 
 const PROTOCOLS = Object.keys(RULES) as ProtocolDraft["protocol"][];
@@ -178,6 +193,60 @@ describe("the connection draft's validity", () => {
       },
     };
     expect(draftInvalidReason(dotted, key)).toBe("page.connections.form.rocketmq.namespaceInvalid");
+  });
+
+  /*
+   * The frontend half of the addressless connection.
+   *
+   * Its Go half is internal/driver/sqs's TestDescriptorAsksForNoAddress, which
+   * asserts the driver's form declares no endpoint field. This one asserts the
+   * dialog agrees: an SQS draft with a name and a region and nothing else is
+   * saveable, and what it submits carries an empty address rather than an
+   * invented one.
+   */
+  it("saves an SQS draft that names no address at all", () => {
+    const draft: ProtocolDraft = {
+      protocol: "sqs",
+      value: { ...emptySqsDraft(), name: NAME, region: "eu-west-1" },
+    };
+    expect(draftInvalidReason(draft, key)).toBeNull();
+    expect(toSubmission(draft).draft.endpoints).toBe("");
+    expect(toSubmission(draft).draft.options?.region).toBe("eu-west-1");
+  });
+
+  // Blank is the machine's own AWS identity and is a real choice. Half a pair
+  // is not: falling back to that identity would connect as whoever the machine
+  // is rather than as the account being typed.
+  it("refuses half an AWS credential and accepts none at all", () => {
+    const base = { ...emptySqsDraft(), name: NAME, region: "eu-west-1" };
+    expect(draftInvalidReason({ protocol: "sqs", value: base }, key)).toBeNull();
+    expect(
+      draftInvalidReason({ protocol: "sqs", value: { ...base, accessKeyId: "AKIA" } }, key),
+    ).toBe("page.connections.form.sqs.credentialPairRequired");
+    expect(
+      draftInvalidReason({ protocol: "sqs", value: { ...base, secretAccessKey: "s3cret" } }, key),
+    ).toBe("page.connections.form.sqs.credentialPairRequired");
+    expect(
+      draftInvalidReason(
+        { protocol: "sqs", value: { ...base, accessKeyId: "AKIA", secretAccessKey: "s3cret" } },
+        key,
+      ),
+    ).toBeNull();
+  });
+
+  // The SDK takes the override verbatim, so a bare hostname would be signed as
+  // a relative path and fail somewhere that names neither the field nor why.
+  it("holds the SQS endpoint override to a full URL", () => {
+    const base = { ...emptySqsDraft(), name: NAME, region: "eu-west-1" };
+    expect(
+      draftInvalidReason({ protocol: "sqs", value: { ...base, endpointUrl: "vpce-0abc" } }, key),
+    ).toBe("page.connections.form.sqs.endpointScheme");
+    expect(
+      draftInvalidReason(
+        { protocol: "sqs", value: { ...base, endpointUrl: "https://vpce-0abc.example" } },
+        key,
+      ),
+    ).toBeNull();
   });
 
   // go-redis builds a cluster client the moment it is handed a second address,

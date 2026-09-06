@@ -46,6 +46,9 @@ import {
   OPTION_ACTIVEMQ_TLS_SKIP_VERIFY,
   OPTION_NSQ_LOOKUPD,
   OPTION_NSQ_TLS_SKIP_VERIFY,
+  OPTION_SQS_ENDPOINT_URL,
+  OPTION_SQS_QUEUE_PREFIX,
+  OPTION_SQS_REGION,
   OPTION_NATS_CREDS_FILE,
   OPTION_NATS_JS_DOMAIN,
   OPTION_NATS_MONITOR_URL,
@@ -73,6 +76,7 @@ import {
   emptyKafkaDraft,
   emptyMqttDraft,
   emptyNsqDraft,
+  emptySqsDraft,
   emptyActiveMQDraft,
   emptyNatsDraft,
   emptyPulsarDraft,
@@ -87,6 +91,7 @@ import {
   type MqttTransport,
   type NatsDraft,
   type NsqDraft,
+  type SqsDraft,
   type ActiveMQDraft,
   type ActiveMQMechanism,
   type NatsMechanism,
@@ -113,7 +118,8 @@ export type ProtocolDraft =
   | { protocol: "mqtt"; value: MqttDraft }
   | { protocol: "nats"; value: NatsDraft }
   | { protocol: "activemq"; value: ActiveMQDraft }
-  | { protocol: "nsq"; value: NsqDraft };
+  | { protocol: "nsq"; value: NsqDraft }
+  | { protocol: "sqs"; value: SqsDraft };
 
 /** The protocols this file can build a submission for. */
 export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
@@ -126,6 +132,7 @@ export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
   "nats",
   "activemq",
   "nsq",
+  "sqs",
 ];
 
 export function isDraftable(protocol: ProtocolId): protocol is ProtocolDraft["protocol"] {
@@ -150,6 +157,8 @@ export function emptyDraft(protocol: ProtocolDraft["protocol"]): ProtocolDraft {
       return { protocol, value: emptyActiveMQDraft() };
     case "nsq":
       return { protocol, value: emptyNsqDraft() };
+    case "sqs":
+      return { protocol, value: emptySqsDraft() };
     default:
       return { protocol, value: emptyRocketMQDraft() };
   }
@@ -173,6 +182,8 @@ export function toSubmission(draft: ProtocolDraft): Submission {
       return activeMQSubmission(draft.value);
     case "nsq":
       return nsqSubmission(draft.value);
+    case "sqs":
+      return sqsSubmission(draft.value);
     default:
       return rocketMQSubmission(draft.value);
   }
@@ -197,6 +208,8 @@ export function toDraft(profile: ConnectionProfile): ProtocolDraft {
       return { protocol: "activemq", value: toActiveMQDraft(profile) };
     case MQKind.KindNSQ:
       return { protocol: "nsq", value: toNsqDraft(profile) };
+    case MQKind.KindSQS:
+      return { protocol: "sqs", value: toSqsDraft(profile) };
     default:
       return { protocol: "rocketmq", value: toRocketMQDraft(profile) };
   }
@@ -837,5 +850,80 @@ function toNsqDraft(profile: ConnectionProfile): NsqDraft {
     group: profile.group,
     remark: profile.remark,
     timeoutSec: profile.timeoutSec,
+  };
+}
+
+/*
+ * SQS is the one submission with nothing to put in `endpoints`, and that empty
+ * string is the point of the whole family.
+ *
+ * Every other form here writes an address into it. This one has none to write:
+ * the region is an option, the SDK builds the endpoint from it, and the driver
+ * declares no endpoint field - which is what lets the connection service accept
+ * a profile whose address is blank rather than refusing it as unfinished.
+ *
+ * The credential pair is optional. Absent, the driver uses the machine's own
+ * AWS identity, so an empty pair is a real choice rather than a blank form -
+ * which is why the mechanism drops to none rather than staying plain and
+ * dialling with nothing to sign with.
+ */
+function sqsSubmission(draft: SqsDraft): Submission {
+  const accessKeyId = draft.accessKeyId.trim();
+  const secretAccessKey = draft.secretAccessKey.trim();
+  const sessionToken = draft.sessionToken.trim();
+  const typed = accessKeyId !== "" || secretAccessKey !== "" || sessionToken !== "";
+  const keepStored = draft.credentialsStored && !draft.clearCredentials;
+
+  return {
+    draft: {
+      name: draft.name.trim(),
+      group: draft.group,
+      kind: MQKind.KindSQS,
+      // No address, because there is none. The region below is what says
+      // where the queues are.
+      endpoints: "",
+      timeoutSec: draft.timeoutSec,
+      authMechanism: typed || keepStored ? AuthMechanism.AuthPlain : AuthMechanism.AuthNone,
+      options: {
+        [OPTION_SQS_REGION]: draft.region.trim(),
+        [OPTION_SQS_QUEUE_PREFIX]: draft.queuePrefix.trim(),
+        [OPTION_SQS_ENDPOINT_URL]: draft.endpointUrl.trim(),
+      },
+      secrets: {
+        // Not accessKey and secretKey: those two names are reserved for
+        // RocketMQ's ACL and are cleared on save for any other family.
+        awsAccessKeyId: accessKeyId,
+        awsSecretAccessKey: secretAccessKey,
+        awsSessionToken: sessionToken,
+      },
+      remark: draft.remark,
+    },
+    // "preserve" rather than "replace", for the reason MQTT and NATS have it:
+    // the session token is a third credential on one form, and a user editing
+    // the region would otherwise wipe whichever of the three they did not
+    // retype.
+    credentialsMode: draft.clearCredentials ? "clear" : keepStored ? "preserve" : "replace",
+  };
+}
+
+function toSqsDraft(profile: ConnectionProfile): SqsDraft {
+  return {
+    name: profile.name,
+    region: profile.options?.[OPTION_SQS_REGION] ?? "",
+    // Secrets never come back from the store. Blank with credentialsStored set
+    // is what tells the form to say "kept" rather than "empty".
+    accessKeyId: "",
+    secretAccessKey: "",
+    sessionToken: "",
+    queuePrefix: profile.options?.[OPTION_SQS_QUEUE_PREFIX] ?? "",
+    endpointUrl: profile.options?.[OPTION_SQS_ENDPOINT_URL] ?? "",
+    group: profile.group,
+    remark: profile.remark,
+    timeoutSec: profile.timeoutSec,
+    // A profile signing with the machine's own identity has no credential to
+    // keep, whatever is still sitting in the secret store.
+    credentialsStored:
+      profile.authMechanism === AuthMechanism.AuthPlain && profile.secretsConfigured.length > 0,
+    clearCredentials: false,
   };
 }

@@ -49,10 +49,26 @@ const PROTOCOL_BY_KIND: Partial<Record<MQKind, ProtocolId>> = {
   [MQKind.KindNATS]: "nats",
   [MQKind.KindActiveMQ]: "activemq",
   [MQKind.KindNSQ]: "nsq",
+  [MQKind.KindSQS]: "sqs",
 };
 
 export function protocolOfKind(kind: MQKind): ProtocolId | null {
   return PROTOCOL_BY_KIND[kind] ?? null;
+}
+
+/**
+ * What the address column shows, which is not always an address.
+ *
+ * Every family here but one is reached by dialling something, so the profile's
+ * endpoints field is what identifies it. SQS is reached by naming a region and
+ * signing a request, and its endpoints field is deliberately empty - so a row
+ * that printed it would leave the column blank on a perfectly good connection.
+ * The region is what says where those queues are, and it is what a reader
+ * needs to tell two SQS connections apart.
+ */
+function addressOf(profile: ConnectionProfile): string {
+  if (profile.kind === MQKind.KindSQS) return profile.options?.region ?? "";
+  return profile.endpoints;
 }
 
 /** Only RocketMQ scopes a connection by name today. */
@@ -71,7 +87,7 @@ export function toShellConnection(profile: ConnectionProfile): Connection {
     protocol,
     // A family with no board still names itself; the raw kind is all there is.
     protocolLabel: protocol != null ? PROTOCOLS[protocol].name : profile.kind,
-    address: profile.endpoints,
+    address: addressOf(profile),
     scope: scopeOf(profile),
     status: profile.status === "online" ? "online" : "offline",
     lastUsed: profile.lastCheck,

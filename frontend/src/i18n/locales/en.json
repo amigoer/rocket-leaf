@@ -627,6 +627,22 @@
       "degraded": {
         "lookupdAbsent": "This connection names no nsqlookupd, so there is no discovery tier to describe. Everything else works without one — a single-node NSQ has none at all. Add the nsqlookupd addresses to this connection to see which daemons it is advertising and which topics it knows."
       }
+    },
+    "sqs": {
+      "name": "Amazon SQS",
+      "terms": {
+        "destination": "Queue",
+        "destinationPlural": "Queues",
+        "backlog": "Visible"
+      },
+      "form": {
+        "region": "AWS region",
+        "accessKeyId": "Access key ID",
+        "secretAccessKey": "Secret access key",
+        "sessionToken": "Session token",
+        "queuePrefix": "Queue name prefix",
+        "endpointUrl": "Endpoint override"
+      }
     }
   },
   "shell": {
@@ -803,6 +819,14 @@
         "producer": "Publish",
         "cluster": "Cluster",
         "clients": "Clients",
+        "alerts": "Alerts"
+      },
+      "sqs": {
+        "overview": "Overview",
+        "topics": "Queues",
+        "messages": "Messages",
+        "dlq": "Dead letters",
+        "producer": "Send",
         "alerts": "Alerts"
       }
     }
@@ -1102,6 +1126,23 @@
           "lookupdHint": "The discovery tier: it knows which nsqd holds what and holds nothing itself. Only the cluster's directory list needs it, and a single-node NSQ has none. The HTTP port defaults to 4161.",
           "note": "Two daemons, and no credentials — nsqd's HTTP API takes none",
           "nsqdRequired": "Name at least one nsqd address — a cluster here is the set of them, not one that speaks for the rest."
+        },
+        "sqs": {
+          "region": "AWS region",
+          "regionHint": "Where the queues are. There is no address to type: the SDK resolves sqs.<region>.amazonaws.com, and the request is signed for this region — one signed for another is refused.",
+          "accessKeyId": "Access key ID",
+          "secretAccessKey": "Secret access key",
+          "credentialsHint": "Leave both blank to use this machine's own AWS credentials — environment variables, the shared config file, or an instance or container role.",
+          "sessionToken": "Session token (optional)",
+          "sessionTokenHint": "Only temporary credentials carry one, and it expires with the session. A connection using STS keys stops working when they do.",
+          "queuePrefix": "Queue name prefix (optional)",
+          "queuePrefixHint": "Narrows every listing to queues whose name starts with this. An account's queues belong to everyone using it, and SQS offers no other filter.",
+          "endpointUrl": "Endpoint override (optional)",
+          "endpointUrlHint": "A VPC interface endpoint, or a local emulator. The full URL, scheme included — it is still signed for the region above.",
+          "note": "A region and a credential — there is no broker to address",
+          "regionRequired": "Name an AWS region — it is what says where the queues are, and the request is signed with it.",
+          "credentialPairRequired": "An AWS credential needs both halves. Leave both blank to use this machine's own identity instead.",
+          "endpointScheme": "The endpoint override is a full URL — start it with https:// or http://."
         }
       },
       "deleteTitle": "Delete connection",

@@ -627,6 +627,22 @@
       "degraded": {
         "lookupdAbsent": "这个连接没有填 nsqlookupd，所以没有服务发现层可展示。其余功能都不依赖它——单节点 NSQ 本来就没有。想看它对外通告了哪些 nsqd、知道哪些主题，请在连接里补上 nsqlookupd 地址。"
       }
+    },
+    "sqs": {
+      "name": "Amazon SQS",
+      "terms": {
+        "destination": "队列",
+        "destinationPlural": "队列",
+        "backlog": "可见"
+      },
+      "form": {
+        "region": "AWS 区域",
+        "accessKeyId": "Access Key ID",
+        "secretAccessKey": "Secret Access Key",
+        "sessionToken": "Session Token",
+        "queuePrefix": "队列名前缀",
+        "endpointUrl": "自定义 Endpoint"
+      }
     }
   },
   "shell": {
@@ -803,6 +819,14 @@
         "producer": "发送",
         "cluster": "集群",
         "clients": "客户端",
+        "alerts": "告警"
+      },
+      "sqs": {
+        "overview": "概览",
+        "topics": "队列",
+        "messages": "消息",
+        "dlq": "死信",
+        "producer": "发送",
         "alerts": "告警"
       }
     }
@@ -1102,6 +1126,23 @@
           "lookupdHint": "服务发现层：它知道哪个 nsqd 上有什么，自身不存任何消息。只有集群的目录列表需要它，单节点 NSQ 根本没有。HTTP 端口默认 4161。",
           "note": "两种守护进程，且无需凭据——nsqd 的 HTTP API 不做认证",
           "nsqdRequired": "至少填一个 nsqd 地址——这里的集群是它们的集合，而不是由某一个代表其余。"
+        },
+        "sqs": {
+          "region": "AWS 区域",
+          "regionHint": "队列所在的位置。这里没有地址可填：SDK 会自行解析 sqs.<region>.amazonaws.com，请求也按这个区域签名——按别的区域签名的请求会被拒绝。",
+          "accessKeyId": "Access Key ID",
+          "secretAccessKey": "Secret Access Key",
+          "credentialsHint": "两项都留空，就使用本机自己的 AWS 凭据——环境变量、共享配置文件，或实例、容器角色。",
+          "sessionToken": "Session Token（可选）",
+          "sessionTokenHint": "只有临时凭据才有，且会随会话一起过期。用 STS 密钥的连接在它失效时就会断。",
+          "queuePrefix": "队列名前缀（可选）",
+          "queuePrefixHint": "把所有列表收窄到以此开头的队列。一个账号下的队列属于所有使用它的人，而 SQS 没有别的筛选方式。",
+          "endpointUrl": "自定义 Endpoint（可选）",
+          "endpointUrlHint": "VPC 接口端点，或者本地模拟器。要填完整 URL、带协议头——它仍然按上面的区域签名。",
+          "note": "一个区域加一份凭据——这里没有 Broker 地址可填",
+          "regionRequired": "请填写 AWS 区域——它决定了队列在哪里，请求也用它签名。",
+          "credentialPairRequired": "AWS 凭据要两项一起填。两项都留空则改用本机自己的身份。",
+          "endpointScheme": "自定义 Endpoint 要填完整 URL——请以 https:// 或 http:// 开头。"
         }
       },
       "deleteTitle": "删除连接",
