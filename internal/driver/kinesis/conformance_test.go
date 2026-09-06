@@ -227,3 +227,70 @@ func TestFormLabelsAreTranslationKeys(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * The caveat browsing carries, and - just as importantly - the one it does not.
+ *
+ * Every other hosted family in this app warns that looking at a message takes
+ * it away from a consumer: SQS's ReceiveMessage hides what it read and raises
+ * its receive count, Pub/Sub's Pull does the same and counts towards being
+ * dead-lettered. Neither is true here. GetRecords removes nothing, hides
+ * nothing and marks nothing, and any number of readers can read the same
+ * record until the retention period expires.
+ *
+ * What is true is the other thing, and it is why the capability is not left
+ * bare: a shard allows five GetRecords a second and two megabytes a second,
+ * shared with every classic consumer reading it, so a browse can throttle a
+ * running application without having taken a single record from it.
+ */
+func TestBrowsingWarnsAboutTheReadQuotaAndNotAboutConsuming(t *testing.T) {
+	declared := (&Conn{closed: make(chan struct{})}).declare()
+
+	if !declared.Has(model.CapMessageQuery) {
+		t.Fatal("browsing is not declared at all")
+	}
+	caveat, warned := declared.Caveat(model.CapMessageQuery)
+	if !warned {
+		t.Fatal("browsing is offered with no caveat, and it does spend a shard's read budget")
+	}
+	if caveat != readQuota {
+		t.Errorf("caveat = %q, want %q", caveat, readQuota)
+	}
+	// The SQS and Pub/Sub keys, named so a copied caveat cannot pass: the
+	// consequence they describe does not exist in this family.
+	for _, borrowed := range []string{
+		"mq.sqs.caveat.receiveHides",
+		"mq.google-pubsub.caveat.pullDelivers",
+	} {
+		if caveat == borrowed {
+			t.Errorf("browsing carries %s, which says a read takes the record away; "+
+				"a kinesis read takes nothing", borrowed)
+		}
+	}
+	if _, degraded := declared.DegradedReason(model.CapMessageQuery); degraded {
+		t.Error("browsing is both supported and degraded")
+	}
+}
+
+/*
+ * The caveats cross a language boundary as keys and are resolved by the
+ * renderer, so a sentence here reaches the screen as a sentence in the wrong
+ * language - and the renderer's own key test cannot see them, because it only
+ * scans literal t("...") calls in the frontend source.
+ */
+func TestCaveatsAreTranslationKeys(t *testing.T) {
+	for _, caveat := range []string{readQuota} {
+		if caveat == "" {
+			t.Error("a caveat is empty")
+			continue
+		}
+		if !isTranslationKey(caveat) {
+			t.Errorf("%q is a sentence, not an i18n key", caveat)
+		}
+	}
+}
+
+func isTranslationKey(text string) bool {
+	const prefix = "mq.kinesis."
+	return strings.HasPrefix(text, prefix) && !strings.Contains(text, " ")
+}

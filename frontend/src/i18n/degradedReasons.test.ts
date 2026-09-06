@@ -93,6 +93,10 @@ const CAVEATS: Record<string, string[]> = {
   // so a browse holds what it read away from consumers and raises its delivery
   // attempt, which counts towards being dead-lettered.
   "google-pubsub": ["pullDelivers"],
+  // internal/driver/kinesis/conn.go - and this one says the opposite of the
+  // three above it. A Kinesis read takes nothing; what it spends is the
+  // shard's read allowance, which every consumer on that shard shares.
+  kinesis: ["readQuota"],
 };
 
 type Bundle = Record<string, unknown>;

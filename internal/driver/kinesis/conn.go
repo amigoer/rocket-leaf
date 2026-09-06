@@ -17,6 +17,16 @@ import (
 
 var errConnectionDown = errors.New("kinesis connection is not open")
 
+// Caveats, as i18n keys rather than sentences. The renderer turns them into
+// the user's language; an English frame around one would put the key itself on
+// screen.
+//
+// A caveat is not a degraded reason: the capability works, and doing it has a
+// consequence worth saying out loud.
+const (
+	readQuota = "mq.kinesis.caveat.readQuota"
+)
+
 // Conn is one live connection to one AWS account's Kinesis in one region.
 //
 // "One connection" is a signed client rather than a socket: every call is an
@@ -95,6 +105,9 @@ func capabilities() []model.Capability {
 		model.CapDestinationUpdate,
 		model.CapDestinationDelete,
 		model.CapShards,
+
+		model.CapMessageQuery,
+		model.CapMessageByID,
 	}
 }
 
@@ -128,12 +141,26 @@ func open(ctx context.Context, profile model.ConnectionProfile) (*Conn, error) {
 	return conn, nil
 }
 
-// declare turns what answered into the capability set the pages gate on.
+/*
+ * declare turns what answered into the capability set the pages gate on.
+ *
+ * Nothing here varies by endpoint: Kinesis is one service with one feature set,
+ * and a credential that cannot do something fails the call rather than
+ * narrowing what the connection reports. What there is instead is a caveat,
+ * and it is not the one the other hosted families carry. Browsing takes
+ * nothing: GetRecords removes no record, hides none and marks none, so any
+ * number of readers can read the same one until retention expires. What it
+ * does spend is the shard's read allowance - five GetRecords a second and two
+ * megabytes a second, shared with every classic consumer on that shard - so a
+ * browse can throttle a running application without taking anything from it.
+ */
 func (c *Conn) declare() model.Capabilities {
 	return model.Capabilities{
 		Supported: capabilities(),
 		Degraded:  map[model.Capability]string{},
-		Caveats:   map[model.Capability]string{},
+		Caveats: map[model.Capability]string{
+			model.CapMessageQuery: readQuota,
+		},
 	}
 }
 

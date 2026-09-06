@@ -2,9 +2,14 @@ package kinesis
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awskinesis "github.com/aws/aws-sdk-go-v2/service/kinesis"
+	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
 
 	"github.com/amigoer/mq-studio/internal/e2e"
 	"github.com/amigoer/mq-studio/internal/model"
@@ -341,6 +346,31 @@ func testStream(t *testing.T, conn *Conn, name string, spec StreamSpec) string {
 	return name
 }
 
+// putRaw writes records through the SDK rather than through this driver.
+//
+// A test that is asserting how a browse reads has to put the records there by
+// some other means, or it would be checking the driver against itself.
+func putRaw(t *testing.T, conn *Conn, stream, body string, count int) {
+	t.Helper()
+	records := make([]types.PutRecordsRequestEntry, 0, count)
+	for index := 0; index < count; index++ {
+		records = append(records, types.PutRecordsRequestEntry{
+			Data:         []byte(body),
+			PartitionKey: aws.String(fmt.Sprintf("%s-%d", body, index)),
+		})
+	}
+	out, err := conn.client.PutRecords(liveContext(t), &awskinesis.PutRecordsInput{
+		StreamName: aws.String(stream),
+		Records:    records,
+	})
+	if err != nil {
+		t.Fatalf("PutRecords on %s: %v", stream, err)
+	}
+	if failed := aws.ToInt32(out.FailedRecordCount); failed != 0 {
+		t.Fatalf("%d of %d records were rejected by %s", failed, count, stream)
+	}
+}
+
 /*
  * Create, describe, resize and delete, against the service rather than a mock.
  *
@@ -642,5 +672,295 @@ func TestLiveListShardsRecordsBothParentsOfAMerge(t *testing.T) {
 	}
 	if merged.Closed {
 		t.Error("the shard a merge produced is closed, and it is the one taking writes")
+	}
+}
+
+/*
+ * The claim the caveat rests on, proved rather than assumed.
+ *
+ * Every other hosted family here warns that browsing takes the message away
+ * from a consumer. This asserts the opposite for Kinesis, twice over: two
+ * browses of the same stream return the same records, and a third read of one
+ * shard from the horizon returns them again. If GetRecords ever consumed,
+ * hid, or marked anything, one of the three would come back short.
+ */
+func TestLiveBrowsingTakesNothingAway(t *testing.T) {
+	conn := liveConn(t)
+
+	first, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: seedOrders, MaxResults: 100,
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(first) == 0 {
+		e2e.Missing(t, "%s holds no records; run `npm run e2e:kinesis:seed`", seedOrders)
+	}
+
+	second, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: seedOrders, MaxResults: 100,
+	})
+	if err != nil {
+		t.Fatalf("second QueryMessages: %v", err)
+	}
+	if len(second) != len(first) {
+		t.Fatalf("the second browse returned %d records where the first returned %d; "+
+			"reading a kinesis stream must take nothing", len(second), len(first))
+	}
+	for index := range first {
+		if first[index].MessageID != second[index].MessageID {
+			t.Errorf("record %d is %s on the first browse and %s on the second",
+				index, first[index].MessageID, second[index].MessageID)
+		}
+	}
+
+	// A third read, of one shard, from the beginning: nothing about the first
+	// two moved a cursor the service keeps, because it keeps none.
+	shard := first[0].Properties[PropShardID]
+	again, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic:      seedOrders,
+		MaxResults: 100,
+		Filters:    map[string]string{FilterShardID: shard},
+	})
+	if err != nil {
+		t.Fatalf("browsing %s: %v", shard, err)
+	}
+	if len(again) == 0 {
+		t.Errorf("%s came back empty after two whole-stream browses", shard)
+	}
+}
+
+// A browse reads every shard rather than the first one, which is the whole
+// reason the read is a fan-out: a stream's records are spread by partition key
+// hash, so a page that read one shard would show a third of an even stream.
+func TestLiveBrowsingReadsEveryShard(t *testing.T) {
+	conn := liveConn(t)
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: seedOrders, MaxResults: 200,
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(messages) == 0 {
+		e2e.Missing(t, "%s holds no records; run `npm run e2e:kinesis:seed`", seedOrders)
+	}
+
+	shards := map[string]int{}
+	for _, message := range messages {
+		shard := message.Properties[PropShardID]
+		if shard == "" {
+			t.Errorf("%s carries no shard id, and its sequence number means nothing without one",
+				message.MessageID)
+		}
+		shards[shard]++
+		if !strings.HasPrefix(message.MessageID, shard+":") {
+			t.Errorf("message id %q does not start with its shard", message.MessageID)
+		}
+		if message.Keys == "" {
+			t.Errorf("%s carries no partition key, which is what placed it", message.MessageID)
+		}
+	}
+	if len(shards) < 2 {
+		t.Errorf("every record came from %d shard(s); the seed spreads them over 3", len(shards))
+	}
+	// Newest first, which is what every other browse in this app shows.
+	for index := 1; index < len(messages); index++ {
+		if messages[index-1].StoreTimestamp < messages[index].StoreTimestamp {
+			t.Errorf("record %d arrived before record %d and is listed after it", index-1, index)
+			break
+		}
+	}
+}
+
+/*
+ * A browse of a split stream has to reach the closed parent.
+ *
+ * MQS-SEED-split holds eight records written before the split and six after.
+ * The eight are on a shard that takes no more writes, and a browse that read
+ * only the open shards would show the six and silently lose the rest - which
+ * is the same mistake as hiding a closed shard on the shards page, met here.
+ */
+func TestLiveBrowsingReachesRecordsOnAClosedShard(t *testing.T) {
+	conn := liveConn(t)
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: seedSplit, MaxResults: 200,
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(messages) == 0 {
+		e2e.Missing(t, "%s holds no records; run `npm run e2e:kinesis:seed`", seedSplit)
+	}
+
+	shards, err := conn.ListShards(liveContext(t), model.DestinationRef{Name: seedSplit})
+	if err != nil {
+		t.Fatalf("ListShards: %v", err)
+	}
+	closed := map[string]bool{}
+	for _, shard := range shards {
+		if shard.Closed {
+			closed[shard.ID] = true
+		}
+	}
+
+	var fromClosed int
+	for _, message := range messages {
+		if closed[message.Properties[PropShardID]] {
+			fromClosed++
+		}
+	}
+	if fromClosed == 0 {
+		t.Errorf("none of the %d records came from a closed shard, and the seed wrote 8 "+
+			"before the split", len(messages))
+	}
+	if len(messages) != 14 {
+		t.Errorf("the browse found %d records; the seed wrote 8 before the split and 6 after",
+			len(messages))
+	}
+}
+
+// The pair that addresses a record, exercised both ways: the id a browse
+// produces fetches exactly that record back, and half of it fetches nothing -
+// a sequence number means nothing without the shard that holds it.
+func TestLiveMessageByIDNeedsBothHalvesOfTheID(t *testing.T) {
+	conn := liveConn(t)
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: seedOrders, MaxResults: 5,
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(messages) == 0 {
+		e2e.Missing(t, "%s holds no records; run `npm run e2e:kinesis:seed`", seedOrders)
+	}
+	wanted := messages[0]
+
+	found, err := conn.MessageByID(liveContext(t), seedOrders, wanted.MessageID)
+	if err != nil {
+		t.Fatalf("MessageByID(%s): %v", wanted.MessageID, err)
+	}
+	if found.MessageID != wanted.MessageID {
+		t.Errorf("fetched %s, want %s", found.MessageID, wanted.MessageID)
+	}
+	if found.Body != wanted.Body {
+		t.Errorf("body = %q, want %q", found.Body, wanted.Body)
+	}
+
+	bare := wanted.Properties[PropSequenceNumber]
+	if _, err := conn.MessageByID(liveContext(t), seedOrders, bare); err == nil {
+		t.Error("fetched a record by sequence number alone, which addresses nothing")
+	} else if !strings.Contains(err.Error(), "shard") {
+		t.Errorf("error does not say the shard is missing: %v", err)
+	}
+
+	// The other half of the same fact: a real sequence number offered against
+	// the wrong shard is refused by the service rather than silently reading
+	// from the start of it.
+	other := ""
+	for _, message := range messages {
+		if message.Properties[PropShardID] != wanted.Properties[PropShardID] {
+			other = message.Properties[PropShardID]
+			break
+		}
+	}
+	if other == "" {
+		e2e.Missing(t, "every seeded record landed on one shard; run `npm run e2e:kinesis:seed`")
+	}
+	if _, err := conn.MessageByID(liveContext(t), seedOrders, other+":"+bare); err == nil {
+		t.Errorf("a sequence number from %s was accepted against %s",
+			wanted.Properties[PropShardID], other)
+	}
+}
+
+// A start time moves the iterator rather than filtering afterwards, which is
+// what keeps a narrow search from reading the whole retention period. An end
+// time has to be applied here, because the service has no server-side
+// selection of any kind.
+func TestLiveBrowsingHonoursATimeWindow(t *testing.T) {
+	conn := liveConn(t)
+	name := testStream(t, conn, "MQS-TEST-window", StreamSpec{Shards: 1})
+
+	putRaw(t, conn, name, "early", 3)
+	// A whole second, because the arrival timestamp has millisecond
+	// resolution and AT_TIMESTAMP is inclusive.
+	time.Sleep(time.Second)
+	boundary := time.Now().UTC()
+	time.Sleep(time.Second)
+	putRaw(t, conn, name, "late", 2)
+
+	after, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: name, MaxResults: 50, StartTime: boundary.UnixMilli(),
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages from the boundary: %v", err)
+	}
+	if len(after) != 2 {
+		t.Errorf("a browse from the boundary found %d records, want the 2 written after it",
+			len(after))
+	}
+	for _, message := range after {
+		if message.Body != "late" {
+			t.Errorf("a browse from the boundary returned %q", message.Body)
+		}
+	}
+
+	before, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: name, MaxResults: 50, EndTime: boundary.UnixMilli(),
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages up to the boundary: %v", err)
+	}
+	if len(before) != 3 {
+		t.Errorf("a browse up to the boundary found %d records, want the 3 written before it",
+			len(before))
+	}
+}
+
+/*
+ * What LocalStack cannot exercise, recorded rather than left as a silent hole.
+ *
+ * The caveat on browsing is about the per-shard read allowance: five
+ * GetRecords a second and two megabytes a second, shared with every classic
+ * consumer on that shard. LocalStack reimplements the API rather than running
+ * Amazon's, and it enforces neither - twenty calls in a quarter of a second
+ * all succeed here, where AWS would answer some of them with
+ * ProvisionedThroughputExceededException.
+ *
+ * So this asserts the half that can be asserted: the driver's own budget, five
+ * GetRecords per shard per browse, which is what keeps a page from spending
+ * more than one second of an application's read capacity. If the emulator ever
+ * does enforce the quota, this test is where that shows up - the loop below
+ * would start failing and the driver's handling of the exception would need a
+ * test of its own.
+ */
+func TestLiveLocalStackDoesNotEnforceTheReadQuota(t *testing.T) {
+	conn := liveConn(t)
+
+	if browseCallsPerShard != 5 {
+		t.Errorf("the per-shard call budget is %d; the service allows five GetRecords a second",
+			browseCallsPerShard)
+	}
+
+	// Ten browses of one shard back to back, which is well past the allowance
+	// a real shard has. Every one of them succeeds against the emulator.
+	shard, err := conn.ListShards(liveContext(t), model.DestinationRef{Name: seedOrders})
+	if err != nil {
+		e2e.Missing(t, "%s is not seeded; run `npm run e2e:kinesis:seed` (%v)", seedOrders, err)
+	}
+	for attempt := 0; attempt < 10; attempt++ {
+		_, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+			Topic:      seedOrders,
+			MaxResults: 50,
+			Filters:    map[string]string{FilterShardID: shard[0].ID},
+		})
+		if err == nil {
+			continue
+		}
+		t.Fatalf("browse %d failed: %v\n"+
+			"if this is a throughput error, the emulator now enforces the read quota "+
+			"and the driver's handling of it needs a test rather than this note", attempt, err)
 	}
 }

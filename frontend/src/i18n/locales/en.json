@@ -714,6 +714,9 @@
         "sessionToken": "Session token",
         "streamPrefix": "Stream name prefix",
         "endpointUrl": "Endpoint override"
+      },
+      "caveat": {
+        "readQuota": "Reading a stream takes nothing away: no record is hidden, consumed or marked, and any number of readers can read the same one until it expires. What a read does spend is the shard's allowance — five GetRecords a second and two megabytes a second — which is shared with every classic consumer on that shard, so browsing a busy stream can throttle the applications reading it."
       }
     }
   },
@@ -5298,6 +5301,28 @@
         },
         "closedNote": "This shard takes no more writes, and it is not empty: it keeps the records written before the split or merge until the retention period expires. A consumer that jumped straight to the children skipped them.",
         "note": "Shards are split and merged rather than resized, so a resized stream lists more shards than it has open. Key share is the slice of the hash space a shard takes — records land on the shard whose range covers the hash of their partition key."
+      },
+      "messages": {
+        "title": "Records",
+        "subtitle": "Reading takes nothing away — it spends the shard's read allowance",
+        "pickStream": "Pick a stream",
+        "everyShard": "Every shard",
+        "read": "Read",
+        "found": "{{count}} records",
+        "shard": "Shard",
+        "arrived": "Arrived",
+        "partitionKey": "Partition key",
+        "sequenceNumber": "Sequence number",
+        "encryption": "Encryption",
+        "recordId": "Record",
+        "body": "Body",
+        "section": {
+          "address": "Address"
+        },
+        "addressNote": "A sequence number is unique inside its shard and nowhere else, so the pair above is what addresses this record. A call given the number alone is refused.",
+        "startHere": "Pick a stream and read. Nothing is fetched until you ask.",
+        "nothingThere": "No records in that range. A record is kept for the stream's retention period and then discarded, read or not.",
+        "readNote": "Reading removes nothing: any number of readers can read the same records until they expire. What it does spend is the shard's read allowance — five reads a second and two megabytes a second, shared with every consumer on that shard."
       }
     }
   }
