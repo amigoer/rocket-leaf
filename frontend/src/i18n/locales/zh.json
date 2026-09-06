@@ -4815,6 +4815,32 @@
         "section": {
           "attributes": "属性"
         }
+      },
+      "producer": {
+        "title": "发布",
+        "subtitle": "发往一个主题，以及那一刻订阅它的所有订阅",
+        "topic": "主题",
+        "topicHint": "消息发往的位置。它会被分发给消息到达那一刻已存在的每个订阅；如果一个都没有，就直接丢弃。",
+        "topicRequired": "请选择要发布到的主题。",
+        "body": "消息体",
+        "bodyHint": "原样发送。只要至少有一个属性，消息体也可以留空。",
+        "emptyMessage": "消息需要消息体或至少一个属性——两者都没有会被 Pub/Sub 拒绝。",
+        "count": "份数",
+        "countHint": "把同一条消息发送这么多次，最多 {{max}} 条。",
+        "countRange": "份数请填 1 到 {{max}} 之间。",
+        "orderingKey": "排序键",
+        "orderingKeyHint": "带有相同排序键的消息会按序到达——但仅限于创建时开启了消息有序的订阅。其他地方只是原样携带、不起作用。",
+        "attributes": "属性",
+        "attributesHint": "随消息体一起发送的字符串键值对。它们也是订阅过滤表达式唯一能筛选的东西。",
+        "attributeName": "名称",
+        "attributeValue": "值",
+        "attributeNameRequired": "填了值的属性需要一个名称。",
+        "addAttribute": "添加属性",
+        "send": "发布",
+        "sent": "已发布 {{count}} 条消息",
+        "sentAs": "已发布 {{count}} 条——首条 ID {{id}}",
+        "failed": "发布失败",
+        "noSubscriberWarning": "没有任何订阅指向这个主题。发布会被接受并报告为已发送，而消息会当场被丢弃。"
       }
     }
   }

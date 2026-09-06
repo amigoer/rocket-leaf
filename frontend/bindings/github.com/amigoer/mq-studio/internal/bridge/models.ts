@@ -1069,6 +1069,102 @@ export class ExchangeInput {
 }
 
 /**
+ * GooglePubSubPublishInput is a send as the Pub/Sub console collects it.
+ * 
+ * Deliberately not MessageService.Send's shape. That one takes a topic, tags,
+ * keys and a delay level - RocketMQ's vocabulary, of which a Pub/Sub message
+ * has only the topic. There is no tag and no delay anywhere in the service.
+ */
+export class GooglePubSubPublishInput {
+    "topic": string;
+    "body": string;
+
+    /**
+     * Count sends the same body more than once. One when left at zero.
+     */
+    "count": number;
+
+    /**
+     * Attributes are the publisher's own, and the only thing a subscription
+     * filter can select on - so a send meant for a filtered subscription has
+     * to set them.
+     */
+    "attributes": { [_ in string]?: string };
+
+    /**
+     * OrderingKey groups messages that must arrive in order relative to each
+     * other. It only has an effect on a subscription created with ordering on.
+     */
+    "orderingKey": string;
+
+    /** Creates a new GooglePubSubPublishInput instance. */
+    constructor($$source: Partial<GooglePubSubPublishInput> = {}) {
+        if (!("topic" in $$source)) {
+            this["topic"] = "";
+        }
+        if (!("body" in $$source)) {
+            this["body"] = "";
+        }
+        if (!("count" in $$source)) {
+            this["count"] = 0;
+        }
+        if (!("attributes" in $$source)) {
+            this["attributes"] = {};
+        }
+        if (!("orderingKey" in $$source)) {
+            this["orderingKey"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GooglePubSubPublishInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GooglePubSubPublishInput {
+        const $$createField3_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("attributes" in $$parsedSource) {
+            $$parsedSource["attributes"] = $$createField3_0($$parsedSource["attributes"]);
+        }
+        return new GooglePubSubPublishInput($$parsedSource as Partial<GooglePubSubPublishInput>);
+    }
+}
+
+/**
+ * GooglePubSubPublishResult is what the send did.
+ */
+export class GooglePubSubPublishResult {
+    "sent": number;
+
+    /**
+     * MessageID is the first message's. It addresses nothing - no Pub/Sub call
+     * takes a message id - and is shown so a page can name what it produced.
+     */
+    "messageId": string;
+
+    /** Creates a new GooglePubSubPublishResult instance. */
+    constructor($$source: Partial<GooglePubSubPublishResult> = {}) {
+        if (!("sent" in $$source)) {
+            this["sent"] = 0;
+        }
+        if (!("messageId" in $$source)) {
+            this["messageId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GooglePubSubPublishResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GooglePubSubPublishResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new GooglePubSubPublishResult($$parsedSource as Partial<GooglePubSubPublishResult>);
+    }
+}
+
+/**
  * GooglePubSubSnapshot is a restore point taken from one subscription.
  */
 export class GooglePubSubSnapshot {

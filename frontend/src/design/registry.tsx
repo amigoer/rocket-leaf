@@ -84,6 +84,7 @@ import { SubscriptionsGooglePubSub } from "./boards/consumers/SubscriptionsGoogl
 import { MessagesSqs } from "./boards/messages/MessagesSqs";
 import { MessagesGooglePubSub } from "./boards/messages/MessagesGooglePubSub";
 import { ProducerSqs } from "./boards/producer/ProducerSqs";
+import { ProducerGooglePubSub } from "./boards/producer/ProducerGooglePubSub";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
 import { OverviewSqs } from "./boards/overview/OverviewSqs";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
@@ -256,6 +257,13 @@ export function renderBoard(
        message is ordered within and the id it is deduplicated by - which
        appear and disappear with the queue's name. */
     if (protocol === "sqs") return <ProducerSqs />;
+    /* Pub/Sub's own too: the shared console collects tags and a RocketMQ delay
+       level, and this family has neither - there is no tag on a message and no
+       way anywhere in the service to hold one back. What it needs instead is
+       the attribute table a subscription filter selects on, and a warning the
+       other consoles have no use for: a topic with no subscription accepts
+       every publish and discards it. */
+    if (protocol === "google-pubsub") return <ProducerGooglePubSub />;
     return <Producer protocol={protocol} nav={nav} />;
   }
   /* Alerts is one board for every family: the rules are numeric comparisons

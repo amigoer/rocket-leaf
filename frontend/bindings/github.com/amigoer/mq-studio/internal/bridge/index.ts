@@ -71,6 +71,8 @@ export {
     DriverInfo,
     EntryInput,
     ExchangeInput,
+    GooglePubSubPublishInput,
+    GooglePubSubPublishResult,
     GooglePubSubSnapshot,
     GooglePubSubSubscriptionInput,
     GooglePubSubTopicInput,

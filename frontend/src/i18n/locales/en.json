@@ -4815,6 +4815,32 @@
         "section": {
           "attributes": "Attributes"
         }
+      },
+      "producer": {
+        "title": "Publish",
+        "subtitle": "One topic, and whatever subscribes to it at that instant",
+        "topic": "Topic",
+        "topicHint": "Where the message goes. It is fanned out to every subscription that exists when it arrives, and discarded if there are none.",
+        "topicRequired": "Pick a topic to publish to.",
+        "body": "Body",
+        "bodyHint": "Sent verbatim. It may be left empty as long as there is at least one attribute.",
+        "emptyMessage": "A message needs a body or at least one attribute — Pub/Sub refuses one with neither.",
+        "count": "Copies",
+        "countHint": "Sends the same message this many times, up to {{max}}.",
+        "countRange": "Send between 1 and {{max}} copies.",
+        "orderingKey": "Ordering key",
+        "orderingKeyHint": "Messages sharing a key arrive in order — but only on a subscription created with message ordering on. Elsewhere it is carried and ignored.",
+        "attributes": "Attributes",
+        "attributesHint": "String key/value pairs beside the body. They are also the only thing a subscription filter can select on.",
+        "attributeName": "Name",
+        "attributeValue": "Value",
+        "attributeNameRequired": "An attribute with a value needs a name.",
+        "addAttribute": "Add attribute",
+        "send": "Publish",
+        "sent": "Published {{count}} message(s)",
+        "sentAs": "Published {{count}} — first id {{id}}",
+        "failed": "Could not publish",
+        "noSubscriberWarning": "Nothing subscribes to this topic. The publish will be accepted and reported as sent, and the message discarded on the spot."
       }
     }
   }

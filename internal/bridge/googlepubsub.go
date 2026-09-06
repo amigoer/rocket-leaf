@@ -195,3 +195,51 @@ func (s *GooglePubSubService) RemoveSnapshot(connID int, name string) error {
 func (s *GooglePubSubService) SeekToSnapshot(connID int, subscription, snapshot string) error {
 	return s.service.SeekToSnapshot(context.Background(), connID, subscription, snapshot)
 }
+
+// GooglePubSubPublishInput is a send as the Pub/Sub console collects it.
+//
+// Deliberately not MessageService.Send's shape. That one takes a topic, tags,
+// keys and a delay level - RocketMQ's vocabulary, of which a Pub/Sub message
+// has only the topic. There is no tag and no delay anywhere in the service.
+type GooglePubSubPublishInput struct {
+	Topic string `json:"topic"`
+	Body  string `json:"body"`
+	// Count sends the same body more than once. One when left at zero.
+	Count int `json:"count"`
+	// Attributes are the publisher's own, and the only thing a subscription
+	// filter can select on - so a send meant for a filtered subscription has
+	// to set them.
+	Attributes map[string]string `json:"attributes"`
+	// OrderingKey groups messages that must arrive in order relative to each
+	// other. It only has an effect on a subscription created with ordering on.
+	OrderingKey string `json:"orderingKey"`
+}
+
+// GooglePubSubPublishResult is what the send did.
+type GooglePubSubPublishResult struct {
+	Sent int `json:"sent"`
+	// MessageID is the first message's. It addresses nothing - no Pub/Sub call
+	// takes a message id - and is shown so a page can name what it produced.
+	MessageID string `json:"messageId"`
+}
+
+// Publish sends to one topic and reports how many the service accepted.
+//
+// Accepted is not delivered. A topic stores nothing: the publish reaches
+// whatever subscriptions exist at that instant and is discarded if none do,
+// and the service reports success either way.
+func (s *GooglePubSubService) Publish(
+	connID int, input GooglePubSubPublishInput,
+) (*GooglePubSubPublishResult, error) {
+	result, err := s.service.Publish(context.Background(), connID, pubsubdriver.PublishRequest{
+		Topic:       input.Topic,
+		Body:        input.Body,
+		Count:       input.Count,
+		Attributes:  input.Attributes,
+		OrderingKey: input.OrderingKey,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &GooglePubSubPublishResult{Sent: result.Sent, MessageID: result.MessageID}, nil
+}

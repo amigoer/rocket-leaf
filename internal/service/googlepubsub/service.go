@@ -218,3 +218,22 @@ func (s *Service) SeekToSnapshot(ctx context.Context, connID int, subscription, 
 		Position: snapshot,
 	})
 }
+
+// Publish sends one body, or the same body several times, to one topic.
+//
+// Beside the canonical send rather than through it: MessageService.Send
+// collects a topic, tags, keys and a delay level - RocketMQ's vocabulary, of
+// which a Pub/Sub message has only the topic. What it has that the canonical
+// shape cannot carry is a table of named attributes, which is also the only
+// thing a subscription filter can select on, and an ordering key.
+func (s *Service) Publish(
+	ctx context.Context, connID int, request pubsubdriver.PublishRequest,
+) (*pubsubdriver.PublishResult, error) {
+	api, err := s.pubsubConn(connID, model.CapPublish)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.Publish(ctx, request)
+}

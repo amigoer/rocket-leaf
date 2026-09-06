@@ -1,12 +1,20 @@
 import { GooglePubSubService } from "@bindings/bridge";
 import type {
+  GooglePubSubPublishInput,
+  GooglePubSubPublishResult,
   GooglePubSubSnapshot,
   GooglePubSubSubscriptionInput,
   GooglePubSubTopicInput,
 } from "@bindings/bridge/models";
-import { present } from "./client";
+import { present, required } from "./client";
 
-export type { GooglePubSubSnapshot, GooglePubSubSubscriptionInput, GooglePubSubTopicInput };
+export type {
+  GooglePubSubPublishInput,
+  GooglePubSubPublishResult,
+  GooglePubSubSnapshot,
+  GooglePubSubSubscriptionInput,
+  GooglePubSubTopicInput,
+};
 
 /**
  * The Pub/Sub-only half of the surface.
@@ -106,3 +114,16 @@ export const seekToSnapshot = (
   subscription: string,
   snapshot: string,
 ): Promise<void> => GooglePubSubService.SeekToSnapshot(connID, subscription, snapshot);
+
+/**
+ * Send one body, or the same body several times, to one topic.
+ *
+ * Accepted is not delivered: a topic stores nothing, so the publish reaches
+ * whatever subscriptions exist at that instant and is discarded if none do,
+ * and the service reports success either way.
+ */
+export const publish = (
+  connID: number,
+  input: GooglePubSubPublishInput,
+): Promise<GooglePubSubPublishResult> =>
+  GooglePubSubService.Publish(connID, input).then(required);

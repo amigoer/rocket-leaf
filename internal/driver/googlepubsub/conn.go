@@ -122,6 +122,8 @@ func capabilities() []model.Capability {
 		model.CapOffsetReset,
 
 		model.CapMessageQuery,
+
+		model.CapPublish,
 	}
 }
 

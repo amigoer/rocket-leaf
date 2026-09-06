@@ -1036,3 +1036,165 @@ func TestLiveBrowsingAnEmptySubscriptionReturnsPromptly(t *testing.T) {
 			elapsed.Round(time.Second))
 	}
 }
+
+/*
+ * Publishing, and the thing about it that no other family here shares.
+ *
+ * A topic stores nothing. The publish reaches whatever subscriptions exist at
+ * that instant and is discarded if none do, and the service reports success
+ * either way - so a send to an unsubscribed topic is accepted, acknowledged
+ * and thrown away with nothing anywhere recording that it happened.
+ */
+func TestLivePublishReachesEverySubscriptionAndNoneAtAll(t *testing.T) {
+	conn := liveConn(t)
+	topic := "mqs-test-publish-topic"
+	first := "mqs-test-publish-a"
+	second := "mqs-test-publish-b"
+	lonely := "mqs-test-publish-lonely"
+	for _, name := range []string{first, second} {
+		_ = conn.RemoveSubscription(liveContext(t), model.SubscriptionRef{Name: name})
+	}
+	_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: topic})
+	_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: lonely})
+	createTopic(t, conn, TopicSpec{Name: topic})
+	createTopic(t, conn, TopicSpec{Name: lonely})
+	createSubscription(t, conn, SubscriptionSpec{Name: first, Topic: topic, AckDeadlineSec: 60})
+	createSubscription(t, conn, SubscriptionSpec{Name: second, Topic: topic, AckDeadlineSec: 60})
+
+	result, err := conn.Publish(liveContext(t), PublishRequest{
+		Topic:      topic,
+		Body:       "publish-fan-out",
+		Count:      3,
+		Attributes: map[string]string{"kind": "test"},
+	})
+	if err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if result.Sent != 3 {
+		t.Errorf("sent = %d, want 3", result.Sent)
+	}
+	if result.MessageID == "" {
+		t.Error("the send reports no message id at all")
+	}
+
+	// Every subscription gets its own copy: three messages published, three
+	// waiting on each of two subscriptions.
+	for _, name := range []string{first, second} {
+		items, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+			Topic:      name,
+			MaxResults: 10,
+		})
+		if err != nil {
+			t.Fatalf("browse %s: %v", name, err)
+		}
+		if len(items) != 3 {
+			t.Errorf("%s holds %d messages, want its own copy of all 3", name, len(items))
+		}
+		for _, item := range items {
+			if item.Properties[PropAttributePrefix+"kind"] != "test" {
+				t.Errorf("%s lost the attribute the send set: %v", name, item.Properties)
+			}
+		}
+	}
+
+	// And the other half: a topic nothing subscribes to accepts the message
+	// and reports success, and there is nowhere afterwards it can be found.
+	discarded, err := conn.Publish(liveContext(t), PublishRequest{
+		Topic: lonely,
+		Body:  "into-the-void",
+	})
+	if err != nil {
+		t.Fatalf("publish to an unsubscribed topic: %v", err)
+	}
+	if discarded.Sent != 1 {
+		t.Errorf("sent = %d to a topic nothing reads, want the service's own success", discarded.Sent)
+	}
+}
+
+// An ordering key needs the publisher to expect one, and the client's own
+// refusal names an internal flag rather than the field a console draws.
+func TestLivePublishCarriesAnOrderingKey(t *testing.T) {
+	conn := liveConn(t)
+	topic := "mqs-test-ordering-topic"
+	name := "mqs-test-ordering-reader"
+	_ = conn.RemoveSubscription(liveContext(t), model.SubscriptionRef{Name: name})
+	_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: topic})
+	createTopic(t, conn, TopicSpec{Name: topic})
+	createSubscription(t, conn, SubscriptionSpec{
+		Name: name, Topic: topic, AckDeadlineSec: 60, Ordering: true,
+	})
+
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Topic:       topic,
+		Body:        "ordered",
+		Count:       2,
+		OrderingKey: "customer-1",
+	}); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+
+	items, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic:      name,
+		MaxResults: 10,
+	})
+	if err != nil {
+		t.Fatalf("browse: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("browsed %d messages, want 2", len(items))
+	}
+	for _, item := range items {
+		if item.Properties[PropOrderingKey] != "customer-1" {
+			t.Errorf("message %s lost its ordering key: %v", item.MessageID, item.Properties)
+		}
+		// The canonical keys field is where a reader groups by, which is the
+		// nearest thing RocketMQ's has to an ordering key.
+		if item.Keys != "customer-1" {
+			t.Errorf("message %s reports keys %q, want the ordering key", item.MessageID, item.Keys)
+		}
+	}
+}
+
+/*
+ * What the canonical send port cannot carry, refused rather than dropped.
+ *
+ * MessagePublisher's signature is RocketMQ's: a topic, tags, keys and a delay
+ * level. Pub/Sub has the topic and the key; a tag would be silently discarded,
+ * and a delay would be reported as holding a message back that went out at
+ * once - the service has no way to hold one at all.
+ */
+func TestLiveSendMessageRefusesWhatPubSubHasNoConceptOf(t *testing.T) {
+	conn := liveConn(t)
+	topic := "mqs-test-send-topic"
+	_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: topic})
+	createTopic(t, conn, TopicSpec{Name: topic})
+
+	if _, err := conn.SendMessage(liveContext(t), topic, "orders", "", "body", 0); err == nil {
+		t.Error("accepted a tag, which a pub/sub message cannot carry")
+	}
+	if _, err := conn.SendMessage(liveContext(t), topic, "", "", "body", 30); err == nil {
+		t.Error("accepted a delay, and pub/sub cannot hold a message back")
+	}
+
+	id, err := conn.SendMessage(liveContext(t), topic, "", "", "plain", 0)
+	if err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	if id == "" {
+		t.Error("the send reports no message id")
+	}
+
+	// A message with neither a body nor an attribute is refused here, because
+	// the service's own refusal names no field at all.
+	if _, err := conn.Publish(liveContext(t), PublishRequest{Topic: topic}); err == nil {
+		t.Error("accepted a message with no body and no attributes")
+	}
+	// One with only attributes is fine, and is how a filtered subscription is
+	// exercised without a payload.
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Topic:      topic,
+		Attributes: map[string]string{"kind": "signal"},
+	}); err != nil {
+		t.Errorf("refused a message carrying only attributes: %v", err)
+	}
+}

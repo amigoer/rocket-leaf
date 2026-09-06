@@ -47,6 +47,19 @@ export function ListSnapshots(connID: number): $CancellablePromise<$models.Googl
 }
 
 /**
+ * Publish sends to one topic and reports how many the service accepted.
+ * 
+ * Accepted is not delivered. A topic stores nothing: the publish reaches
+ * whatever subscriptions exist at that instant and is discarded if none do,
+ * and the service reports success either way.
+ */
+export function Publish(connID: number, input: $models.GooglePubSubPublishInput): $CancellablePromise<$models.GooglePubSubPublishResult | null> {
+    return $Call.ByID(1147653366, connID, input).then(($result: any) => {
+        return $$createType3($result);
+    });
+}
+
+/**
  * RemoveSnapshot deletes a restore point, and with it the reason the topic was
  * holding everything it could restore.
  */
@@ -100,3 +113,5 @@ export function UpdateTopic(connID: number, input: $models.GooglePubSubTopicInpu
 // Private type creation functions
 const $$createType0 = $models.GooglePubSubSnapshot.createFrom;
 const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = $models.GooglePubSubPublishResult.createFrom;
+const $$createType3 = $Create.Nullable($$createType2);
