@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Page, PageBody, PageHeader, RefreshButton } from "@/design/shell";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -10,11 +12,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KV, Panel, PanelHeader, SectionLabel } from "@/components";
+import { KV, Panel, PanelHeader, SectionLabel, useConfirm } from "@/components";
 import { BoardState } from "@/design/boards/BoardState";
 import { useIbmMqDestinations } from "@/hooks/ibmmq/useIbmMqDestinations";
-import { destination as readDestination, inhibited } from "@/mq/ibmmq/destinations";
+import {
+  destination as readDestination,
+  inhibited,
+  type IbmMqDestination,
+} from "@/mq/ibmmq/destinations";
 import { formatCount } from "@/lib/format";
+import { formatErrorMessage } from "@/lib/utils";
+import { useConnectionScope } from "@/mq/ConnectionScope";
+import * as ibmmqApi from "@/api/ibmmq";
+import { QueueDialogIbmMq } from "./QueueDialogIbmMq";
 
 const MONO11 = { fontSize: "11px" } as const;
 
@@ -47,8 +57,11 @@ function count(value: number | null): string {
 export function QueuesIbmMq() {
   const { t } = useTranslation();
   const state = useIbmMqDestinations();
+  const { id: connID } = useConnectionScope();
+  const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
 
   const destinations = useMemo(() => (state.data ?? []).map(readDestination), [state.data]);
 
@@ -67,6 +80,47 @@ export function QueuesIbmMq() {
     [shown, selected],
   );
 
+  const create = useCallback(
+    async (input: ibmmqApi.IBMMQDestinationInput) => {
+      await ibmmqApi.createDestination(connID, input);
+      toast.success(t("board.ibmmq.queues.created", { name: input.name }));
+      await state.refresh();
+    },
+    [connID, state, t],
+  );
+
+  /*
+   * The confirmation asks twice on a queue that holds messages, and the second
+   * question is a different one. The queue manager refuses to delete a queue
+   * with a depth, so deleting one means saying the messages go too - and they
+   * are gone, not moved to the dead-letter queue.
+   */
+  const remove = useCallback(
+    async (entry: IbmMqDestination) => {
+      const holding = entry.kind === "queue" && (entry.depth ?? 0) > 0;
+      const ok = await confirm({
+        title: t("board.ibmmq.queues.deleteTitle", { name: entry.name }),
+        description: holding
+          ? t("board.ibmmq.queues.deleteHolding", { count: entry.depth ?? 0 })
+          : t("board.ibmmq.queues.deleteDesc"),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await ibmmqApi.removeDestination(connID, entry.name, holding);
+        toast.success(t("board.ibmmq.queues.deleted", { name: entry.name }));
+        setSelected(null);
+        await state.refresh();
+      } catch (deleteError) {
+        toast.error(t("board.ibmmq.queues.deleteFailed"), {
+          description: formatErrorMessage(deleteError),
+        });
+      }
+    },
+    [confirm, connID, state, t],
+  );
+
   return (
     <Page>
       <PageHeader
@@ -80,6 +134,9 @@ export function QueuesIbmMq() {
               placeholder={t("board.ibmmq.queues.search")}
               onChange={(event) => setSearch(event.target.value)}
             />
+            <Button size="sm" onClick={() => setFormOpen(true)}>
+              {t("board.ibmmq.queues.create")}
+            </Button>
             <RefreshButton
               refreshing={state.refreshing}
               online={state.online}
@@ -88,6 +145,7 @@ export function QueuesIbmMq() {
           </div>
         }
       />
+      <QueueDialogIbmMq open={formOpen} onOpenChange={setFormOpen} onSubmit={create} />
       <BoardState state={state}>
         <PageBody>
           <div style={{ display: "flex", gap: "12px", minHeight: 0, flex: 1 }}>
@@ -156,7 +214,14 @@ export function QueuesIbmMq() {
 
             {detail != null && (
               <Panel style={{ width: "320px", overflow: "auto" }}>
-                <PanelHeader title={detail.name} />
+                <PanelHeader
+                  title={detail.name}
+                  action={
+                    <Button size="sm" variant="outline" onClick={() => void remove(detail)}>
+                      {t("common.delete")}
+                    </Button>
+                  }
+                />
                 <div style={{ padding: "10px 12px", display: "grid", gap: "8px" }}>
                   <SectionLabel>{t("board.ibmmq.queues.section.definition")}</SectionLabel>
                   <KV

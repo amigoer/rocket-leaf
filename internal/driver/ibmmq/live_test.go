@@ -474,3 +474,174 @@ func TestLiveDestinationDetailAnswersForATopicToo(t *testing.T) {
 		t.Error("a name nothing has came back as a destination")
 	}
 }
+
+/*
+ * A queue round trip through the REST resource, and a topic through MQSC.
+ *
+ * Both halves are here because they are two different code paths to the same
+ * button: a driver that only ever created queues would pass a test that
+ * created one, and the topic path would fail the first time somebody used it.
+ */
+func TestLiveCreateAndRemoveAQueueAndATopic(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	const queue = "MQS.TEST.CREATED.QUEUE"
+	const topic = "MQS.TEST.CREATED.TOPIC"
+	const topicString = "mq/studio/test/created"
+
+	// Left behind by an interrupted run, which would otherwise fail the create.
+	_ = conn.RemoveQueueGuarded(ctx, model.DestinationRef{Name: queue}, true, false)
+	_ = conn.RemoveDestination(ctx, model.DestinationRef{Name: topic})
+
+	if err := conn.CreateDestination(ctx, model.DestinationSpec{
+		Ref: model.DestinationRef{Name: queue},
+		Attributes: map[string]string{
+			AttrKind:        KindQueue,
+			AttrQueueType:   "local",
+			AttrMaxDepth:    "1234",
+			AttrDescription: "made by the live test",
+		},
+	}); err != nil {
+		t.Fatalf("CreateDestination(queue): %v", err)
+	}
+	t.Cleanup(func() {
+		_ = conn.RemoveQueueGuarded(context.Background(), model.DestinationRef{Name: queue}, true, false)
+	})
+
+	made, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: queue})
+	if err != nil {
+		t.Fatalf("DestinationDetail(%s): %v", queue, err)
+	}
+	if made.Attribute(AttrMaxDepth) != "1234" {
+		t.Errorf("%s has maximum depth %q, want the 1234 the create asked for",
+			queue, made.Attribute(AttrMaxDepth))
+	}
+	if made.Attribute(AttrDescription) != "made by the live test" {
+		t.Errorf("%s carries description %q", queue, made.Attribute(AttrDescription))
+	}
+
+	if err := conn.CreateDestination(ctx, model.DestinationSpec{
+		Ref: model.DestinationRef{Name: topic},
+		Attributes: map[string]string{
+			AttrKind:        KindTopic,
+			AttrTopicString: topicString,
+		},
+	}); err != nil {
+		t.Fatalf("CreateDestination(topic): %v", err)
+	}
+	t.Cleanup(func() {
+		_ = conn.RemoveDestination(context.Background(), model.DestinationRef{Name: topic})
+	})
+
+	madeTopic, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: topic})
+	if err != nil {
+		t.Fatalf("DestinationDetail(%s): %v", topic, err)
+	}
+	if madeTopic.Attribute(AttrTopicString) != topicString {
+		t.Errorf("%s carries topic string %q, want %q",
+			topic, madeTopic.Attribute(AttrTopicString), topicString)
+	}
+
+	// The delete has to find each one through the right interface, which is
+	// the half a name alone cannot decide.
+	if err := conn.RemoveDestination(ctx, model.DestinationRef{Name: topic}); err != nil {
+		t.Errorf("RemoveDestination(topic): %v", err)
+	}
+	if err := conn.RemoveDestination(ctx, model.DestinationRef{Name: queue}); err != nil {
+		t.Errorf("RemoveDestination(queue): %v", err)
+	}
+	if _, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: queue}); err == nil {
+		t.Errorf("%s is still there after being deleted", queue)
+	}
+}
+
+// A topic without a string would be an object nobody publishes through, so it
+// is refused here rather than created and then wondered about.
+func TestLiveCreateRefusesATopicWithNoTopicString(t *testing.T) {
+	conn := liveConn(t)
+
+	err := conn.CreateDestination(liveContext(t), model.DestinationSpec{
+		Ref:        model.DestinationRef{Name: "MQS.TEST.NOSTRING"},
+		Attributes: map[string]string{AttrKind: KindTopic},
+	})
+	if err == nil {
+		_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: "MQS.TEST.NOSTRING"})
+		t.Fatal("created a topic object with no topic string")
+	}
+}
+
+/*
+ * A name the queue manager could never take is refused where the message can
+ * still name the field.
+ *
+ * The command server's own refusal is a syntax error at a character position,
+ * which reads as a broken driver rather than as a name that was never allowed.
+ */
+func TestLiveCreateRefusesANameIBMMQCannotHave(t *testing.T) {
+	conn := liveConn(t)
+
+	for _, name := range []string{"MQS TEST SPACES", strings.Repeat("Q", 49), "MQS-TEST-DASH"} {
+		err := conn.CreateDestination(liveContext(t), model.DestinationSpec{
+			Ref:        model.DestinationRef{Name: name},
+			Attributes: map[string]string{AttrKind: KindQueue},
+		})
+		if err == nil {
+			_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: name})
+			t.Errorf("created a queue named %q", name)
+		}
+	}
+}
+
+/*
+ * Deleting a queue that holds messages is refused, and the refusal is the
+ * queue manager's own.
+ *
+ * That default is worth pinning: it is the difference between a delete that
+ * discards a backlog nobody meant to lose and one that stops and asks. The
+ * purge path is the caller saying it knows, and it is the only thing in this
+ * driver that throws data away.
+ */
+func TestLiveDeletingAQueueWithMessagesNeedsAsking(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	const queue = "MQS.TEST.HOLDING"
+	_ = conn.RemoveQueueGuarded(ctx, model.DestinationRef{Name: queue}, true, false)
+	if err := conn.CreateDestination(ctx, model.DestinationSpec{
+		Ref:        model.DestinationRef{Name: queue},
+		Attributes: map[string]string{AttrKind: KindQueue, AttrQueueType: "local"},
+	}); err != nil {
+		t.Fatalf("CreateDestination: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = conn.RemoveQueueGuarded(context.Background(), model.DestinationRef{Name: queue}, true, false)
+	})
+
+	// Put one message on it through the same interface the send console uses,
+	// so the depth is real rather than simulated.
+	if err := c8put(t, conn, queue, "holding"); err != nil {
+		t.Fatalf("putting a message on %s: %v", queue, err)
+	}
+
+	if err := conn.RemoveDestination(ctx, model.DestinationRef{Name: queue}); err == nil {
+		t.Fatal("deleted a queue holding a message without being asked to discard it")
+	}
+	if err := conn.RemoveQueueGuarded(ctx, model.DestinationRef{Name: queue}, true, false); err != nil {
+		t.Fatalf("RemoveQueueGuarded(purge): %v", err)
+	}
+	if _, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: queue}); err == nil {
+		t.Error("the queue survived a purging delete")
+	}
+}
+
+// c8put writes one message through the messaging interface, which is what the
+// live tests use whenever a queue needs a depth they did not fake.
+func c8put(t *testing.T, conn *Conn, queue, body string) error {
+	t.Helper()
+	_, err := conn.rest.messagingPost(
+		liveContext(t),
+		"/qmgr/"+conn.qmgr+"/queue/"+queue+"/message",
+		"text/plain;charset=utf-8", []byte(body), nil)
+	return err
+}

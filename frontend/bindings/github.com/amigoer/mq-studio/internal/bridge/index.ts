@@ -9,6 +9,7 @@ import * as ConnectionService from "./connectionservice.js";
 import * as ConsumerService from "./consumerservice.js";
 import * as DriverService from "./driverservice.js";
 import * as GooglePubSubService from "./googlepubsubservice.js";
+import * as IBMMQService from "./ibmmqservice.js";
 import * as KafkaService from "./kafkaservice.js";
 import * as KinesisService from "./kinesisservice.js";
 import * as MQTTService from "./mqttservice.js";
@@ -35,6 +36,7 @@ export {
     ConsumerService,
     DriverService,
     GooglePubSubService,
+    IBMMQService,
     KafkaService,
     KinesisService,
     MQTTService,
@@ -86,6 +88,7 @@ export {
     GooglePubSubSubscriptionInput,
     GooglePubSubTopicInput,
     GroupInput,
+    IBMMQDestinationInput,
     IdentityInput,
     KafkaTopicInput,
     KinesisPublishInput,

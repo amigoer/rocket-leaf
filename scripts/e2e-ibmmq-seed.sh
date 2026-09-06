@@ -214,10 +214,12 @@ for queue in QUEUES:
     define("qlocal", queue)
 print(f"  queues: {', '.join(QUEUES)}")
 
-# The image grants its app account authority on DEV.** only, and these objects
-# are not under it. The grant is the same shape the image's own dev config
-# uses, and it is what lets the messaging interface browse and put here at all.
-run_command("SET AUTHREC PROFILE('MQS.SEED.**') PRINCIPAL('app') "
+# The image grants its app account authority on DEV.** only, and nothing here
+# is under it. The grant covers MQS.** rather than MQS.SEED.** because the live
+# tests create MQS.TEST.* queues of their own and put messages on them through
+# the same interface. It is the same shape the image's own dev config uses, and
+# it is what lets the messaging interface browse and put here at all.
+run_command("SET AUTHREC PROFILE('MQS.**') PRINCIPAL('app') "
             "OBJTYPE(QUEUE) AUTHADD(BROWSE,GET,INQ,PUT,DSP)")
 run_command("REFRESH SECURITY(*) TYPE(AUTHSERV)")
 

@@ -5493,7 +5493,27 @@
           "runtime": "Runtime",
           "handling": "Failure handling"
         },
-        "note": "No rates: the queue manager reports what a queue holds and when it was last touched, not how fast it is moving. Alias and remote definitions hold nothing, so every figure on those rows is blank — they are listed because they are where a message goes next."
+        "note": "No rates: the queue manager reports what a queue holds and when it was last touched, not how fast it is moving. Alias and remote definitions hold nothing, so every figure on those rows is blank — they are listed because they are where a message goes next.",
+        "create": "New object",
+        "createTitle": "New queue or topic",
+        "kind": "Object",
+        "kindQueue": "queue",
+        "kindHint": "A queue stores messages until something reads them. A topic matches publications against subscriptions and stores nothing itself.",
+        "nameHint": "Up to 48 characters of letters, digits and . _ / % — no spaces. SYSTEM. is reserved by the queue manager.",
+        "nameProblem": {
+          "empty": "Give the object a name.",
+          "tooLong": "An IBM MQ object name is at most 48 characters.",
+          "characters": "An IBM MQ object name takes letters, digits and . _ / % only — no spaces."
+        },
+        "typeHint": "Only a local queue stores messages. An alias and a remote definition resolve somewhere else; a model queue is a template dynamic queues are copied from.",
+        "maxDepthHint": "How many messages the queue will hold before it refuses more. Blank leaves the queue manager's default.",
+        "topicStringHint": "What publishers name, and it is not the object's name above. The object is where this string's settings live, and two objects covering overlapping strings is ordinary.",
+        "created": "Created {{name}}",
+        "deleted": "Deleted {{name}}",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "The definition is removed. A queue an application currently has open is refused by the queue manager.",
+        "deleteHolding": "This queue holds {{count}} messages and they go with it. They are discarded rather than moved to the dead-letter queue, and there is no undo.",
+        "deleteFailed": "Could not delete"
       }
     }
   }

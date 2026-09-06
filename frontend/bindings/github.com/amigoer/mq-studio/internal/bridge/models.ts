@@ -1830,6 +1830,75 @@ export class GroupInput {
 }
 
 /**
+ * IBMMQDestinationInput is a queue or a topic as the form collects it.
+ * 
+ * Deliberately not TopicService.Create's shape. That one takes a broker
+ * address, two queue counts and a permission string - RocketMQ's vocabulary,
+ * of which neither an MQ queue nor an MQ topic has any.
+ */
+export class IBMMQDestinationInput {
+    "name": string;
+
+    /**
+     * Kind is "queue" or "topic", and it decides which interface the create
+     * goes through: a queue is a REST resource and a topic is MQSC.
+     */
+    "kind": string;
+
+    /**
+     * QueueType is local, alias, remote or model. Only a local queue stores
+     * anything; the rest resolve somewhere else.
+     */
+    "queueType": string;
+
+    /**
+     * MaxDepth caps how many messages a local queue will hold. Zero leaves the
+     * queue manager's own default, which is 5000 on a fresh installation.
+     */
+    "maxDepth": number;
+
+    /**
+     * TopicString is what publishers name, and it is required on a topic. It
+     * is not the object's name: the object is where that string's settings are
+     * attached, and two objects covering overlapping strings is ordinary.
+     */
+    "topicString": string;
+    "description": string;
+
+    /** Creates a new IBMMQDestinationInput instance. */
+    constructor($$source: Partial<IBMMQDestinationInput> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("kind" in $$source)) {
+            this["kind"] = "";
+        }
+        if (!("queueType" in $$source)) {
+            this["queueType"] = "";
+        }
+        if (!("maxDepth" in $$source)) {
+            this["maxDepth"] = 0;
+        }
+        if (!("topicString" in $$source)) {
+            this["topicString"] = "";
+        }
+        if (!("description" in $$source)) {
+            this["description"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new IBMMQDestinationInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): IBMMQDestinationInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new IBMMQDestinationInput($$parsedSource as Partial<IBMMQDestinationInput>);
+    }
+}
+
+/**
  * IdentityInput creates or updates a user.
  */
 export class IdentityInput {

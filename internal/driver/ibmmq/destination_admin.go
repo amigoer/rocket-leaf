@@ -150,7 +150,9 @@ func (c *Conn) createTopic(ctx context.Context, name string, spec model.Destinat
 			"and it is not the topic object's own name")
 	}
 
-	parameters := map[string]any{"topicstr": topicString, "replace": "no"}
+	// No REPLACE: this is a create, and DEFINE with REPLACE would silently
+	// rewrite a topic somebody else made under the same name.
+	parameters := map[string]any{"topicstr": topicString}
 	if description := spec.Attributes[AttrDescription]; description != "" {
 		parameters["descr"] = description
 	}
