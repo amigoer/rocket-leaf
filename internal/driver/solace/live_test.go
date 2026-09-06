@@ -690,3 +690,145 @@ func waitForDepth(t *testing.T, conn *Conn, queue string, want int64) error {
 	}
 	return fmt.Errorf("depth stayed at %d, want %d", last, want)
 }
+
+/*
+ * The Message VPN as a scope, which is what the sidebar's switcher offers.
+ *
+ * The seed makes a second VPN so this can assert something: on a broker with
+ * one, a listing that returned only the connection's own would look right.
+ */
+func TestLiveListScopesReportsEveryMsgVPN(t *testing.T) {
+	conn := liveConn(t)
+
+	scopes, err := conn.ListScopes(liveContext(t))
+	if err != nil {
+		t.Fatalf("list scopes: %v", err)
+	}
+	found := map[string]*model.Scope{}
+	for _, scope := range scopes {
+		found[scope.Name] = scope
+	}
+	for _, name := range []string{liveVPN, liveSecondVPN} {
+		if _, present := found[name]; !present {
+			e2e.Missing(t, "%s is not among the scopes; run: npm run e2e:solace:seed", name)
+		}
+	}
+
+	// The counts come from the same collection counts the listing page uses,
+	// so they are compared against the raw API rather than against a literal.
+	want, err := rawCollectionCount(liveVPN, "queues")
+	if err != nil {
+		t.Fatalf("counting queues over http: %v", err)
+	}
+	if got := found[liveVPN].Destinations; got != want {
+		t.Errorf("%s reports %d queues, want %d", liveVPN, got, want)
+	}
+	if want == 0 {
+		t.Errorf("%s holds no queues, so the assertion above proves nothing; "+
+			"run: npm run e2e:solace:seed", liveVPN)
+	}
+	if found[liveVPN].Subscriptions < 1 {
+		t.Errorf("%s reports %d topic endpoints, and the seed makes one",
+			liveVPN, found[liveVPN].Subscriptions)
+	}
+}
+
+// rawCollectionCount is how many entries a Message VPN's collection holds,
+// read without the driver.
+func rawCollectionCount(vpn, collection string) (int, error) {
+	var answer struct {
+		Meta struct {
+			Count int `json:"count"`
+		} `json:"meta"`
+	}
+	path := "/monitor/msgVpns/" + livePath(vpn) + "/" + collection + "?count=1"
+	if err := rawSEMP(http.MethodGet, path, nil, &answer); err != nil {
+		return 0, err
+	}
+	return answer.Meta.Count, nil
+}
+
+/*
+ * Switching the scope re-points every board, and this is what proves it reads
+ * a different set of objects rather than the same one under another name.
+ *
+ * Two connections to one broker on two Message VPNs, listing at the same
+ * moment: the seed puts different queues in each, so a driver that ignored the
+ * scope would return one list twice.
+ */
+func TestLiveSwitchingScopeChangesWhatIsRead(t *testing.T) {
+	requireSolace(t)
+
+	first := liveConn(t)
+	profile := liveProfile()
+	profile.Options[OptionMsgVPN] = liveSecondVPN
+	second, err := open(liveContext(t), profile)
+	if err != nil {
+		t.Fatalf("open %s: %v", liveSecondVPN, err)
+	}
+	defer func() { _ = second.Close() }()
+
+	if second.MsgVPN() != liveSecondVPN {
+		t.Fatalf("second connection is on %q, want %q", second.MsgVPN(), liveSecondVPN)
+	}
+
+	names := func(conn *Conn) map[string]bool {
+		destinations, listErr := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+		if listErr != nil {
+			t.Fatalf("list on %s: %v", conn.MsgVPN(), listErr)
+		}
+		found := map[string]bool{}
+		for _, destination := range destinations {
+			found[destination.Ref.Name] = true
+		}
+		return found
+	}
+
+	one, other := names(first), names(second)
+	if !one[seedOrdersQueue] {
+		e2e.Missing(t, "%s is not in %s; run: npm run e2e:solace:seed", seedOrdersQueue, liveVPN)
+	}
+	if !other[seedOtherQueue] {
+		e2e.Missing(t, "%s is not in %s; run: npm run e2e:solace:seed",
+			seedOtherQueue, liveSecondVPN)
+	}
+	if other[seedOrdersQueue] {
+		t.Errorf("%s appears in %s as well, so the scope is not being applied",
+			seedOrdersQueue, liveSecondVPN)
+	}
+	if one[seedOtherQueue] {
+		t.Errorf("%s appears in %s as well, so the scope is not being applied",
+			seedOtherQueue, liveVPN)
+	}
+}
+
+/*
+ * A name the broker would refuse is refused at the switcher.
+ *
+ * ValidateScope makes no call, so it cannot say "there is no such VPN" - what
+ * it can do is stop the two things the broker's own pattern stops, which is
+ * where a wildcard pasted into the switcher would otherwise be stored and fail
+ * on the redial with the connection already offline.
+ */
+func TestLiveValidateScopeMatchesWhatTheBrokerRefuses(t *testing.T) {
+	conn := liveConn(t)
+
+	for _, name := range []string{"", liveVPN, liveSecondVPN, "orders.eu", "a/b"} {
+		if err := conn.ValidateScope(name); err != nil {
+			t.Errorf("ValidateScope(%q) = %v, want nil", name, err)
+		}
+	}
+	for _, name := range []string{"orders*", "orders?", strings.Repeat("v", 33)} {
+		if err := conn.ValidateScope(name); err == nil {
+			t.Errorf("ValidateScope(%q) accepted a name the broker refuses", name)
+		}
+		// The broker's own refusal, so the rule above is checked against it
+		// rather than against a memory of the documentation.
+		err := rawSEMP(http.MethodPost, "/config/msgVpns",
+			map[string]any{"msgVpnName": name, "enabled": false}, nil)
+		if err == nil {
+			_ = rawSEMP(http.MethodDelete, "/config/msgVpns/"+livePath(name), nil, nil)
+			t.Errorf("the broker accepted %q, so this driver is refusing a name it should take", name)
+		}
+	}
+}

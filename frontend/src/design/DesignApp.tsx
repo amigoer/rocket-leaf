@@ -5,6 +5,7 @@ import {
   CommandPalette,
   ConnectionTabs,
   Sidebar,
+  scopeKeys,
   TabStatusBar,
   TitleBar,
 } from "@/design/shell";
@@ -308,11 +309,13 @@ export function DesignApp(): JSX.Element {
     if ((connection.scope ?? "") === next) return;
     const result = await switchScope(connection.id, next);
     if (!result.ok) {
-      toast.error(t("shell.scope.switchFailed"), { description: result.error });
+      toast.error(t(scopeKeys(connection.kind, "switchFailed")), { description: result.error });
       return;
     }
     toast.success(
-      next === "" ? t("shell.scope.switchedUnscoped") : t("shell.scope.switched", { scope: next }),
+      next === ""
+        ? t(scopeKeys(connection.kind, "switchedUnscoped"))
+        : t(scopeKeys(connection.kind, "switched"), { scope: next }),
     );
   };
 

@@ -779,6 +779,18 @@
       "degraded": {
         "restUnreachable": "REST 消息端口没有响应，此连接无法发送消息。SEMP 只负责管理，不传输消息；消息接口在另一个端口上，端口号由 Message VPN 配置决定。请确认该 VPN 已开启 REST 服务，或在连接里填写它实际发布的地址。",
         "restForbidden": "Broker 拒绝了 REST 消息接口上的这个客户端用户名。从 SEMP 读取的内容仍然可用，但在凭据修正之前无法发送。客户端用户名是 Message VPN 内部的对象，与 SEMP 管理账号不是一回事。"
+      },
+      "scope": {
+        "label": "Message VPN：{{scope}}",
+        "unscoped": "Broker 默认",
+        "unscopedHint": "连接时由 Broker 决定使用哪个 VPN",
+        "search": "筛选或输入 Message VPN",
+        "loading": "正在读取该 Broker 的 Message VPN…",
+        "empty": "该 Broker 上没有任何 Message VPN",
+        "counts": "{{destinations}} 个队列 · {{subscriptions}} 个主题端点",
+        "switched": "已切换到 {{scope}}",
+        "switchedUnscoped": "已切换到 Broker 默认的 Message VPN",
+        "switchFailed": "切换 Message VPN 失败"
       }
     }
   },

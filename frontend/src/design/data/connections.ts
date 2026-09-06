@@ -19,6 +19,13 @@ export type Connection = {
   name: string;
   /** null for a broker family the design has no boards for. */
   protocol: ProtocolId | null;
+  /**
+   * The stored kind, which is not the protocol id: Redis Stream is "redis" to
+   * the design shell and "redis-stream" on disk. It is carried because the
+   * i18n bundle is keyed by kind, so anything that wants a family's own
+   * wording - the scope switcher's, today - needs this rather than the id.
+   */
+  kind: MQKind;
   protocolLabel: string;
   address: string;
   /**
@@ -146,11 +153,27 @@ function namespaceOf(endpoints: string): string {
   return scheme < 0 ? first : first.slice(scheme + 3);
 }
 
-/** Only RocketMQ scopes a connection by name today. */
+/**
+ * What the connection is scoped to, for the two families that carry one.
+ *
+ * The option key is the driver's own - RocketMQ spells it "namespace" and
+ * Solace "msgVpn" - and it is read here rather than from the descriptor
+ * because this runs on a list of stored profiles with nothing dialled.
+ *
+ * Empty means something different in each and neither is shown: a RocketMQ
+ * connection with no namespace is reading the whole cluster, and a Solace
+ * profile with no Message VPN is resolved to one at dial time. Printing a
+ * marker for either would be printing something the profile does not say.
+ */
 function scopeOf(profile: ConnectionProfile): string | undefined {
-  if (profile.kind !== MQKind.KindRocketMQ) return undefined;
-  const namespace = profile.options?.namespace ?? "";
-  return namespace === "" ? undefined : namespace;
+  const option =
+    profile.kind === MQKind.KindRocketMQ
+      ? profile.options?.namespace
+      : profile.kind === MQKind.KindSolace
+        ? profile.options?.msgVpn
+        : undefined;
+  const scope = option ?? "";
+  return scope === "" ? undefined : scope;
 }
 
 export function toShellConnection(profile: ConnectionProfile): Connection {
@@ -160,6 +183,7 @@ export function toShellConnection(profile: ConnectionProfile): Connection {
     id: profile.id,
     name: profile.name,
     protocol,
+    kind: profile.kind,
     // A family with no board still names itself; the raw kind is all there is.
     protocolLabel: protocol != null ? PROTOCOLS[protocol].name : profile.kind,
     address: addressOf(profile),

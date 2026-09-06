@@ -779,6 +779,18 @@
       "degraded": {
         "restUnreachable": "Nothing answered on the REST messaging port, so this connection cannot send. SEMP manages the broker and carries no messages, and the messaging interface is a separate port whose number is a Message VPN setting. Check that the VPN serves REST, or give the connection the address it is published on.",
         "restForbidden": "The broker refused this client username on the REST messaging interface. Everything read from SEMP still works; sending will not until that credential is right. Client usernames are objects inside the Message VPN and are not the SEMP management account."
+      },
+      "scope": {
+        "label": "Message VPN: {{scope}}",
+        "unscoped": "Broker default",
+        "unscopedHint": "Whichever VPN the broker resolves at connect time",
+        "search": "Filter or type a Message VPN",
+        "loading": "Reading this broker's Message VPNs…",
+        "empty": "This broker hosts no Message VPN",
+        "counts": "{{destinations}} queues · {{subscriptions}} topic endpoints",
+        "switched": "Now reading {{scope}}",
+        "switchedUnscoped": "Now reading the broker's default Message VPN",
+        "switchFailed": "Could not switch Message VPN"
       }
     }
   },
