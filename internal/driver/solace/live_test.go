@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -526,4 +527,166 @@ func TestLiveDestinationDetailNamesAQueueThatIsGone(t *testing.T) {
 	if !strings.Contains(err.Error(), "no queue named") {
 		t.Errorf("error does not say the queue is gone: %v", err)
 	}
+}
+
+/*
+ * Creating and deleting a queue, against the broker rather than against a
+ * mock.
+ *
+ * The access type is asserted because it is the setting a create is most
+ * likely to get wrong in a way nothing reports: an exclusive queue where a
+ * fan-out was meant looks perfectly healthy and hands every message to one
+ * consumer.
+ */
+func TestLiveCreateAndRemoveQueue(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	name := "mqstudio/test/create-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+
+	spec := model.DestinationSpec{
+		Ref: model.DestinationRef{Name: name},
+		Attributes: map[string]string{
+			AttrAccessType: "non-exclusive",
+			AttrPermission: "consume",
+			AttrMaxSpool:   "50",
+		},
+	}
+	if err := conn.CreateDestination(ctx, spec); err != nil {
+		t.Fatalf("create %s: %v", name, err)
+	}
+	t.Cleanup(func() {
+		_ = conn.RemoveDestination(context.Background(), model.DestinationRef{Name: name})
+	})
+
+	detail, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("detail %s: %v", name, err)
+	}
+	if got := detail.Attributes[AttrAccessType]; got != "non-exclusive" {
+		t.Errorf("access type = %q, want non-exclusive", got)
+	}
+	if got := detail.Attributes[AttrMaxSpool]; got != "50" {
+		t.Errorf("spool quota = %q, want 50", got)
+	}
+	if detail.Depth != 0 {
+		t.Errorf("a queue made a moment ago holds %d messages", detail.Depth)
+	}
+
+	if err := conn.RemoveDestination(ctx, model.DestinationRef{Name: name}); err != nil {
+		t.Fatalf("remove %s: %v", name, err)
+	}
+	if _, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: name}); err == nil {
+		t.Error("a deleted queue is still readable")
+	}
+}
+
+// A second create on the same name is refused with a message that says the
+// name is taken, rather than with whatever SEMP's envelope happened to hold.
+func TestLiveCreateRefusesANameThatIsTaken(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	name := "mqstudio/test/twice-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	spec := model.DestinationSpec{Ref: model.DestinationRef{Name: name}}
+
+	if err := conn.CreateDestination(ctx, spec); err != nil {
+		t.Fatalf("create %s: %v", name, err)
+	}
+	t.Cleanup(func() {
+		_ = conn.RemoveDestination(context.Background(), model.DestinationRef{Name: name})
+	})
+
+	err := conn.CreateDestination(ctx, spec)
+	if err == nil {
+		t.Fatal("created the same queue twice")
+	}
+	if !strings.Contains(err.Error(), "already has a queue named") {
+		t.Errorf("error does not say the name is taken: %v", err)
+	}
+}
+
+/*
+ * A queue that holds messages is deleted without a word from the broker, and
+ * that is worth pinning rather than assuming.
+ *
+ * IBM MQ refuses one until it is purged, and it would be easy to write a guard
+ * here on the strength of that. SEMP has no such precondition: this deletes a
+ * queue with messages on it and they are gone. The confirmation on the board
+ * is the only thing standing between a user and that, so this test exists to
+ * make it a fact somebody chose rather than one nobody checked.
+ */
+func TestLiveRemoveTakesTheMessagesWithIt(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	name := "mqstudio/test/full-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+
+	if err := conn.CreateDestination(ctx, model.DestinationSpec{
+		Ref: model.DestinationRef{Name: name},
+	}); err != nil {
+		t.Fatalf("create %s: %v", name, err)
+	}
+	removed := false
+	t.Cleanup(func() {
+		if !removed {
+			_ = conn.RemoveDestination(context.Background(), model.DestinationRef{Name: name})
+		}
+	})
+
+	for index := range 3 {
+		if err := restPublish(name, fmt.Sprintf("held-%d", index)); err != nil {
+			t.Fatalf("publishing to %s: %v", name, err)
+		}
+	}
+	if err := waitForDepth(t, conn, name, 3); err != nil {
+		t.Fatalf("%s never reached 3 messages: %v", name, err)
+	}
+
+	if err := conn.RemoveDestination(ctx, model.DestinationRef{Name: name}); err != nil {
+		t.Fatalf("a queue holding messages was refused: %v; the board's confirmation "+
+			"assumes the broker deletes it anyway", err)
+	}
+	removed = true
+}
+
+// restPublish puts one body on a queue without the driver, so a test can set
+// up a depth before the send console exists.
+func restPublish(queue, body string) error {
+	request, err := http.NewRequest(http.MethodPost, liveREST+"/QUEUE/"+livePath(queue),
+		strings.NewReader(body))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "text/plain")
+	response, err := (&http.Client{Timeout: 20 * time.Second}).Do(request)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("rest publish to %s answered %d", queue, response.StatusCode)
+	}
+	return nil
+}
+
+// waitForDepth waits until a queue reports the depth expected, with a bounded
+// budget.
+//
+// A send answers as soon as the broker has taken the message, and the spool
+// figures follow a moment later. Asserting straight afterwards is the shape of
+// a test that passes locally and fails in CI on a busier machine.
+func waitForDepth(t *testing.T, conn *Conn, queue string, want int64) error {
+	t.Helper()
+	deadline := time.Now().Add(20 * time.Second)
+	var last int64
+	for time.Now().Before(deadline) {
+		detail, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: queue})
+		if err != nil {
+			return err
+		}
+		last = detail.Depth
+		if last >= want {
+			return nil
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	return fmt.Errorf("depth stayed at %d, want %d", last, want)
 }

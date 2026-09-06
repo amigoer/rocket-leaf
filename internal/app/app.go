@@ -44,6 +44,7 @@ import (
 	"github.com/amigoer/mq-studio/internal/service/routing"
 	"github.com/amigoer/mq-studio/internal/service/scope"
 	"github.com/amigoer/mq-studio/internal/service/settings"
+	solaceservice "github.com/amigoer/mq-studio/internal/service/solace"
 	sqsservice "github.com/amigoer/mq-studio/internal/service/sqs"
 	"github.com/amigoer/mq-studio/internal/service/subscription"
 	"github.com/amigoer/mq-studio/internal/storage/layout"
@@ -73,6 +74,7 @@ type Services struct {
 	ServiceBus   *azureservicebusservice.Service
 	Kinesis      *kinesisservice.Service
 	IBMMQ        *ibmmqservice.Service
+	Solace       *solaceservice.Service
 
 	// Conns resolves a profile id to a live connection. The bridge needs it to
 	// answer capability questions without going through a domain service.
@@ -143,6 +145,7 @@ func New() (*Services, error) {
 		ServiceBus:   azureservicebusservice.New(conns, settingsService),
 		Kinesis:      kinesisservice.New(conns, settingsService),
 		IBMMQ:        ibmmqservice.New(conns, settingsService),
+		Solace:       solaceservice.New(conns, settingsService),
 		Conns:        conns,
 		Collector:    collector.New(sampleActiveConnection(clusterService, registry), registry.HasActive),
 		registry:     registry,

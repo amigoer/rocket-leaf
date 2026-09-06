@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Page, PageBody, PageHeader, RefreshButton } from "@/design/shell";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -10,15 +12,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KV, Panel, PanelHeader, SectionLabel } from "@/components";
+import { KV, Panel, PanelHeader, SectionLabel, useConfirm } from "@/components";
 import { BoardState } from "@/design/boards/BoardState";
 import { useSolaceDestinations } from "@/hooks/solace/useSolaceDestinations";
 import {
   destination as readDestination,
   halted,
   hasDeadMsgQueue,
+  type SolaceDestination,
 } from "@/mq/solace/destinations";
 import { formatBytes, formatCount } from "@/lib/format";
+import { formatErrorMessage } from "@/lib/utils";
+import { useConnectionScope } from "@/mq/ConnectionScope";
+import * as solaceApi from "@/api/solace";
+import { QueueDialogSolace } from "./QueueDialogSolace";
 
 const MONO11 = { fontSize: "11px" } as const;
 
@@ -49,8 +56,11 @@ function count(value: number | null): string {
 export function QueuesSolace() {
   const { t } = useTranslation();
   const state = useSolaceDestinations();
+  const { id: connID } = useConnectionScope();
+  const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
 
   const destinations = useMemo(() => (state.data ?? []).map(readDestination), [state.data]);
 
@@ -66,6 +76,52 @@ export function QueuesSolace() {
     [shown, selected],
   );
 
+  const create = useCallback(
+    async (input: solaceApi.SolaceQueueInput) => {
+      await solaceApi.createQueue(connID, input);
+      toast.success(t("board.solace.queues.created", { name: input.name }));
+      await state.refresh();
+    },
+    [connID, state, t],
+  );
+
+  /*
+   * The confirmation says the messages go too, because they do and because
+   * nothing stops it.
+   *
+   * IBM MQ refuses to delete a queue with a depth unless the caller asks for a
+   * purge, so its dialog can offer the check as a second question. SEMP has no
+   * such precondition: it deletes a queue holding a quarter of a million
+   * messages without a word, and they are discarded rather than dead-lettered.
+   * This wording is the only guard there is.
+   */
+  const remove = useCallback(
+    async (entry: SolaceDestination) => {
+      const holding = entry.depth ?? 0;
+      const ok = await confirm({
+        title: t("board.solace.queues.deleteTitle", { name: entry.name }),
+        description:
+          holding > 0
+            ? t("board.solace.queues.deleteHolding", { count: holding })
+            : t("board.solace.queues.deleteDesc"),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await solaceApi.removeQueue(connID, entry.name);
+        toast.success(t("board.solace.queues.deleted", { name: entry.name }));
+        setSelected(null);
+        await state.refresh();
+      } catch (deleteError) {
+        toast.error(t("board.solace.queues.deleteFailed"), {
+          description: formatErrorMessage(deleteError),
+        });
+      }
+    },
+    [confirm, connID, state, t],
+  );
+
   return (
     <Page>
       <PageHeader
@@ -79,6 +135,9 @@ export function QueuesSolace() {
               placeholder={t("board.solace.queues.search")}
               onChange={(event) => setSearch(event.target.value)}
             />
+            <Button size="sm" onClick={() => setFormOpen(true)}>
+              {t("board.solace.queues.create")}
+            </Button>
             <RefreshButton
               refreshing={state.refreshing}
               online={state.online}
@@ -87,6 +146,7 @@ export function QueuesSolace() {
           </div>
         }
       />
+      <QueueDialogSolace open={formOpen} onOpenChange={setFormOpen} onSubmit={create} />
       <BoardState state={state}>
         <PageBody>
           <div style={{ display: "flex", gap: "12px", minHeight: 0, flex: 1 }}>
@@ -153,7 +213,14 @@ export function QueuesSolace() {
 
             {detail != null && (
               <Panel style={{ width: "320px", overflow: "auto" }}>
-                <PanelHeader title={detail.name} />
+                <PanelHeader
+                  title={detail.name}
+                  action={
+                    <Button size="sm" variant="outline" onClick={() => void remove(detail)}>
+                      {t("common.delete")}
+                    </Button>
+                  }
+                />
                 <div style={{ padding: "10px 12px", display: "grid", gap: "8px" }}>
                   <SectionLabel>{t("board.solace.queues.section.definition")}</SectionLabel>
                   <KV

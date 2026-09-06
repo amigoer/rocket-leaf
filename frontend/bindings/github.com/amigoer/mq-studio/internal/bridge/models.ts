@@ -4820,6 +4820,91 @@ export class ShellPage {
 }
 
 /**
+ * SolaceQueueInput is a queue as the form collects it.
+ * 
+ * Deliberately not TopicService.Create's shape. That one takes a broker
+ * address, two queue counts and a permission string - RocketMQ's vocabulary,
+ * of which a Solace queue has none.
+ */
+export class SolaceQueueInput {
+    "name": string;
+
+    /**
+     * AccessType is "exclusive" or "non-exclusive", and it is the setting most
+     * likely to be wrong: exclusive hands every message to one consumer and
+     * keeps the rest waiting as standbys, which looks like a broken fan-out
+     * rather than like a configuration choice.
+     */
+    "accessType": string;
+
+    /**
+     * Permission is what a client bound to this queue may do to it - read,
+     * consume, modify its topics, or delete it.
+     */
+    "permission": string;
+
+    /**
+     * Owner is the client username the queue belongs to. Empty leaves it
+     * unowned, which is what a queue created by an administrator usually is.
+     */
+    "owner": string;
+
+    /**
+     * DeadMsgQueue is where undelivered messages go. Naming one also turns off
+     * respectDmqEligible, because otherwise only a message its publisher
+     * marked eligible is ever moved - and nothing this app sends is marked.
+     */
+    "deadMsgQueue": string;
+
+    /**
+     * MaxRedeliveryCount is how many attempts before that happens. Zero is the
+     * broker's own unlimited.
+     */
+    "maxRedeliveryCount": number;
+
+    /**
+     * MaxSpoolUsageMb caps what the queue may hold, in megabytes. Zero leaves
+     * the broker's own default.
+     */
+    "maxSpoolUsageMb": number;
+
+    /** Creates a new SolaceQueueInput instance. */
+    constructor($$source: Partial<SolaceQueueInput> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("accessType" in $$source)) {
+            this["accessType"] = "";
+        }
+        if (!("permission" in $$source)) {
+            this["permission"] = "";
+        }
+        if (!("owner" in $$source)) {
+            this["owner"] = "";
+        }
+        if (!("deadMsgQueue" in $$source)) {
+            this["deadMsgQueue"] = "";
+        }
+        if (!("maxRedeliveryCount" in $$source)) {
+            this["maxRedeliveryCount"] = 0;
+        }
+        if (!("maxSpoolUsageMb" in $$source)) {
+            this["maxSpoolUsageMb"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SolaceQueueInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SolaceQueueInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SolaceQueueInput($$parsedSource as Partial<SolaceQueueInput>);
+    }
+}
+
+/**
  * StreamInput is a stream as the dialog collects it.
  * 
  * Deliberately not TopicService.Create's shape. Every field there is

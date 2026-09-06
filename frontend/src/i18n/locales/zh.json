@@ -5768,7 +5768,29 @@
           "runtime": "运行时",
           "handling": "投递处理"
         },
-        "note": "「堆积」是队列当前持有的消息数。「累计入队」是会被清除统计重置的历史计数，并不是当前深度。"
+        "note": "「堆积」是队列当前持有的消息数。「累计入队」是会被清除统计重置的历史计数，并不是当前深度。",
+        "create": "新建队列",
+        "createTitle": "新建队列",
+        "created": "已创建 {{name}}",
+        "nameHint": "斜杠、点和空格都可以使用——队列名通常与它订阅的主题同形。",
+        "nameProblem": {
+          "empty": "名称不能为空。",
+          "tooLong": "队列名最长 200 个字符。",
+          "characters": "队列名不能包含 * ? ' < > & 或 ;。",
+          "reserved": "以 # 开头的名称属于 Broker 自身。"
+        },
+        "accessShared": "所有绑定的消费者共同分担消息。",
+        "accessExclusive": "第一个绑定的消费者独占全部消息，其余作为备用等待。",
+        "permissionHint": "绑定到该队列的客户端可以对它做什么。",
+        "deadMsgQueueHint": "填写一个已存在的队列名。Broker 自带的默认值指向一个并不存在的队列，结果是直接丢弃。",
+        "maxRedeliveryHint": "放弃投递前的尝试次数。0 表示不限。",
+        "maxSpoolHint": "该队列可占用的存储上限（MB）。留空则使用 Broker 默认值。",
+        "ownerHint": "该队列归属的客户端用户名。留空表示无归属。",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "队列及其主题订阅都会被删除，且无法撤销。",
+        "deleteHolding": "该队列中还有 {{count}} 条消息。它们会随队列一起被丢弃——不会进入死信队列——且无法撤销。",
+        "deleted": "已删除 {{name}}",
+        "deleteFailed": "删除队列失败"
       }
     }
   }
