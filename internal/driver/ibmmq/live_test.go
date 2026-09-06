@@ -1183,3 +1183,132 @@ func TestLiveAQueueNothingPointsAtIsNotADeadLetterQueue(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * Subscriptions, and the backlog that belongs to a queue rather than to them.
+ *
+ * The seed makes an administrative subscription on a topic string, points it
+ * at a queue and publishes to that string, so the row can be checked against
+ * two independent facts: the queue manager's own count of what the
+ * subscription has received, and the depth of the queue it delivers to.
+ */
+func TestLiveSubscriptionsCarryTheirDestinationsBacklog(t *testing.T) {
+	conn := liveConn(t)
+
+	subscriptions, err := conn.ListSubscriptions(liveContext(t))
+	if err != nil {
+		t.Fatalf("ListSubscriptions: %v", err)
+	}
+
+	var seeded *model.Subscription
+	for _, subscription := range subscriptions {
+		if subscription.Ref.Name == seedSubscription {
+			seeded = subscription
+		}
+	}
+	if seeded == nil {
+		e2e.Missing(t, "%s is not defined; run: npm run e2e:ibmmq:seed", seedSubscription)
+		return
+	}
+
+	if got := seeded.Attribute(SubAttrTopicString); got != seedTopicString {
+		t.Errorf("%s is on topic string %q, want %q", seedSubscription, got, seedTopicString)
+	}
+	if got := seeded.Attribute(SubAttrDestination); got != seedSubQueue {
+		t.Errorf("%s delivers to %q, want %q", seedSubscription, got, seedSubQueue)
+	}
+	// The backlog is the destination queue's depth, and it has to be the same
+	// number the queues page shows for that queue.
+	depth := depthOf(t, conn, seedSubQueue)
+	if seeded.Backlog != depth {
+		t.Errorf("%s reports a backlog of %d and %s holds %d",
+			seedSubscription, seeded.Backlog, seedSubQueue, depth)
+	}
+	// What the subscription has received is a different number from what it is
+	// owed, and both are real: one is a lifetime total, the other is what is
+	// still sitting on the queue.
+	received := seeded.Attribute(SubAttrMessages)
+	if received == "" {
+		t.Error("the queue manager's count of publications received did not reach the row")
+	}
+	// One topic string, always: reading two means two subscriptions.
+	if seeded.Destinations != 1 {
+		t.Errorf("%s reads %d destinations", seedSubscription, seeded.Destinations)
+	}
+	// No rate anywhere: the queue manager counts a total, not a speed.
+	if seeded.RateOut != model.UnknownMetric {
+		t.Errorf("%s reports a consume rate of %d, and MQ publishes none",
+			seedSubscription, seeded.RateOut)
+	}
+
+	if _, err := conn.SubscriptionDetail(liveContext(t), model.SubscriptionRef{Name: seedSubscription}); err != nil {
+		t.Errorf("SubscriptionDetail(%s): %v", seedSubscription, err)
+	}
+}
+
+/*
+ * Nothing attached is not offline, and this is the case that says so.
+ *
+ * An administrative subscription has no subscriber attached by design: the
+ * publications land on its destination queue and whichever application reads
+ * that queue is the consumer. A driver that read "no connection" as offline
+ * would mark every operator-created subscription on the queue manager as dead.
+ */
+func TestLiveAnAdministrativeSubscriptionWithABacklogIsNotOffline(t *testing.T) {
+	conn := liveConn(t)
+
+	subscription, err := conn.SubscriptionDetail(liveContext(t), model.SubscriptionRef{Name: seedSubscription})
+	if err != nil {
+		e2e.Missing(t, "%s is not defined; run: npm run e2e:ibmmq:seed", seedSubscription)
+		return
+	}
+
+	if subscription.Attribute(SubAttrAttached) != "false" {
+		t.Fatalf("%s reports something attached; the seed attaches nothing", seedSubscription)
+	}
+	if subscription.Backlog <= 0 {
+		e2e.Missing(t, "%s is holding nothing; run: npm run e2e:ibmmq:seed", seedSubQueue)
+		return
+	}
+	if subscription.Status != model.SubscriptionWarning {
+		t.Errorf("%s is %q with %d publications waiting and nothing reading them; "+
+			"that is the state worth flagging rather than offline",
+			seedSubscription, subscription.Status, subscription.Backlog)
+	}
+	if subscription.Attribute(SubAttrType) != "admin" {
+		t.Errorf("%s is a %q subscription, and the seed defined it",
+			seedSubscription, subscription.Attribute(SubAttrType))
+	}
+	if subscription.Attribute(SubAttrDurable) != "yes" {
+		t.Errorf("%s is not durable, and a defined subscription always is",
+			seedSubscription)
+	}
+}
+
+// Creating and removing a subscription is this driver's omission rather than
+// the family's, and the methods say so rather than doing something surprising.
+func TestLiveSubscriptionAdminIsNotOffered(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	if err := conn.CreateSubscription(ctx, model.SubscriptionSpec{
+		Ref: model.SubscriptionRef{Name: "MQS.TEST.SUB"},
+	}); err == nil {
+		t.Error("a subscription was created, and no capability offers it")
+	}
+	if err := conn.RemoveSubscription(ctx, model.SubscriptionRef{Name: seedSubscription}); err == nil {
+		t.Error("a subscription was removed, and no capability offers it")
+	}
+
+	declared := conn.Capabilities()
+	for _, capability := range []model.Capability{
+		model.CapSubscriptionCreate, model.CapSubscriptionDelete,
+	} {
+		if declared.Has(capability) {
+			t.Errorf("%s is declared and the driver refuses it", capability)
+		}
+	}
+	if !declared.Has(model.CapSubscriptionLag) {
+		t.Error("the backlog is not declared, and it is the destination queue's depth")
+	}
+}

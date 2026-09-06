@@ -89,6 +89,7 @@ import { RulesAzureServiceBus } from "./boards/topics/RulesAzureServiceBus";
 import { SubscriptionsGooglePubSub } from "./boards/consumers/SubscriptionsGooglePubSub";
 import { SubscriptionsAzureServiceBus } from "./boards/consumers/SubscriptionsAzureServiceBus";
 import { ConsumersKinesis } from "./boards/consumers/ConsumersKinesis";
+import { SubscriptionsIbmMq } from "./boards/consumers/SubscriptionsIbmMq";
 import { MessagesSqs } from "./boards/messages/MessagesSqs";
 import { MessagesGooglePubSub } from "./boards/messages/MessagesGooglePubSub";
 import { MessagesAzureServiceBus } from "./boards/messages/MessagesAzureServiceBus";
@@ -212,6 +213,7 @@ const BOARDS: Partial<
     "google-pubsub": SubscriptionsGooglePubSub,
     "azure-servicebus": SubscriptionsAzureServiceBus,
     kinesis: ConsumersKinesis,
+    ibmmq: SubscriptionsIbmMq,
   },
   subscribe: { mqtt: MqttWorkbench, nats: NatsWorkbench, activemq: ActiveMQWorkbench },
   clients: {

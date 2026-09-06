@@ -158,6 +158,9 @@ func capabilities() []model.Capability {
 		model.CapPublish,
 
 		model.CapDeadLetterTopology,
+
+		model.CapSubscriptionList,
+		model.CapSubscriptionLag,
 	}
 }
 
@@ -230,6 +233,9 @@ func messagingCapabilities() []model.Capability {
 		model.CapPublish,
 
 		model.CapDeadLetterTopology,
+
+		model.CapSubscriptionList,
+		model.CapSubscriptionLag,
 	}
 }
 

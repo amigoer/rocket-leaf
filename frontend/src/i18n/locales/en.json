@@ -5617,6 +5617,39 @@
         "thresholdNone": "never — the backout threshold is zero",
         "nobodyDraining": "Nothing has this queue open for input. A dead-letter queue with a depth and no handler is a backlog nobody is looking at.",
         "note": "Nothing here is marked as a dead-letter queue: what makes one is the queue manager's DEADQ attribute or another queue's backout queue pointing at it. The two are filled by different things — the queue manager fills its own DEADQ with whatever it could not deliver, and a backout queue is filled by whichever application gave up after the threshold. Message bodies are on the messages page, where every dead letter is listed and none can be opened: a dead letter carries a dead-letter header, and the REST interface returns character data only."
+      },
+      "subscriptions": {
+        "count": "{{count}} subscriptions",
+        "search": "Search by name or topic string",
+        "name": "Subscription",
+        "topicString": "Topic string",
+        "destination": "Delivers to",
+        "destinationQmgr": "Destination queue manager",
+        "waiting": "Waiting",
+        "received": "Received",
+        "queueReaders": "Reading that queue",
+        "attached": "Subscriber attached",
+        "attachedYes": "yes",
+        "attachedNo": "no",
+        "lastMessage": "Last publication",
+        "kind": "Created by",
+        "kindValue": {
+          "admin": "an operator",
+          "api": "an application",
+          "proxy": "another queue manager"
+        },
+        "durable": "Durable",
+        "durableYes": "yes",
+        "durableNo": "no — it goes when its subscriber does",
+        "user": "User",
+        "selector": "Selector",
+        "id": "Subscription ID",
+        "section": {
+          "definition": "Definition",
+          "runtime": "Runtime"
+        },
+        "unread": "Publications are collecting on {{queue}} and nothing is reading it. A subscription with no reader fills its destination queue until the queue is full, and then the queue manager starts dead-lettering.",
+        "note": "Two numbers, and they mean different things: received is how many publications the subscription has ever taken, and waiting is how many are still on the queue it delivers to. \"Subscriber attached\" is usually no and usually fine — an operator-defined subscription has nothing attached by design, and whichever application reads its destination queue is the consumer."
       }
     }
   }
