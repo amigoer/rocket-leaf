@@ -157,3 +157,15 @@ func (s *SolaceService) Publish(connID int, input SolacePublishInput) (*SolacePu
 	}
 	return &SolacePublishResult{Sent: result.Sent}, nil
 }
+
+// DeadMsgQueues lists the queues something else dead-letters into.
+//
+// Found by walking every endpoint's configuration backwards rather than by
+// looking up a name: nothing marks a dead message queue on this family, and
+// what makes one is another queue's or topic endpoint's pointer. A target with
+// no depth is one the Message VPN does not hold - which is the ordinary state
+// of the pointer every endpoint ships with, and what makes a message given up
+// on disappear rather than move.
+func (s *SolaceService) DeadMsgQueues(connID int) ([]*model.DeadLetterQueue, error) {
+	return s.service.DeadLetters(context.Background(), connID)
+}

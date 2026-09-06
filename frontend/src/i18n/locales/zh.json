@@ -5874,6 +5874,28 @@
           "ttlRange": "存活时间不能为负数。",
           "countRange": "份数必须在 1 到 100 之间。"
         }
+      },
+      "dlq": {
+        "count": "{{count}} 个死信队列",
+        "name": "队列",
+        "depth": "堆积",
+        "consumers": "消费中",
+        "sources": "被指向",
+        "msgVpn": "Message VPN",
+        "missingBadge": "未创建",
+        "missingNote": "该 Message VPN 中没有名为 {{name}} 的队列，因此被放弃的消息会被直接丢弃而不是转移。请创建同名队列，或把下面的端点改指向一个已存在的队列。",
+        "nobodyDraining": "这里有消息在等待，但没有任何消费者绑定。",
+        "markedOnly": "仅限已标记的消息",
+        "markedOnlyNote": "下面有 {{count}} 个端点只会转移发布者标记为可进入死信队列的消息。多数客户端不会标记，因此这些端点实际上是悄悄放弃。",
+        "fromQueue": "队列",
+        "fromEndpoint": "主题端点",
+        "afterTries": "重试 {{count}} 次后",
+        "noLimit": "不限重投递次数",
+        "noSources": "已经没有任何端点指向这里。",
+        "section": {
+          "sources": "被指向"
+        },
+        "note": "该 Broker 不会把任何队列标记为死信队列。这里的每一行都只是被其他端点指向的普通队列。"
       }
     }
   }

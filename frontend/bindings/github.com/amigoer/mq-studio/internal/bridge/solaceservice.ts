@@ -14,6 +14,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as model$0 from "../model/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 /**
@@ -21,6 +25,22 @@ import * as $models from "./models.js";
  */
 export function CreateQueue(connID: number, input: $models.SolaceQueueInput): $CancellablePromise<void> {
     return $Call.ByID(2606363973, connID, input);
+}
+
+/**
+ * DeadMsgQueues lists the queues something else dead-letters into.
+ * 
+ * Found by walking every endpoint's configuration backwards rather than by
+ * looking up a name: nothing marks a dead message queue on this family, and
+ * what makes one is another queue's or topic endpoint's pointer. A target with
+ * no depth is one the Message VPN does not hold - which is the ordinary state
+ * of the pointer every endpoint ships with, and what makes a message given up
+ * on disappear rather than move.
+ */
+export function DeadMsgQueues(connID: number): $CancellablePromise<(model$0.DeadLetterQueue | null)[]> {
+    return $Call.ByID(2394503593, connID).then(($result: any) => {
+        return $$createType2($result);
+    });
 }
 
 /**
@@ -35,7 +55,7 @@ export function MsgVPN(connID: number): $CancellablePromise<string> {
  */
 export function Publish(connID: number, input: $models.SolacePublishInput): $CancellablePromise<$models.SolacePublishResult | null> {
     return $Call.ByID(2722482709, connID, input).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType4($result);
     });
 }
 
@@ -51,5 +71,8 @@ export function RemoveQueue(connID: number, name: string): $CancellablePromise<v
 }
 
 // Private type creation functions
-const $$createType0 = $models.SolacePublishResult.createFrom;
+const $$createType0 = model$0.DeadLetterQueue.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
+const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = $models.SolacePublishResult.createFrom;
+const $$createType4 = $Create.Nullable($$createType3);

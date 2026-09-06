@@ -141,3 +141,22 @@ func (s *Service) Publish(
 	defer cancel()
 	return api.Publish(ctx, request)
 }
+
+/*
+ * DeadLetters finds the queues something else dead-letters into.
+ *
+ * Beside the canonical services because no canonical service owns this shape:
+ * the destination service lists every queue, and which of them is a dead
+ * message queue is a fact about what points at it rather than about the queue
+ * itself. It is also the only page that reports a target which does not exist,
+ * which no listing could.
+ */
+func (s *Service) DeadLetters(ctx context.Context, connID int) ([]*model.DeadLetterQueue, error) {
+	api, err := s.solaceConn(connID, model.CapDeadLetterTopology)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.DeadLetterQueues(ctx, "")
+}

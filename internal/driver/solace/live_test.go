@@ -1127,3 +1127,81 @@ func TestLiveSendToATopicWithNoSubscriberIsQuietlyDiscarded(t *testing.T) {
 		t.Errorf("sent %d, want 1", result.Sent)
 	}
 }
+
+/*
+ * Dead message queues, found by walking the pointers backwards.
+ *
+ * Two things are asserted and the second is the point of the page. The seed's
+ * audit queue points at a dead message queue that exists and has messages on
+ * it, which is the ordinary case. Every other endpoint in the Message VPN
+ * points at "#DEAD_MSG_QUEUE", which no broker creates - so the list has to
+ * carry it too, with its depth unknown, because "configured to dead-letter and
+ * silently discarding" is the state a reader most needs to be shown.
+ */
+func TestLiveDeadLetterQueuesWalkThePointers(t *testing.T) {
+	conn := liveConn(t)
+
+	found, err := conn.DeadLetterQueues(liveContext(t), "")
+	if err != nil {
+		t.Fatalf("dead letter queues: %v", err)
+	}
+	byName := map[string]*model.DeadLetterQueue{}
+	for _, entry := range found {
+		byName[entry.Name] = entry
+	}
+
+	real, present := byName[seedDMQ]
+	if !present {
+		e2e.Missing(t, "%s is not among the dead message queues; run: npm run e2e:solace:seed", seedDMQ)
+	}
+	if real.Depth <= 0 {
+		t.Errorf("%s reports a depth of %d, and the seed puts messages on it", seedDMQ, real.Depth)
+	}
+	if real.Namespace != liveVPN {
+		t.Errorf("%s is namespaced %q, want %q", seedDMQ, real.Namespace, liveVPN)
+	}
+
+	sourced := false
+	for _, source := range real.Sources {
+		if source.Queue != seedAuditQueue {
+			continue
+		}
+		sourced = true
+		if source.Exchange != SourceQueue {
+			t.Errorf("%s is reported as a %q source, want %q",
+				seedAuditQueue, source.Exchange, SourceQueue)
+		}
+		// The seed turns the eligibility rule off, which is what makes the
+		// dead letters arrive at all: nothing this app sends is marked.
+		if source.Subscription != SourceMovesEverything {
+			t.Errorf("%s reports %q; the seed turns respectDmqEligible off so that "+
+				"unmarked messages are moved", seedAuditQueue, source.Subscription)
+		}
+	}
+	if !sourced {
+		t.Errorf("%s is not listed as a source of %s", seedAuditQueue, seedDMQ)
+	}
+
+	// The default pointer, which every endpoint the seed did not configure
+	// still carries. Its depth has to be unknown rather than zero: a zero
+	// would read as an empty queue that is working.
+	missing, present := byName[defaultDeadMsgQueue]
+	if !present {
+		t.Fatalf("%s is not listed; every endpoint that was not given a dead message queue "+
+			"still points at it, and this page exists to say so", defaultDeadMsgQueue)
+	}
+	if missing.Depth != model.UnknownMetric {
+		t.Errorf("%s reports a depth of %d; no broker creates a queue by that name, "+
+			"so an unknown depth is what says it is not there", defaultDeadMsgQueue, missing.Depth)
+	}
+	if err := rawSEMP(http.MethodGet,
+		"/config/msgVpns/"+livePath(liveVPN)+"/queues/"+livePath(defaultDeadMsgQueue), nil, nil,
+	); err == nil {
+		t.Errorf("%s exists on this broker, so the assertion above no longer proves anything",
+			defaultDeadMsgQueue)
+	}
+}
+
+// defaultDeadMsgQueue is the name every endpoint's deadMsgQueue starts at, and
+// no broker creates a queue by it.
+const defaultDeadMsgQueue = "#DEAD_MSG_QUEUE"

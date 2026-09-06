@@ -5874,6 +5874,28 @@
           "ttlRange": "A time to live cannot be negative.",
           "countRange": "Copies must be between 1 and 100."
         }
+      },
+      "dlq": {
+        "count": "{{count}} dead message queues",
+        "name": "Queue",
+        "depth": "Spooled",
+        "consumers": "Draining",
+        "sources": "Pointed at by",
+        "msgVpn": "Message VPN",
+        "missingBadge": "not created",
+        "missingNote": "Nothing in this Message VPN is called {{name}}, so messages given up on are discarded rather than moved. Create a queue with that name, or point the endpoints below at one that exists.",
+        "nobodyDraining": "Messages are waiting here and nothing is bound to take them.",
+        "markedOnly": "marked messages only",
+        "markedOnlyNote": "{{count}} of the endpoints below move only messages their publisher marked as dead-message eligible. Most clients mark none, so those give up quietly instead.",
+        "fromQueue": "Queue",
+        "fromEndpoint": "Topic endpoint",
+        "afterTries": "after {{count}} tries",
+        "noLimit": "no redelivery limit",
+        "noSources": "Nothing points here any more.",
+        "section": {
+          "sources": "Pointed at by"
+        },
+        "note": "Nothing on this broker marks a queue as a dead message queue. Every row here is an ordinary queue that another endpoint names."
       }
     }
   }

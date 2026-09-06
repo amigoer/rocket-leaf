@@ -1,5 +1,6 @@
 import { SolaceService } from "@bindings/bridge";
-import { required } from "./client";
+import { present, required } from "./client";
+import type { DeadLetterQueue } from "@bindings/model/models";
 import type {
   SolacePublishInput,
   SolacePublishResult,
@@ -60,3 +61,14 @@ export const publish = (
   connID: number,
   input: SolacePublishInput,
 ): Promise<SolacePublishResult> => SolaceService.Publish(connID, input).then(required);
+
+/**
+ * The queues something else dead-letters into.
+ *
+ * Found by walking every endpoint's pointer backwards: nothing marks a dead
+ * message queue on this family. An entry whose depth is unknown is one the
+ * Message VPN does not hold - the ordinary state of the pointer every endpoint
+ * ships with, and what makes a message given up on disappear rather than move.
+ */
+export const deadMsgQueues = async (connID: number): Promise<DeadLetterQueue[]> =>
+  present(await SolaceService.DeadMsgQueues(connID));
