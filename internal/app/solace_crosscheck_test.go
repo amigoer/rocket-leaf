@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -293,6 +294,14 @@ func TestLiveSolaceCrossCheckDeadMessageQueues(t *testing.T) {
 			liveSolaceVPN)
 	}
 
+	/*
+	 * Compared over the seeded sources only.
+	 *
+	 * The driver package's live tests create queues against this same broker
+	 * and every one of them carries the default pointer, so the full source
+	 * list of #DEAD_MSG_QUEUE differs between two reads a second apart. What
+	 * cannot differ is the seeded half: those queues are never touched.
+	 */
 	for target, sources := range pointers {
 		entry, present := byName[target]
 		if !present {
@@ -300,14 +309,15 @@ func TestLiveSolaceCrossCheckDeadMessageQueues(t *testing.T) {
 				target, strings.Join(sources, ", "))
 			continue
 		}
-		sort.Strings(sources)
+		wanted := seededOnly(sources)
 		listed := make([]string, 0, len(entry.Sources))
 		for _, source := range entry.Sources {
 			listed = append(listed, source.Queue)
 		}
-		sort.Strings(listed)
-		if strings.Join(listed, ",") != strings.Join(sources, ",") {
-			t.Errorf("%s: the app lists sources %v and semp says %v", target, listed, sources)
+		listed = seededOnly(listed)
+		if strings.Join(listed, ",") != strings.Join(wanted, ",") {
+			t.Errorf("%s: the app lists seeded sources %v and semp says %v",
+				target, listed, wanted)
 		}
 	}
 
@@ -431,11 +441,23 @@ func TestLiveSolaceCrossCheckRouting(t *testing.T) {
  * object. The percentage is recomputed here from the raw pair rather than read
  * from the app, which is the only way an unscaled division would be caught: on
  * a development broker the true answer is 0% and so is the wrong one.
+ *
+ * Read against the second Message VPN rather than the default one, and that is
+ * the point rather than an accident. Every other suite runs against "default"
+ * and creates and deletes queues in it while this is running, so a count or a
+ * spool figure read there is two sides describing two different moments -
+ * which is a flake, not a defect. Nothing writes to the seeded VPN, so
+ * everything below can be compared exactly. It also proves the thing a total
+ * read on "default" could not: that the board is scoped to the Message VPN the
+ * connection is on rather than reporting the broker's own totals.
  */
 func TestLiveSolaceCrossCheckBroker(t *testing.T) {
 	requireLiveSolace(t)
 	stack := newSolaceStack(t)
-	connID := stack.dial(t, liveSolaceProfile("solace cross-check broker"))
+
+	profile := liveSolaceProfile("solace cross-check broker")
+	profile.Options[solacedriver.OptionMsgVPN] = liveSolaceSecondVPN
+	connID := stack.dial(t, profile)
 	raw := newRawSEMP()
 	ctx := solaceContext(t)
 
@@ -453,14 +475,26 @@ func TestLiveSolaceCrossCheckBroker(t *testing.T) {
 	if node.Version != sempString(broker, "version") {
 		t.Errorf("version = %q, semp says %q", node.Version, sempString(broker, "version"))
 	}
+	if node.Attributes[solacedriver.AttrMsgVPN] != liveSolaceSecondVPN {
+		t.Errorf("the broker row is for %q, want %q; every figure on it is that vpn's share",
+			node.Attributes[solacedriver.AttrMsgVPN], liveSolaceSecondVPN)
+	}
 
 	// Both figures out of one read, so a broker spooling between two calls
 	// cannot make the two sides disagree about different moments.
-	vpn := raw.object(t, "/monitor"+vpnPath("?select=msgSpoolUsage,maxMsgSpoolUsage"))
+	second := "/msgVpns/" + url.PathEscape(liveSolaceSecondVPN)
+	vpn := raw.object(t, "/monitor"+second+"?select=msgSpoolUsage,maxMsgSpoolUsage")
 	usedBytes := int64(sempNumber(vpn, "msgSpoolUsage"))
 	maxMb := int64(sempNumber(vpn, "maxMsgSpoolUsage"))
 	if maxMb <= 0 {
-		t.Fatalf("%s reports no spool quota, so there is nothing to scale against", liveSolaceVPN)
+		t.Fatalf("%s reports no spool quota, so there is nothing to scale against",
+			liveSolaceSecondVPN)
+	}
+	if usedBytes == 0 {
+		e2e.Missing(t, "%s holds nothing; run: npm run e2e:solace:seed", liveSolaceSecondVPN)
+	}
+	if got := node.Attributes[solacedriver.AttrSpoolUsedByte]; got != strconv.FormatInt(usedBytes, 10) {
+		t.Errorf("spool used = %q bytes, semp says %d", got, usedBytes)
 	}
 	wanted := int((usedBytes * 100) / (maxMb * 1024 * 1024))
 	if node.DiskUsage != wanted {
@@ -472,19 +506,32 @@ func TestLiveSolaceCrossCheckBroker(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cluster overview: %v", err)
 	}
-	queues := raw.count(t, "/monitor"+vpnPath("/queues"))
+	queues := raw.count(t, "/monitor"+second+"/queues")
 	if overview.Destinations != queues {
 		t.Errorf("the overview counts %d queues and semp counts %d",
 			overview.Destinations, queues)
 	}
-	endpoints := raw.count(t, "/monitor"+vpnPath("/topicEndpoints"))
+	if queues == 0 {
+		e2e.Missing(t, "%s holds no queue; run: npm run e2e:solace:seed", liveSolaceSecondVPN)
+	}
+	endpoints := raw.count(t, "/monitor"+second+"/topicEndpoints")
 	if overview.Subscriptions != endpoints {
 		t.Errorf("the overview counts %d topic endpoints and semp counts %d",
 			overview.Subscriptions, endpoints)
 	}
-	if overview.Attribute(solacedriver.AttrMsgVPN) != liveSolaceVPN {
+	if overview.Attribute(solacedriver.AttrMsgVPN) != liveSolaceSecondVPN {
 		t.Errorf("the overview is for %q, want %q",
-			overview.Attribute(solacedriver.AttrMsgVPN), liveSolaceVPN)
+			overview.Attribute(solacedriver.AttrMsgVPN), liveSolaceSecondVPN)
+	}
+
+	// And the count the default VPN would have reported instead, which is what
+	// makes the scoping assertion above worth anything: the two must differ,
+	// or this test would pass on a driver that ignored the scope entirely.
+	elsewhere := raw.count(t, "/monitor"+vpnPath("/queues"))
+	if elsewhere == queues {
+		t.Errorf("%s and %s both hold %d queues, so this test can no longer tell a "+
+			"scoped read from a broker-wide one; run: npm run e2e:solace:seed",
+			liveSolaceVPN, liveSolaceSecondVPN, queues)
 	}
 }
 
@@ -554,4 +601,20 @@ func TestLiveSolaceCrossCheckClients(t *testing.T) {
 		t.Error("no session was matched as one of the broker's own, and the internal " +
 			"message bus is always connected; hiding those would hide real connections")
 	}
+}
+
+// seededOnly keeps the names the seed made, sorted.
+//
+// Everything else on this broker belongs to a test that is running right now
+// and may be gone by the next read, so it is not something two sides can be
+// held to agree about.
+func seededOnly(names []string) []string {
+	kept := make([]string, 0, len(names))
+	for _, name := range names {
+		if strings.HasPrefix(name, "mqstudio/seed/") {
+			kept = append(kept, name)
+		}
+	}
+	sort.Strings(kept)
+	return kept
 }

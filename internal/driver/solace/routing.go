@@ -156,7 +156,9 @@ func (c *Conn) fillEndpointDepths(ctx context.Context, endpoints []*model.Destin
 				segment(endpoint.Ref.Name) + "/msgs?count=1"
 			_, meta, err := c.semp.do(ctx, http.MethodGet, path, nil)
 			if err != nil {
-				if notFound(err) {
+				// Gone between the listing and this read, which is ordinary
+				// during a refresh.
+				if vanished(err) {
 					return nil
 				}
 				return err
@@ -213,9 +215,9 @@ func (c *Conn) ListBindings(ctx context.Context, _ string) ([]*model.Binding, er
 				"/msgVpns/"+segment(c.vpn)+"/queues/"+segment(queue.Ref.Name)+
 					"/subscriptions?select=queueName,subscriptionTopic")
 			if listErr != nil {
-				if notFound(listErr) {
-					// The queue went between the listing and this read, which
-					// is ordinary during a refresh.
+				// The queue went between the listing and this read, which is
+				// ordinary during a refresh.
+				if vanished(listErr) {
 					return nil
 				}
 				return listErr

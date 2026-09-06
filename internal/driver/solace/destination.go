@@ -224,12 +224,19 @@ func (c *Conn) fillCounts(ctx context.Context, destinations []*model.Destination
 }
 
 // collectionCount is how many entries a queue's sub-collection holds.
+//
+// A queue that has gone between the listing and this read leaves the figure
+// unknown rather than failing the page. That is not a rare case: a listing
+// walks every queue and then reads two figures off each of them, so it is
+// racing anybody who deletes one - and SEMP reports that deletion three
+// different ways depending on which sub-collection was asked for, which is
+// what vanished exists to flatten.
 func (c *Conn) collectionCount(ctx context.Context, queue, collection string) (int64, error) {
 	path := monitorAPI + "/msgVpns/" + segment(c.vpn) + "/queues/" + segment(queue) +
 		"/" + collection + "?count=1"
 	_, meta, err := c.semp.do(ctx, "GET", path, nil)
 	if err != nil {
-		if notFound(err) {
+		if vanished(err) {
 			return model.UnknownMetric, nil
 		}
 		return 0, err

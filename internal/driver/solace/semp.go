@@ -73,6 +73,33 @@ func notFound(err error) bool { return statusIs(err, statusNotFound) }
 // needs: one is a name to change, the other is a broker to look at.
 func alreadyExists(err error) bool { return statusIs(err, statusAlreadyExists) }
 
+/*
+ * vanished reports an object that has gone between one read and the next.
+ *
+ * It is not the same test as notFound, and it has to be its own because SEMP
+ * answers three ways for the same fact. Asked for a queue that is not there it
+ * says NOT_FOUND; asked for that queue's message collection it says FAIL with
+ * "No queue named X exists" in the description; and asked for the same queue's
+ * flows or subscriptions it says 200 with an empty list. All three were
+ * measured against a broker rather than read out of the documentation.
+ *
+ * The middle one is why this exists. A listing that walks every queue and then
+ * reads a figure off each of them is racing anybody who deletes one - another
+ * window, another operator, a test - and without this the whole page fails on
+ * a queue that was simply removed while it was being drawn.
+ */
+func vanished(err error) bool {
+	if notFound(err) {
+		return true
+	}
+	var serr *sempError
+	if !errors.As(err, &serr) {
+		return false
+	}
+	return strings.Contains(serr.Description, "No queue named") ||
+		strings.Contains(serr.Description, "No topic endpoint named")
+}
+
 func statusIs(err error, status string) bool {
 	var serr *sempError
 	if !errors.As(err, &serr) {

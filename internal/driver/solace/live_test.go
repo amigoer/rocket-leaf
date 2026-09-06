@@ -1542,3 +1542,53 @@ func TestLiveClientChannelsAreEmptyByDesign(t *testing.T) {
 			"rather than a multiplexing layer on the connection", len(channels))
 	}
 }
+
+/*
+ * A queue deleted underneath a listing leaves a dash rather than failing the
+ * page.
+ *
+ * Written deterministically rather than as a race: the queue is created, put
+ * into the listing's path, deleted, and then the figure the listing reads off
+ * it is asked for directly. The broker answers that read with status FAIL and
+ * "No queue named X exists" - not NOT_FOUND, which is what it says about the
+ * queue itself, and not the empty 200 its flows and subscriptions give - and
+ * a driver that knew only one of those three would fail every refresh that
+ * happened to race a delete.
+ */
+func TestLiveCountOfAQueueThatHasGoneReadsAsUnknown(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	name := "mqstudio/test/vanish-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+
+	if err := conn.CreateDestination(ctx, model.DestinationSpec{
+		Ref: model.DestinationRef{Name: name},
+	}); err != nil {
+		t.Fatalf("create %s: %v", name, err)
+	}
+	if err := conn.RemoveDestination(ctx, model.DestinationRef{Name: name}); err != nil {
+		t.Fatalf("remove %s: %v", name, err)
+	}
+
+	for _, collection := range []string{"msgs", "txFlows"} {
+		count, err := conn.collectionCount(ctx, name, collection)
+		if err != nil {
+			t.Errorf("%s on a deleted queue failed the read rather than reporting it "+
+				"as gone: %v", collection, err)
+		}
+		if collection == "msgs" && count != model.UnknownMetric {
+			t.Errorf("the message count of a deleted queue is %d, want unknown", count)
+		}
+	}
+
+	// And the shape the driver has to recognise, read raw so the assertion is
+	// about the broker rather than about the driver's own translation of it.
+	err := rawSEMP(http.MethodGet,
+		"/monitor/msgVpns/"+livePath(liveVPN)+"/queues/"+livePath(name)+"/msgs?count=1", nil, nil)
+	if err == nil {
+		t.Fatal("the broker answered for a queue that has been deleted")
+	}
+	if !strings.Contains(err.Error(), "No queue named") {
+		t.Errorf("the broker no longer says %q for a deleted queue's messages: %v",
+			"No queue named", err)
+	}
+}

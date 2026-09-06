@@ -114,7 +114,7 @@ func (c *Conn) vpnCollectionCount(ctx context.Context, vpn, collection string) (
 	path := monitorAPI + "/msgVpns/" + segment(vpn) + "/" + collection + "?count=1"
 	_, meta, err := c.semp.do(ctx, "GET", path, nil)
 	if err != nil {
-		if notFound(err) {
+		if vanished(err) {
 			return model.UnknownMetric, nil
 		}
 		return 0, err

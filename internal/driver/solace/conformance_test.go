@@ -420,3 +420,39 @@ func TestCapabilitiesMatchTheSidebarContract(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * A queue that has gone is recognised however SEMP chooses to say so.
+ *
+ * Three ways for one fact, all measured against a broker: the queue itself
+ * answers NOT_FOUND, its message collection answers FAIL with "No queue named
+ * X exists" in the description, and its flows and subscriptions answer 200
+ * with an empty list. A listing walks every queue and then reads figures off
+ * each of them, so it is always racing whoever deletes one - and a driver that
+ * knew only the first shape fails the whole page on a queue somebody removed
+ * while it was being drawn.
+ */
+func TestVanishedRecognisesEveryWaySEMPSaysItIsGone(t *testing.T) {
+	for _, gone := range []*sempError{
+		{HTTPStatus: 400, Status: statusNotFound, Description: "Could not find match for queue q"},
+		{HTTPStatus: 400, Status: "FAIL", Description: "Problem with reading: No queue named q exists."},
+		{HTTPStatus: 400, Status: "FAIL", Description: "Problem with reading: No topic endpoint named e exists."},
+	} {
+		if !vanished(gone) {
+			t.Errorf("%v is not recognised as an object that has gone", gone)
+		}
+	}
+
+	// And what must not be swallowed: a real failure reported the same way.
+	// Treating one of these as "gone" would turn a broker refusing the
+	// credential into a page of dashes.
+	for _, real := range []*sempError{
+		{HTTPStatus: 401, Status: "UNAUTHORIZED", Description: "Authorization failed"},
+		{HTTPStatus: 400, Status: "FAIL", Description: "Problem with reading: internal error"},
+		{HTTPStatus: 400, Status: "NOT_ALLOWED", Description: "Message VPN is shutdown"},
+	} {
+		if vanished(real) {
+			t.Errorf("%v is treated as an object that has gone", real)
+		}
+	}
+}
