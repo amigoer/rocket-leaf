@@ -14,6 +14,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as model$0 from "../model/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 /**
@@ -38,11 +42,28 @@ export function CreateTopic(connID: number, input: $models.GooglePubSubTopicInpu
 }
 
 /**
+ * DeadLetterQueues finds the topics subscriptions give up into, and which
+ * subscriptions point at each of them.
+ * 
+ * A dead-letter topic in Pub/Sub is an ordinary topic with a subscription's
+ * policy aimed at it. Nothing marks one, so this is a walk backwards through
+ * the topology - and because the policy belongs to the subscription rather
+ * than to the topic, every source names both. A target every one of whose
+ * sources sits outside the connection's name prefix is not found, because the
+ * walk starts from what the prefix let through.
+ */
+export function DeadLetterQueues(connID: number): $CancellablePromise<(model$0.DeadLetterQueue | null)[]> {
+    return $Call.ByID(123078165, connID).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
+
+/**
  * ListSnapshots is every restore point in the project.
  */
 export function ListSnapshots(connID: number): $CancellablePromise<$models.GooglePubSubSnapshot[]> {
     return $Call.ByID(3308443124, connID).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType4($result);
     });
 }
 
@@ -55,7 +76,7 @@ export function ListSnapshots(connID: number): $CancellablePromise<$models.Googl
  */
 export function Publish(connID: number, input: $models.GooglePubSubPublishInput): $CancellablePromise<$models.GooglePubSubPublishResult | null> {
     return $Call.ByID(1147653366, connID, input).then(($result: any) => {
-        return $$createType3($result);
+        return $$createType6($result);
     });
 }
 
@@ -111,7 +132,10 @@ export function UpdateTopic(connID: number, input: $models.GooglePubSubTopicInpu
 }
 
 // Private type creation functions
-const $$createType0 = $models.GooglePubSubSnapshot.createFrom;
-const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = $models.GooglePubSubPublishResult.createFrom;
-const $$createType3 = $Create.Nullable($$createType2);
+const $$createType0 = model$0.DeadLetterQueue.createFrom;
+const $$createType1 = $Create.Nullable($$createType0);
+const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = $models.GooglePubSubSnapshot.createFrom;
+const $$createType4 = $Create.Array($$createType3);
+const $$createType5 = $models.GooglePubSubPublishResult.createFrom;
+const $$createType6 = $Create.Nullable($$createType5);

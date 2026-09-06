@@ -86,6 +86,7 @@ import { MessagesGooglePubSub } from "./boards/messages/MessagesGooglePubSub";
 import { ProducerSqs } from "./boards/producer/ProducerSqs";
 import { ProducerGooglePubSub } from "./boards/producer/ProducerGooglePubSub";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
+import { DlqGooglePubSub } from "./boards/dlq/DlqGooglePubSub";
 import { OverviewSqs } from "./boards/overview/OverviewSqs";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
@@ -201,6 +202,7 @@ const BOARDS: Partial<
     redis: PelRedis,
     activemq: DlqActiveMQ,
     sqs: DlqSqs,
+    "google-pubsub": DlqGooglePubSub,
   },
   cluster: {
     rocketmq: ClusterRocketMQ,

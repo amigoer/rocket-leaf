@@ -124,6 +124,8 @@ func capabilities() []model.Capability {
 		model.CapMessageQuery,
 
 		model.CapPublish,
+
+		model.CapDeadLetterTopology,
 	}
 }
 

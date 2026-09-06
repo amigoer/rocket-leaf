@@ -237,3 +237,22 @@ func (s *Service) Publish(
 	defer cancel()
 	return api.Publish(ctx, request)
 }
+
+// DeadLetterQueues finds the topics subscriptions give up into.
+//
+// Beside the canonical services because no canonical service owns this: the
+// dead-letter page is answered three different ways across this app, and
+// Pub/Sub's is the topology walk. The policy sits on the subscription rather
+// than on the topic, so every source names both the topic a message came from
+// and the subscription that stopped trying.
+func (s *Service) DeadLetterQueues(ctx context.Context, connID int) ([]*model.DeadLetterQueue, error) {
+	api, err := s.pubsubConn(connID, model.CapDeadLetterTopology)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	// No namespace: a topic name is flat and unique within a project, and
+	// Pub/Sub has nothing inside one for it to belong to.
+	return api.DeadLetterQueues(ctx, "")
+}

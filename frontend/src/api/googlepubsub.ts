@@ -6,6 +6,7 @@ import type {
   GooglePubSubSubscriptionInput,
   GooglePubSubTopicInput,
 } from "@bindings/bridge/models";
+import type { DeadLetterQueue } from "@bindings/model/models";
 import { present, required } from "./client";
 
 export type {
@@ -127,3 +128,15 @@ export const publish = (
   input: GooglePubSubPublishInput,
 ): Promise<GooglePubSubPublishResult> =>
   GooglePubSubService.Publish(connID, input).then(required);
+
+/**
+ * Find the topics subscriptions give up into, and what points at each.
+ *
+ * A walk backwards rather than a lookup: nothing marks a dead-letter topic in
+ * Pub/Sub, it is an ordinary topic with a subscription's policy aimed at it.
+ * The walk starts from what the connection's name prefix let through, so a
+ * target every one of whose sources sits outside that prefix is not found -
+ * widening the prefix is what makes it appear.
+ */
+export const deadLetterQueues = (connID: number): Promise<DeadLetterQueue[]> =>
+  GooglePubSubService.DeadLetterQueues(connID).then(present);

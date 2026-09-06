@@ -4,6 +4,7 @@ import (
 	"context"
 
 	pubsubdriver "github.com/amigoer/mq-studio/internal/driver/googlepubsub"
+	"github.com/amigoer/mq-studio/internal/model"
 	pubsubservice "github.com/amigoer/mq-studio/internal/service/googlepubsub"
 )
 
@@ -242,4 +243,17 @@ func (s *GooglePubSubService) Publish(
 		return nil, err
 	}
 	return &GooglePubSubPublishResult{Sent: result.Sent, MessageID: result.MessageID}, nil
+}
+
+// DeadLetterQueues finds the topics subscriptions give up into, and which
+// subscriptions point at each of them.
+//
+// A dead-letter topic in Pub/Sub is an ordinary topic with a subscription's
+// policy aimed at it. Nothing marks one, so this is a walk backwards through
+// the topology - and because the policy belongs to the subscription rather
+// than to the topic, every source names both. A target every one of whose
+// sources sits outside the connection's name prefix is not found, because the
+// walk starts from what the prefix let through.
+func (s *GooglePubSubService) DeadLetterQueues(connID int) ([]*model.DeadLetterQueue, error) {
+	return s.service.DeadLetterQueues(context.Background(), connID)
 }

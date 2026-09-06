@@ -1198,3 +1198,166 @@ func TestLiveSendMessageRefusesWhatPubSubHasNoConceptOf(t *testing.T) {
 		t.Errorf("refused a message carrying only attributes: %v", err)
 	}
 }
+
+/*
+ * The dead-letter topology, walked backwards.
+ *
+ * Nothing marks a dead-letter topic: it is an ordinary topic that some
+ * subscription's policy points at. And the policy is on the subscription
+ * rather than on the topic, which is what makes a source two names - the topic
+ * a message came from, and the subscription that stopped trying.
+ */
+func TestLiveDeadLetterQueuesNameBothHalvesOfEverySource(t *testing.T) {
+	conn := liveConn(t)
+
+	queues, err := conn.DeadLetterQueues(liveContext(t), "")
+	if err != nil {
+		t.Fatalf("dead letters: %v", err)
+	}
+
+	var found *model.DeadLetterQueue
+	for _, queue := range queues {
+		if queue.Name == seedDeadLetters {
+			found = queue
+		}
+	}
+	if found == nil {
+		e2e.Missing(t, "%s is not seeded; run `npm run e2e:google-pubsub:seed`", seedDeadLetters)
+	}
+
+	if len(found.Sources) != 1 {
+		t.Fatalf("%s reports %d sources, want the one the seed creates: %v",
+			seedDeadLetters, len(found.Sources), found.Sources)
+	}
+	source := found.Sources[0]
+	if source.Queue != seedOrders {
+		t.Errorf("source topic = %q, want %q", source.Queue, seedOrders)
+	}
+	// The half a RabbitMQ source cannot carry, and the half that matters here:
+	// which reader of that topic gave up.
+	if source.Subscription != seedWorker {
+		t.Errorf("source subscription = %q, want %q", source.Subscription, seedWorker)
+	}
+	// Nothing is re-published through a routing layer - the service moves the
+	// message itself - so neither of RabbitMQ's fields has a counterpart.
+	if source.Exchange != "" || source.RoutingKey != "" {
+		t.Errorf("source reports an exchange %q and routing key %q, and Pub/Sub has neither",
+			source.Exchange, source.RoutingKey)
+	}
+
+	// A topic holds nothing countable, dead letters included: zero would read
+	// as "this backlog has been dealt with".
+	if found.Depth != model.UnknownMetric {
+		t.Errorf("%s reports a depth of %d; a topic holds nothing countable",
+			seedDeadLetters, found.Depth)
+	}
+	// The seed puts a reader on it, which is what separates a dead-letter
+	// topic somebody is watching from one that discards on arrival.
+	if found.Consumers != 1 {
+		t.Errorf("%s reports %d subscriptions, want the one the seed creates",
+			seedDeadLetters, found.Consumers)
+	}
+}
+
+/*
+ * A dead-letter topic with no subscription, which is the failure this page
+ * exists to find.
+ *
+ * A topic stores nothing. A dead letter published to one nothing subscribes to
+ * is discarded on arrival - and the messages a system gave up on are exactly
+ * the ones nobody notices disappearing, because there is no backlog anywhere
+ * to notice them by.
+ */
+func TestLiveADeadLetterTopicWithNoReaderIsReportedAsSuch(t *testing.T) {
+	conn := liveConn(t)
+	topic := "mqs-test-dl-source"
+	dead := "mqs-test-dl-sink"
+	name := "mqs-test-dl-worker"
+	_ = conn.RemoveSubscription(liveContext(t), model.SubscriptionRef{Name: name})
+	_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: topic})
+	_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: dead})
+	createTopic(t, conn, TopicSpec{Name: topic})
+	createTopic(t, conn, TopicSpec{Name: dead})
+	createSubscription(t, conn, SubscriptionSpec{
+		Name: name, Topic: topic, DeadLetterTopic: dead, MaxAttempts: 5,
+	})
+
+	queues, err := conn.DeadLetterQueues(liveContext(t), "")
+	if err != nil {
+		t.Fatalf("dead letters: %v", err)
+	}
+	var found *model.DeadLetterQueue
+	for _, queue := range queues {
+		if queue.Name == dead {
+			found = queue
+		}
+	}
+	if found == nil {
+		t.Fatalf("a topic %s dead-letters into is not listed at all", name)
+	}
+	if found.Consumers != 0 {
+		t.Errorf("%s reports %d subscriptions, and nothing was created on it", dead, found.Consumers)
+	}
+	if len(found.Sources) != 1 || found.Sources[0].Subscription != name {
+		t.Errorf("%s reports sources %v, want just %s", dead, found.Sources, name)
+	}
+}
+
+/*
+ * A message that runs out of delivery attempts really does move, and it is
+ * worth exercising rather than assuming: the count includes this app's own
+ * browse, which is the whole reason the browse carries a caveat.
+ */
+func TestLiveAMessageOutOfAttemptsReachesTheDeadLetterTopic(t *testing.T) {
+	conn := liveConn(t)
+	topic := "mqs-test-giveup-topic"
+	dead := "mqs-test-giveup-dead"
+	worker := "mqs-test-giveup-worker"
+	reader := "mqs-test-giveup-reader"
+	for _, name := range []string{worker, reader} {
+		_ = conn.RemoveSubscription(liveContext(t), model.SubscriptionRef{Name: name})
+	}
+	_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: topic})
+	_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: dead})
+	createTopic(t, conn, TopicSpec{Name: topic})
+	createTopic(t, conn, TopicSpec{Name: dead})
+	createSubscription(t, conn, SubscriptionSpec{
+		Name: worker, Topic: topic, AckDeadlineSec: 10,
+		DeadLetterTopic: dead, MaxAttempts: minDeliveryAttempts,
+	})
+	createSubscription(t, conn, SubscriptionSpec{Name: reader, Topic: dead, AckDeadlineSec: 60})
+
+	if _, err := conn.Publish(liveContext(t), PublishRequest{
+		Topic: topic,
+		Body:  "gives-up",
+	}); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+
+	// Each browse is a delivery. After the policy's limit the service moves
+	// the message, which is exactly what the caveat warns about.
+	for attempt := 0; attempt < minDeliveryAttempts+1; attempt++ {
+		if _, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+			Topic:      worker,
+			MaxResults: 5,
+		}); err != nil {
+			t.Fatalf("browse %d: %v", attempt, err)
+		}
+	}
+
+	moved, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic:      reader,
+		MaxResults: 5,
+	})
+	if err != nil {
+		t.Fatalf("browse the dead-letter topic: %v", err)
+	}
+	if len(moved) == 0 {
+		t.Fatal("browsing past the delivery limit did not move the message, and the browse " +
+			"caveat says it counts towards exactly that")
+	}
+	if moved[0].Body != "gives-up" {
+		t.Errorf("the dead-letter topic holds %q, want the message that ran out of attempts",
+			moved[0].Body)
+	}
+}
