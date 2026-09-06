@@ -147,3 +147,13 @@ func (s *IBMMQService) Publish(connID int, input IBMMQPublishInput) (*IBMMQPubli
 	}
 	return &IBMMQPublishResult{Sent: result.Sent, MessageID: result.MessageID}, nil
 }
+
+// DeadLetterQueues lists the queues something else dead-letters into.
+//
+// Found by walking every queue's configuration backwards rather than by
+// looking up a name: nothing marks a dead-letter queue on this family, and
+// what makes one is the queue manager's DEADQ attribute or another queue's
+// backout queue pointing at it.
+func (s *IBMMQService) DeadLetterQueues(connID int) ([]*model.DeadLetterQueue, error) {
+	return s.service.DeadLetters(context.Background(), connID)
+}

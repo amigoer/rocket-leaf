@@ -5601,6 +5601,22 @@
           "countRange": "Send between 1 and 100 copies."
         },
         "note": "There is no scheduled send: a message the queue manager accepts is readable immediately. There is no tag and no key either — what an IBM MQ message carries instead is the descriptor above and whatever properties the sending application attaches."
+      },
+      "dlq": {
+        "count": "{{count}} dead-letter queues",
+        "queue": "Queue",
+        "depth": "Depth",
+        "consumers": "Open for input",
+        "sources": "Sources",
+        "section": {
+          "sources": "What points here"
+        },
+        "fromQueueManager": "Queue manager DEADQ",
+        "fromQueue": "Backout queue for",
+        "threshold": "After",
+        "thresholdNone": "never — the backout threshold is zero",
+        "nobodyDraining": "Nothing has this queue open for input. A dead-letter queue with a depth and no handler is a backlog nobody is looking at.",
+        "note": "Nothing here is marked as a dead-letter queue: what makes one is the queue manager's DEADQ attribute or another queue's backout queue pointing at it. The two are filled by different things — the queue manager fills its own DEADQ with whatever it could not deliver, and a backout queue is filled by whichever application gave up after the threshold. Message bodies are on the messages page, where every dead letter is listed and none can be opened: a dead letter carries a dead-letter header, and the REST interface returns character data only."
       }
     }
   }

@@ -110,6 +110,7 @@ import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
 import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
 import { DlqActiveMQ } from "./boards/dlq/DlqActiveMQ";
+import { DlqIbmMq } from "./boards/dlq/DlqIbmMq";
 import { TopicsNsq } from "./boards/topics/TopicsNsq";
 import { ChannelsNsq } from "./boards/consumers/ChannelsNsq";
 import { ClientsNsq } from "./boards/consumers/ClientsNsq";
@@ -243,6 +244,7 @@ const BOARDS: Partial<
     sqs: DlqSqs,
     "google-pubsub": DlqGooglePubSub,
     "azure-servicebus": DlqAzureServiceBus,
+    ibmmq: DlqIbmMq,
   },
   cluster: {
     rocketmq: ClusterRocketMQ,

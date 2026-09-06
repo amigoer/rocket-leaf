@@ -1091,3 +1091,95 @@ func TestLiveSendRefusesAMalformedCorrelationID(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * Dead letters, found by walking the configuration backwards.
+ *
+ * Both pointers are asserted because they are two different mechanisms that
+ * happen to end at the same page: the queue manager fills its own DEADQ, and a
+ * backout queue is filled by whichever application decided to give up. A
+ * driver that found only the first would report a queue manager as having one
+ * dead-letter queue when it has three.
+ */
+func TestLiveDeadLetterQueuesFollowBothPointers(t *testing.T) {
+	conn := liveConn(t)
+
+	queues, err := conn.DeadLetterQueues(liveContext(t), "")
+	if err != nil {
+		t.Fatalf("DeadLetterQueues: %v", err)
+	}
+	if len(queues) == 0 {
+		t.Fatal("no dead-letter queues at all; the queue manager names one for itself")
+	}
+
+	byName := make(map[string]*model.DeadLetterQueue, len(queues))
+	for _, queue := range queues {
+		byName[queue.Name] = queue
+	}
+
+	// The queue manager's own, whose source is the queue manager rather than a
+	// queue - there is nothing else to name in its place.
+	managers := byName[deadLetterQueue]
+	if managers == nil {
+		t.Fatalf("%s is not listed, and the queue manager's DEADQ names it", deadLetterQueue)
+	}
+	if managers.Depth <= 0 {
+		e2e.Missing(t, "%s is empty; run: npm run e2e:ibmmq:seed", deadLetterQueue)
+		return
+	}
+	if len(managers.Sources) != 1 {
+		t.Fatalf("%s has %d sources; only the queue manager fills it",
+			deadLetterQueue, len(managers.Sources))
+	}
+	if managers.Sources[0].Queue != liveQueueManager {
+		t.Errorf("%s names %q as its source, want the queue manager",
+			deadLetterQueue, managers.Sources[0].Queue)
+	}
+	if managers.Sources[0].Exchange != attributeDEADQ {
+		t.Errorf("%s is attributed to %q, want DEADQ; a backout queue and the queue "+
+			"manager's own are filled by different things",
+			deadLetterQueue, managers.Sources[0].Exchange)
+	}
+
+	// The seed's backout queue, which nothing marks: it is a dead-letter queue
+	// only because MQS.SEED.AUDIT points at it.
+	backout := byName[seedBackoutQueue]
+	if backout == nil {
+		e2e.Missing(t, "%s is not listed; run: npm run e2e:ibmmq:seed", seedBackoutQueue)
+		return
+	}
+	if len(backout.Sources) != 1 || backout.Sources[0].Queue != seedAuditQueue {
+		t.Fatalf("%s reports sources %+v; the seed points %s at it",
+			seedBackoutQueue, backout.Sources, seedAuditQueue)
+	}
+	if backout.Sources[0].Exchange != attributeBOQNAME {
+		t.Errorf("%s is attributed to %q, want BOQNAME", seedBackoutQueue, backout.Sources[0].Exchange)
+	}
+	// The threshold decides whether the pointer is ever travelled at all: a
+	// backout queue with a threshold of zero receives nothing.
+	if backout.Sources[0].RoutingKey != "3" {
+		t.Errorf("%s reports a backout threshold of %q, and the seed set 3",
+			seedBackoutQueue, backout.Sources[0].RoutingKey)
+	}
+}
+
+// A queue nothing points at is not a dead-letter queue, however it is named.
+// The page is built by inverting configuration, so a name that merely looks
+// like one must not appear.
+func TestLiveAQueueNothingPointsAtIsNotADeadLetterQueue(t *testing.T) {
+	conn := liveConn(t)
+
+	queues, err := conn.DeadLetterQueues(liveContext(t), "")
+	if err != nil {
+		t.Fatalf("DeadLetterQueues: %v", err)
+	}
+	for _, queue := range queues {
+		if queue.Name == seedQueue {
+			t.Errorf("%s is listed as a dead-letter queue, and nothing points at it", seedQueue)
+		}
+		if len(queue.Sources) == 0 {
+			t.Errorf("%s is listed with no source, which is what makes a queue one at all",
+				queue.Name)
+		}
+	}
+}

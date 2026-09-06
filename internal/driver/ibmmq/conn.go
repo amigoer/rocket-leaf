@@ -156,6 +156,8 @@ func capabilities() []model.Capability {
 		model.CapMessageQuery,
 		model.CapMessageByID,
 		model.CapPublish,
+
+		model.CapDeadLetterTopology,
 	}
 }
 
@@ -226,6 +228,8 @@ func messagingCapabilities() []model.Capability {
 		model.CapMessageQuery,
 		model.CapMessageByID,
 		model.CapPublish,
+
+		model.CapDeadLetterTopology,
 	}
 }
 

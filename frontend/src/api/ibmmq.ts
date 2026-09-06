@@ -4,7 +4,7 @@ import type {
   IBMMQPublishInput,
   IBMMQPublishResult,
 } from "@bindings/bridge/models";
-import type { Channel } from "@bindings/model/models";
+import type { Channel, DeadLetterQueue } from "@bindings/model/models";
 import { present, required } from "./client";
 
 export type { IBMMQDestinationInput, IBMMQPublishInput, IBMMQPublishResult };
@@ -62,3 +62,13 @@ export const publish = (
   connID: number,
   input: IBMMQPublishInput,
 ): Promise<IBMMQPublishResult> => IBMMQService.Publish(connID, input).then(required);
+
+/**
+ * The queues something else dead-letters into.
+ *
+ * Found by walking every queue's configuration backwards: nothing marks a
+ * dead-letter queue here, and what makes one is the queue manager's DEADQ
+ * attribute or another queue's backout queue pointing at it.
+ */
+export const deadLetterQueues = async (connID: number): Promise<DeadLetterQueue[]> =>
+  present(await IBMMQService.DeadLetterQueues(connID));

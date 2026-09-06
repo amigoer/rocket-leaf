@@ -43,11 +43,25 @@ export function CreateDestination(connID: number, input: $models.IBMMQDestinatio
 }
 
 /**
+ * DeadLetterQueues lists the queues something else dead-letters into.
+ * 
+ * Found by walking every queue's configuration backwards rather than by
+ * looking up a name: nothing marks a dead-letter queue on this family, and
+ * what makes one is the queue manager's DEADQ attribute or another queue's
+ * backout queue pointing at it.
+ */
+export function DeadLetterQueues(connID: number): $CancellablePromise<(model$0.DeadLetterQueue | null)[]> {
+    return $Call.ByID(2060822981, connID).then(($result: any) => {
+        return $$createType5($result);
+    });
+}
+
+/**
  * Publish sends to one queue and reports what the queue manager took.
  */
 export function Publish(connID: number, input: $models.IBMMQPublishInput): $CancellablePromise<$models.IBMMQPublishResult | null> {
     return $Call.ByID(3409958470, connID, input).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType7($result);
     });
 }
 
@@ -73,5 +87,8 @@ export function RemoveDestination(connID: number, name: string, purge: boolean):
 const $$createType0 = model$0.Channel.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
 const $$createType2 = $Create.Array($$createType1);
-const $$createType3 = $models.IBMMQPublishResult.createFrom;
+const $$createType3 = model$0.DeadLetterQueue.createFrom;
 const $$createType4 = $Create.Nullable($$createType3);
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = $models.IBMMQPublishResult.createFrom;
+const $$createType7 = $Create.Nullable($$createType6);
