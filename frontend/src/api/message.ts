@@ -162,13 +162,20 @@ export const browseMessages = (
   topic: string,
   maxResults: number,
   filters: Record<string, string>,
+  /**
+   * A time window, for a family whose browse walks a retention period rather
+   * than an index. Kinesis is the one: a read starts at a moment or at the
+   * oldest record it still has, and without a start every browse begins at the
+   * horizon and spends the shard's read budget getting to what was asked for.
+   */
+  window: { startTimeMs?: number; endTimeMs?: number } = {},
 ): Promise<MessageItem[]> =>
   MessageService.Query(connID, {
     topic,
     key: "",
     tag: "",
     maxResults,
-    startTime: 0,
-    endTime: 0,
+    startTime: window.startTimeMs ?? 0,
+    endTime: window.endTimeMs ?? 0,
     filters,
   }).then(present);

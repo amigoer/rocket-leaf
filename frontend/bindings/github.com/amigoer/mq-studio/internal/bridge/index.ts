@@ -10,6 +10,7 @@ import * as ConsumerService from "./consumerservice.js";
 import * as DriverService from "./driverservice.js";
 import * as GooglePubSubService from "./googlepubsubservice.js";
 import * as KafkaService from "./kafkaservice.js";
+import * as KinesisService from "./kinesisservice.js";
 import * as MQTTService from "./mqttservice.js";
 import * as MessageService from "./messageservice.js";
 import * as NATSService from "./natsservice.js";
@@ -35,6 +36,7 @@ export {
     DriverService,
     GooglePubSubService,
     KafkaService,
+    KinesisService,
     MQTTService,
     MessageService,
     NATSService,
@@ -86,6 +88,9 @@ export {
     GroupInput,
     IdentityInput,
     KafkaTopicInput,
+    KinesisPublishInput,
+    KinesisPublishResult,
+    KinesisStreamInput,
     LogDirView,
     MQTTFilterInput,
     MQTTPublishInput,

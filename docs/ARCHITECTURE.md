@@ -86,6 +86,7 @@ internal/
     sqs/                 Amazon SQS driver: the AWS API, with no address to dial
     googlepubsub/        Google Pub/Sub driver: topics and subscriptions, no address
     azureservicebus/     Azure Service Bus driver: AMQP for messages, Atom for topology
+    kinesis/             Amazon Kinesis driver: streams and shards, with no address to dial
   model/                 Domain models and the capability vocabulary
   crypto/                Local encryption helpers
   storage/               On-disk layout and atomic writes
@@ -124,6 +125,7 @@ tests/
   e2e/sqs/               LocalStack running sqs, reached through the endpoint override
   e2e/google-pubsub/     Google's own Pub/Sub emulator, reached through the host option
   e2e/azure-servicebus/  Microsoft's Service Bus emulator, and the SQL Server it needs
+  e2e/kinesis/           LocalStack running kinesis, on a port of its own beside sqs
   throughput-load/       Load generator for the throughput charts (own module)
 ```
 

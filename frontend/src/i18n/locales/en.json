@@ -210,7 +210,9 @@
       "topicUnsubscribed": "Topic with no subscription",
       "subscriptionOrphaned": "Subscription whose topic is gone",
       "subscriptionUnroutable": "Subscription with no rule",
-      "entityDisabled": "Entity switched off"
+      "entityDisabled": "Entity switched off",
+      "streamNotActive": "Stream still settling",
+      "consumerNotActive": "Consumer registration settling"
     },
     "tabs": {
       "active": "Active",
@@ -268,7 +270,9 @@
       "topicUnsubscribed": "{{topic}} · nothing subscribes; every message published here is accepted and discarded",
       "subscriptionOrphaned": "{{subscription}} · its topic has been deleted; it will never receive another message and still holds what it has",
       "subscriptionUnroutable": "{{subscription}} · no rules, so nothing can reach it; it stays Active with an empty backlog because nothing arrives",
-      "entityDisabled": "{{entity}} · status {{status}}; work is refused at the client and leaves no mark on any board"
+      "entityDisabled": "{{entity}} · status {{status}}; work is refused at the client and leaves no mark on any board",
+      "streamNotActive": "{{stream}} · status {{status}}; every other call that names this stream is refused as \"resource in use\" until it is ACTIVE",
+      "consumerNotActive": "{{consumer}} on {{stream}} · status {{status}}; an application pointed at it now fails with an error about the consumer rather than the stream"
     },
     "duration": {
       "minutes": "for {{count}} min",
@@ -697,6 +701,30 @@
       "degraded": {
         "countsNotInEmulator": "The Service Bus emulator reports no message counts: a queue's and a topic's description carry no CountDetails element at all, and a subscription's carries one the SDK cannot read. Depths and backlogs are blank here and only here — a real namespace reports both."
       }
+    },
+    "kinesis": {
+      "name": "Amazon Kinesis",
+      "terms": {
+        "destination": "Stream",
+        "destinationPlural": "Streams",
+        "subscription": "Consumer",
+        "subscriptionPlural": "Consumers",
+        "backlog": "Records"
+      },
+      "form": {
+        "region": "AWS region",
+        "accessKeyId": "Access key ID",
+        "secretAccessKey": "Secret access key",
+        "sessionToken": "Session token",
+        "streamPrefix": "Stream name prefix",
+        "endpointUrl": "Endpoint override"
+      },
+      "caveat": {
+        "readQuota": "Reading a stream takes nothing away: no record is hidden, consumed or marked, and any number of readers can read the same one until it expires. What a read does spend is the shard's allowance — five GetRecords a second and two megabytes a second — which is shared with every classic consumer on that shard, so browsing a busy stream can throttle the applications reading it."
+      },
+      "degraded": {
+        "positionInDynamo": "A Kinesis stream records that a consumer is registered and nothing about where it has read to. A classic consumer keeps its position in a DynamoDB table the KCL owns, and an enhanced fan-out consumer keeps none at all — so no connection anywhere can report a backlog, and the millisBehindLatest on a read is this app's own lag rather than any consumer's."
+      }
     }
   },
   "shell": {
@@ -899,6 +927,15 @@
         "exchanges": "Rules",
         "messages": "Messages",
         "dlq": "Dead letters",
+        "producer": "Send",
+        "alerts": "Alerts"
+      },
+      "kinesis": {
+        "overview": "Overview",
+        "topics": "Streams",
+        "shards": "Shards",
+        "consumers": "Consumers",
+        "messages": "Records",
         "producer": "Send",
         "alerts": "Alerts"
       }
@@ -1249,6 +1286,23 @@
           "credentialRequired": "Give a shared access key, or paste a connection string. Service Bus signs every call and has no ambient credential to fall back on.",
           "connectionStringMalformed": "That is not a connection string — a Service Bus one starts with Endpoint=sb:// and carries SharedAccessKeyName and SharedAccessKey.",
           "emulatorManagementNoScheme": "The emulator management host is a host and a port, with no http:// in front — 127.0.0.1:5300."
+        },
+        "kinesis": {
+          "region": "AWS region",
+          "regionHint": "Where the streams are. There is no address to type: the SDK resolves kinesis.<region>.amazonaws.com, and the request is signed for this region — one signed for another is refused.",
+          "accessKeyId": "Access key ID",
+          "secretAccessKey": "Secret access key",
+          "credentialsHint": "Leave both blank to use this machine's own AWS credentials — environment variables, the shared config file, or an instance or container role.",
+          "sessionToken": "Session token (optional)",
+          "sessionTokenHint": "Only temporary credentials carry one, and it expires with the session. A connection using STS keys stops working when they do.",
+          "streamPrefix": "Stream name prefix (optional)",
+          "streamPrefixHint": "Narrows every listing to streams whose name starts with this. ListStreams has no filter of its own, so the prefix is applied after the listing rather than by the service.",
+          "endpointUrl": "Endpoint override (optional)",
+          "endpointUrlHint": "A VPC interface endpoint, or a local emulator. The full URL, scheme included — it is still signed for the region above.",
+          "note": "A region and a credential — there is no broker to address",
+          "regionRequired": "Name an AWS region — it is what says where the streams are, and the request is signed with it.",
+          "credentialPairRequired": "An AWS credential needs both halves. Leave both blank to use this machine's own identity instead.",
+          "endpointScheme": "The endpoint override is a full URL — start it with https:// or http://."
         }
       },
       "deleteTitle": "Delete connection",
@@ -1456,7 +1510,7 @@
         "aheadOfRelease": "Local v{{current}} is newer than published v{{latest}}",
         "upToDate": "You are on the latest version v{{version}}",
         "updateCheckFailed": "Could not check for updates",
-        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, and Azure Service Bus without deploying a separate console."
+        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, Azure Service Bus, and Amazon Kinesis without deploying a separate console."
       }
     }
   },
@@ -5182,6 +5236,169 @@
         "disabledHint": "Entities whose status is not Active: sends or receives are refused at the client and leave no mark on any board.",
         "busiest": "Topics by subscription",
         "note": "There is no cluster panel and no throughput here: Microsoft runs the service, and the rates live in Azure Monitor under a different credential. What the tiles count instead is where routing is broken, because those are the faults with no other symptom."
+      }
+    },
+    "kinesis": {
+      "streams": {
+        "count": "{{count}} streams",
+        "search": "Search streams",
+        "name": "Stream",
+        "status": "Status",
+        "mode": "Capacity mode",
+        "openShards": "Open shards",
+        "consumers": "Consumers",
+        "retention": "Retention",
+        "encryption": "Encryption",
+        "kmsKey": "KMS key",
+        "arn": "ARN",
+        "created": "Created {{name}}",
+        "shardMetrics": "Shard metrics",
+        "shardMetricsNone": "None published",
+        "onDemandBadge": "On demand",
+        "section": {
+          "capacity": "Capacity",
+          "identity": "Identity"
+        },
+        "settling": "This stream is {{status}}. Every call that names it is refused until it is ACTIVE, and the service words that refusal as \"resource in use\".",
+        "note": "No depth and no rates: Kinesis counts neither what a stream holds nor how fast it moves. Consumers are the registered fan-out kind — a classic consumer keeps its position in DynamoDB and the stream never learns of it.",
+        "create": "New stream",
+        "createTitle": "New stream",
+        "editTitle": "Edit {{name}}",
+        "updated": "Updated {{name}}",
+        "deleted": "Deleted {{name}}",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "Every record in its {{count}} shards goes with it, read or not. The name can be reused; the data cannot be recovered.",
+        "deleteFailed": "Could not delete the stream",
+        "nameHint": "Letters, digits, underscores, hyphens and dots, up to 128 characters. Unique within the region.",
+        "nameProblem": {
+          "empty": "A stream needs a name.",
+          "tooLong": "A stream name is at most 128 characters.",
+          "charset": "Only letters, digits, underscores, hyphens and dots."
+        },
+        "onDemandHint": "AWS chooses the capacity and bills by throughput. Turn it off to set a shard count yourself.",
+        "shardsHint": "Each shard takes 1 MB/s or 1000 records a second in, and 2 MB/s out shared by its readers.",
+        "resizeHint": "Resizing splits and merges shards. The old ones close but stay, holding their records until retention expires — so the shards page will show more than this number for a while.",
+        "shardsProblem": {
+          "tooFew": "A provisioned stream needs at least one shard."
+        },
+        "retentionHint": "How long a record is kept whether or not anybody read it. Between 24 and 8760 hours.",
+        "retentionProblem": {
+          "tooShort": "Kinesis keeps a record for at least 24 hours.",
+          "tooLong": "Kinesis keeps a record for at most 8760 hours, which is a year."
+        }
+      },
+      "shards": {
+        "count": "{{open}} open, {{closed}} closed",
+        "pickStream": "Pick a stream",
+        "id": "Shard",
+        "state": "State",
+        "open": "Open",
+        "closed": "Closed",
+        "keyShare": "Key share",
+        "parents": "Parents",
+        "children": "Children",
+        "startHashKey": "First hash key",
+        "endHashKey": "Last hash key",
+        "startSequence": "First sequence number",
+        "endSequence": "Last sequence number",
+        "section": {
+          "range": "Key range",
+          "sequence": "Sequence numbers",
+          "lineage": "Lineage"
+        },
+        "closedNote": "This shard takes no more writes, and it is not empty: it keeps the records written before the split or merge until the retention period expires. A consumer that jumped straight to the children skipped them.",
+        "note": "Shards are split and merged rather than resized, so a resized stream lists more shards than it has open. Key share is the slice of the hash space a shard takes — records land on the shard whose range covers the hash of their partition key."
+      },
+      "messages": {
+        "title": "Records",
+        "subtitle": "Reading takes nothing away — it spends the shard's read allowance",
+        "pickStream": "Pick a stream",
+        "everyShard": "Every shard",
+        "read": "Read",
+        "found": "{{count}} records",
+        "shard": "Shard",
+        "arrived": "Arrived",
+        "partitionKey": "Partition key",
+        "sequenceNumber": "Sequence number",
+        "encryption": "Encryption",
+        "recordId": "Record",
+        "body": "Body",
+        "section": {
+          "address": "Address"
+        },
+        "addressNote": "A sequence number is unique inside its shard and nowhere else, so the pair above is what addresses this record. A call given the number alone is refused.",
+        "startHere": "Pick a stream and read. Nothing is fetched until you ask.",
+        "nothingThere": "No records in that range. A record is kept for the stream's retention period and then discarded, read or not.",
+        "readNote": "Reading removes nothing: any number of readers can read the same records until they expire. What it does spend is the shard's read allowance — five reads a second and two megabytes a second, shared with every consumer on that shard."
+      },
+      "producer": {
+        "title": "Send a record",
+        "subtitle": "Bytes and a partition key — that is the whole of a record",
+        "stream": "Stream",
+        "streamHint": "Where the record goes. It has to be ACTIVE; a stream still creating or resizing refuses the write.",
+        "body": "Body",
+        "bodyHint": "Up to 1 MB, sent as bytes exactly as typed.",
+        "partitionKey": "Partition key",
+        "partitionKeyHint": "Required. Kinesis hashes it into the key space and the shard whose range covers the hash takes the record. Records sharing a key stay in order; that is the only ordering the service promises.",
+        "aimAtShard": "Aim at a shard",
+        "aimAtShardHint": "Sends an explicit hash key instead of hashing the partition key, which is the only way to put a record on a shard you name. Closed shards are not listed: they take no writes.",
+        "byPartitionKey": "Let the partition key decide",
+        "count": "Copies",
+        "countHint": "Up to {{max}}. Each copy gets its own partition key suffix, so a repeat spreads across the shards rather than piling on one.",
+        "send": "Send",
+        "sent": "Sent {{count}} records",
+        "sentAs": "Sent {{count}}. The first landed on {{shard}} at sequence {{sequence}} — both halves, because neither addresses a record alone.",
+        "failed": "The send failed",
+        "streamRequired": "Pick a stream.",
+        "bodyRequired": "A record cannot be empty.",
+        "bodyTooLarge": "A record carries at most 1 MB.",
+        "keyRequired": "Every record needs a partition key — it is what decides which shard takes it.",
+        "countRange": "Send between 1 and 1000 copies.",
+        "hashKeyInvalid": "An explicit hash key is a decimal number between 0 and 2^128-1.",
+        "aimedRepeatNote": "Aimed at a shard, every copy lands on that one shard: the hash key replaces the partition key entirely, so the per-copy key that would otherwise spread them does nothing."
+      },
+      "consumers": {
+        "count": "{{count}} registered consumers",
+        "search": "Search consumers",
+        "name": "Consumer",
+        "stream": "Stream",
+        "status": "Status",
+        "registeredAt": "Registered",
+        "arn": "Consumer ARN",
+        "register": "Register",
+        "registerTitle": "Register a consumer",
+        "registered": "Registered {{name}}",
+        "streamHint": "A consumer belongs to one stream and its name is unique only within it, so the same name may exist on several.",
+        "nameHint": "Letters, digits, underscores, hyphens and dots, up to 128 characters. A stream takes at most 20 registered consumers.",
+        "deregisterAction": "Deregister",
+        "deregisterTitle": "Deregister {{name}}?",
+        "deregisterDesc": "The name is freed and the dedicated read throughput stops being reserved. Nothing stops reading: an application holding a subscription is cut off at its next call, and a classic consumer registered nothing and is unaffected.",
+        "deregistered": "Deregistered {{name}}",
+        "deregisterFailed": "Could not deregister the consumer",
+        "settling": "This registration is {{status}}. An application pointed at it now fails with an error about the consumer rather than about the stream.",
+        "section": {
+          "registration": "Registration"
+        },
+        "note": "Enhanced fan-out consumers only, because they are the only readers a stream knows about. Anything else reading — the KCL, a Lambda event source, any call to GetRecords — registers nothing and keeps its position in a DynamoDB table this connection never sees, which is also why there is no backlog here."
+      },
+      "overview": {
+        "subtitle": "{{region}} · {{streams}} streams",
+        "streams": "Streams",
+        "streamsHint": "Every stream in the region the connection's prefix lets through.",
+        "openShards": "Open shards",
+        "openShardsHint": "Shards taking writes, across every stream. This is what a provisioned stream is billed for and what bounds its throughput.",
+        "onDemand": "On demand",
+        "onDemandHint": "Streams whose capacity AWS chooses. The rest are provisioned and have a shard count somebody set.",
+        "consumers": "Registered consumers",
+        "consumersHint": "Enhanced fan-out consumers, which are the only readers a stream knows about. At most 20 per stream.",
+        "settling": "Settling",
+        "settlingHint": "Streams that are not ACTIVE. Every call naming one is refused until it is.",
+        "widest": "Widest streams",
+        "state": "State",
+        "stateSettling": "{{status}}",
+        "stateOnDemand": "On demand",
+        "stateProvisioned": "Provisioned",
+        "note": "No throughput and no depth: both are CloudWatch metrics, a different service under a different permission, and neither is on any call this connection makes. Closed shards are not counted here — the shards page lists them, and they hold their records until retention expires."
       }
     }
   }

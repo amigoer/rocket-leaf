@@ -3229,3 +3229,210 @@ export function AzureServiceBusForm({
     </>
   );
 }
+
+/** Option keys the Kinesis driver reads back off a stored profile. */
+export const OPTION_KINESIS_REGION = "region";
+export const OPTION_KINESIS_STREAM_PREFIX = "streamPrefix";
+export const OPTION_KINESIS_ENDPOINT_URL = "endpointUrl";
+
+/**
+ * The fourth form with no address field, and the second whose address is a
+ * region.
+ *
+ * It is SQS's shape because it is the same service boundary: a stream is
+ * reached by naming a region and signing a request, the SDK resolves
+ * kinesis.<region>.amazonaws.com for itself, and the credential pair is
+ * optional because a blank one means the machine's own AWS identity. What is
+ * not shared is anything past the credential - a stream prefix narrows a
+ * listing this driver filters itself, because ListStreams offers no filter the
+ * way ListQueues does.
+ */
+export interface KinesisDraft {
+  name: string;
+  /** Required. What an endpoint field is on every other family. */
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  /** Only temporary credentials carry one, and it expires with the session. */
+  sessionToken: string;
+  /** Narrows every listing. An account's streams are not one team's. */
+  streamPrefix: string;
+  /** A VPC interface endpoint, or an emulator. Still signed for the region. */
+  endpointUrl: string;
+  group: string;
+  remark: string;
+  timeoutSec: number;
+  credentialsStored: boolean;
+  clearCredentials: boolean;
+}
+
+export function emptyKinesisDraft(): KinesisDraft {
+  return {
+    name: "",
+    region: "",
+    accessKeyId: "",
+    secretAccessKey: "",
+    sessionToken: "",
+    streamPrefix: "",
+    endpointUrl: "",
+    group: "",
+    remark: "",
+    timeoutSec: DEFAULT_TIMEOUT_SEC,
+    credentialsStored: false,
+    clearCredentials: false,
+  };
+}
+
+/** Amazon Kinesis Data Streams, addressed by a region rather than an address. */
+export function KinesisForm({
+  value,
+  onChange,
+}: {
+  value: KinesisDraft;
+  onChange: (next: KinesisDraft) => void;
+}) {
+  const { t } = useTranslation();
+  const set = <K extends keyof KinesisDraft>(key: K, next: KinesisDraft[K]) =>
+    onChange({ ...value, [key]: next });
+  const [advancedOpen, setAdvancedOpen] = useState(
+    value.timeoutSec !== DEFAULT_TIMEOUT_SEC ||
+      value.remark !== "" ||
+      value.streamPrefix !== "" ||
+      value.endpointUrl !== "",
+  );
+  const stored = value.credentialsStored && !value.clearCredentials;
+
+  return (
+    <>
+      <div style={GRID}>
+        <Fld label={t("page.connections.form.name")}>
+          <Input
+            value={value.name}
+            placeholder="kinesis-prod"
+            onChange={(event) => set("name", event.target.value)}
+          />
+        </Fld>
+        <Fld
+          label={t("page.connections.form.kinesis.region")}
+          hint={t("page.connections.form.kinesis.regionHint")}
+        >
+          <Input
+            className="mono3"
+            style={MONO}
+            value={value.region}
+            placeholder="eu-west-1"
+            onChange={(event) => set("region", event.target.value)}
+          />
+        </Fld>
+        <Fld
+          label={t("page.connections.form.kinesis.accessKeyId")}
+          hint={
+            stored ? (
+              <button
+                type="button"
+                className="mqs-linkbtn"
+                onClick={() => set("clearCredentials", true)}
+              >
+                {t("page.connections.form.clearCredentials")}
+              </button>
+            ) : (
+              t("page.connections.form.kinesis.credentialsHint")
+            )
+          }
+        >
+          <Input
+            className="mono3"
+            style={MONO}
+            value={value.accessKeyId}
+            placeholder={stored ? t("page.connections.form.secretStored") : "AKIA..."}
+            onChange={(event) => set("accessKeyId", event.target.value)}
+          />
+        </Fld>
+        <Fld label={t("page.connections.form.kinesis.secretAccessKey")}>
+          <Input
+            type="password"
+            value={value.secretAccessKey}
+            placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+            onChange={(event) => set("secretAccessKey", event.target.value)}
+          />
+        </Fld>
+        <Fld
+          span
+          label={t("page.connections.form.kinesis.sessionToken")}
+          hint={t("page.connections.form.kinesis.sessionTokenHint")}
+        >
+          <Input
+            type="password"
+            value={value.sessionToken}
+            placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+            onChange={(event) => set("sessionToken", event.target.value)}
+          />
+        </Fld>
+      </div>
+
+      <FormNote
+        advanced={
+          <button
+            type="button"
+            className="mqs-disclosure"
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((open) => !open)}
+          >
+            <ChevronRight size={12} aria-hidden />
+            {t("page.connections.form.rocketmq.advanced")}
+          </button>
+        }
+        note={t("page.connections.form.kinesis.note")}
+      />
+      {advancedOpen && (
+        <div style={GRID}>
+          <Fld
+            label={t("page.connections.form.kinesis.streamPrefix")}
+            hint={t("page.connections.form.kinesis.streamPrefixHint")}
+          >
+            <Input
+              className="mono3"
+              style={MONO}
+              value={value.streamPrefix}
+              placeholder="team-orders-"
+              onChange={(event) => set("streamPrefix", event.target.value)}
+            />
+          </Fld>
+          <Fld
+            label={t("page.connections.form.rocketmq.timeout")}
+            hint={t("page.connections.form.rocketmq.timeoutHint")}
+          >
+            <Input
+              type="number"
+              value={value.timeoutSec > 0 ? String(value.timeoutSec) : ""}
+              onChange={(event) => {
+                const seconds = Number.parseInt(event.target.value, 10);
+                set("timeoutSec", Number.isNaN(seconds) ? 0 : seconds);
+              }}
+            />
+          </Fld>
+          <Fld
+            span
+            label={t("page.connections.form.kinesis.endpointUrl")}
+            hint={t("page.connections.form.kinesis.endpointUrlHint")}
+          >
+            <Input
+              className="mono3"
+              style={MONO}
+              value={value.endpointUrl}
+              placeholder="https://vpce-0abc.kinesis.eu-west-1.vpce.amazonaws.com"
+              onChange={(event) => set("endpointUrl", event.target.value)}
+            />
+          </Fld>
+          <Fld
+            span
+            label={t("page.connections.form.remark")}
+            hint={t("page.connections.form.remarkHint")}
+          >
+            <Input value={value.remark} onChange={(event) => set("remark", event.target.value)} />
+          </Fld>
+        </div>
+      )}
+    </>
+  );
+}

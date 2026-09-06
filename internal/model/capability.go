@@ -14,6 +14,19 @@ const (
 	CapDestinationDelete Capability = "destination.delete"
 	CapPartitions        Capability = "destination.partitions"
 
+	// CapShards is a family whose destination is divided into parts that are
+	// objects rather than indexes.
+	//
+	// Distinct from CapPartitions, and the distinction is not a shade of
+	// meaning. That capability's page is built around a partition number and
+	// the read range at it, which is all every family that has one reports. A
+	// Kinesis shard is named, owns the slice of the hash space that decides
+	// which records land on it, and is changed by being split or merged rather
+	// than resized - which leaves the old shard in place, closed, still
+	// holding its records and named as its children's parent. A page built for
+	// a number would drop exactly that.
+	CapShards Capability = "destination.shards"
+
 	// CapDestinationPurge empties a destination without deleting it, and
 	// CapDestinationMove drains one into another. Separate capabilities
 	// because they are separate buttons with very different blast radii: one

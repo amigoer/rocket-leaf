@@ -22,6 +22,11 @@ import type { CapabilityState } from "./capabilities";
  */
 const requires: Record<string, Capability | Capability[]> = {
   topics: Capability.CapDestinationList,
+  // Only Kinesis, and deliberately not CapPartitions. That capability's page
+  // is a read range per partition number; a shard has a name, a slice of the
+  // hash space, and a parent it was split from, and a family that reported a
+  // count would have nothing to draw here.
+  shards: Capability.CapShards,
   consumers: Capability.CapSubscriptionList,
   // Only RabbitMQ has exchanges, and the sidebar is where that shows: a
   // family without them must not draw the entry at all.
@@ -82,10 +87,10 @@ const requires: Record<string, Capability | Capability[]> = {
    * Alerts needs no particular capability, only a connection with figures to
    * compare - which the connected check below already covers. What the two
    * entries settle is where those figures come from: most families report
-   * cluster metrics, and a hosted one has no cluster at all. Everything SQS,
-   * Pub/Sub and Service Bus report belongs to a queue or a topic, so their
-   * rules read the destination listing, and gating on a metric none of them
-   * can ever declare would hide a page that works.
+   * cluster metrics, and a hosted one has no cluster at all. Everything the
+   * four hosted families report belongs to a queue, a topic or a stream, so
+   * their rules read the destination listing, and gating on a metric none of
+   * them can ever declare would hide a page that works.
    */
   alerts: [Capability.CapClusterMetrics, Capability.CapDestinationList],
 };

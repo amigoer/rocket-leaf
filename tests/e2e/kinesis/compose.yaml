@@ -1,0 +1,54 @@
+name: mq-studio-e2e-kinesis
+
+# LocalStack running Kinesis, and nothing else.
+#
+# The second AWS family here, and it gets an environment of its own rather than
+# a second service in the SQS stack. CI shards by family and each shard starts
+# only its own stack, so a shared container would make the SQS job pay for a
+# service it never calls and would put one family's startup failure in the
+# other's job. Two stacks also keep the ports apart, which is what lets both
+# run at once on one machine.
+#
+# The credentials below are the strings the AWS SDK requires to sign a request
+# at all. LocalStack does not check a signature, so they authenticate nothing;
+# they exist because a client with no credential chain refuses to send.
+#
+# KINESIS_PROVIDER is left at the default. LocalStack reimplements the API
+# rather than running Amazon's code, so anything the reimplementation does not
+# cover is recorded in the live tests instead of worked around here.
+
+services:
+  localstack:
+    image: localstack/localstack:4
+    hostname: localstack
+    environment:
+      SERVICES: kinesis
+      AWS_DEFAULT_REGION: eu-west-1
+      # Off, so a stream survives a container restart only as long as the
+      # process does. Every live test creates what it needs and the seed is
+      # re-runnable, so persistence would only hide a seed that did nothing.
+      PERSISTENCE: '0'
+      DEBUG: '0'
+      # LocalStack's Kinesis delays every response by 500ms by default, to
+      # imitate the service's own latency. The suite makes hundreds of calls
+      # and none of them is measuring latency, so the delay is only wall clock.
+      KINESIS_LATENCY: '0'
+    ports:
+      # 4566 is the SQS stack's. The container port is the same either way -
+      # LocalStack serves every service on one - so only the host side moves.
+      - '127.0.0.1:4567:4566'
+    # The health endpoint reports per-service readiness rather than only that
+    # the process is up: LocalStack answers HTTP on 4566 well before kinesis is
+    # "available", and a probe on the port alone would hand the seed an API
+    # that is still starting.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl -sf http://127.0.0.1:4566/_localstack/health
+          | grep -q '"kinesis": *"\(available\|running\)"'
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped

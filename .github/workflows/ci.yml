@@ -365,6 +365,22 @@ jobs:
             up: |
               npm run e2e:azure-servicebus:up
               npm run e2e:azure-servicebus:seed
+          - family: kinesis
+            packages: ./internal/app/... ./internal/driver/kinesis/...
+            # LocalStack again, and a stack of its own rather than a second
+            # service in the SQS one: each shard starts only its own stack, so
+            # sharing a container would make the SQS job pay for a service it
+            # never calls and would put one family's startup failure in the
+            # other's job. The driver reaches it through the endpoint-override
+            # option a VPC endpoint would use, so the override is exercised by
+            # every test here rather than by none. The seed is required - the
+            # cross-check compares what the app computes against the raw API,
+            # and comparing zero against zero proves nothing, and it is also
+            # what produces the one shape a fresh stream cannot have: a shard
+            # closed by a split, with children naming it as their parent.
+            up: |
+              npm run e2e:kinesis:up
+              npm run e2e:kinesis:seed
     steps:
       - uses: actions/checkout@v7
 

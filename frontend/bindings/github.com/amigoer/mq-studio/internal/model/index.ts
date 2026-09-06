@@ -71,6 +71,7 @@ export {
     ResourceAlarm,
     RuntimeParameter,
     Scope,
+    Shard,
     Shovel,
     SlowLogEntry,
     StreamAddResult,

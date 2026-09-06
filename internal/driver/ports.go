@@ -92,6 +92,27 @@ type DestinationStats interface {
 	DestinationStats(ctx context.Context, ref model.DestinationRef) (map[string]interface{}, error)
 }
 
+// ShardInspector lists the parts a destination is divided into, where those
+// parts are objects rather than indexes.
+//
+// Separate from DestinationStats, which answers CapPartitions: that returns a
+// read range per partition number, because a partition is an interchangeable
+// slot and its index is the whole of its identity. A Kinesis shard is not.
+// It has a name, it owns the slice of the hash space that decides which
+// records land on it, and it is changed by being split in two or merged with
+// a neighbour - so a stream carries shards that take no more writes, still
+// hold their records, and are named as their children's parent. None of that
+// fits a map keyed by an index, and a driver that flattened it to one would be
+// answering a different question.
+//
+// Read only, deliberately. Changing a stream's capacity is a shard count on
+// the stream, which DestinationAdmin's update already carries; splitting one
+// shard at a chosen hash key is a different gesture with a different blast
+// radius, and this port promises no such thing.
+type ShardInspector interface {
+	ListShards(ctx context.Context, ref model.DestinationRef) ([]*model.Shard, error)
+}
+
 // SubscriptionAdmin enumerates and manages consumer groups, Pulsar
 // subscriptions or RabbitMQ queue consumers.
 type SubscriptionAdmin interface {

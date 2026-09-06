@@ -30,6 +30,7 @@ import {
   RocketMQForm,
   SqsForm,
   GooglePubSubForm,
+  KinesisForm,
   AzureServiceBusForm,
 } from "./ConnectionForms";
 import {
@@ -64,6 +65,9 @@ const TILE: Record<ProtocolId, { name: string; versions: string }> = {
   // a project is an address, so it is the one hosted family with an endpoint
   // row rather than a field standing in for one.
   "azure-servicebus": { name: "Azure Service Bus", versions: "managed" },
+  // Managed, and back to a region: Kinesis is the second AWS family here and
+  // is reached exactly the way SQS is.
+  kinesis: { name: "Amazon Kinesis", versions: "managed" },
 };
 
 /** What the probe last reported, drawn in the footer beside the test button. */
@@ -261,6 +265,11 @@ export function NewConnectionDialog({
         <AzureServiceBusForm
           value={draft.value}
           onChange={(next) => setDraft({ protocol: "azure-servicebus", value: next })}
+        />
+      ) : draft.protocol === "kinesis" ? (
+        <KinesisForm
+          value={draft.value}
+          onChange={(next) => setDraft({ protocol: "kinesis", value: next })}
         />
       ) : (
         <RocketMQForm

@@ -81,21 +81,27 @@ import { ActiveMQWorkbench } from "./boards/activemq/ActiveMQWorkbench";
 import { QueuesSqs } from "./boards/topics/QueuesSqs";
 import { TopicsGooglePubSub } from "./boards/topics/TopicsGooglePubSub";
 import { EntitiesAzureServiceBus } from "./boards/topics/EntitiesAzureServiceBus";
+import { StreamsKinesis } from "./boards/topics/StreamsKinesis";
+import { ShardsKinesis } from "./boards/shards/ShardsKinesis";
 import { RulesAzureServiceBus } from "./boards/topics/RulesAzureServiceBus";
 import { SubscriptionsGooglePubSub } from "./boards/consumers/SubscriptionsGooglePubSub";
 import { SubscriptionsAzureServiceBus } from "./boards/consumers/SubscriptionsAzureServiceBus";
+import { ConsumersKinesis } from "./boards/consumers/ConsumersKinesis";
 import { MessagesSqs } from "./boards/messages/MessagesSqs";
 import { MessagesGooglePubSub } from "./boards/messages/MessagesGooglePubSub";
 import { MessagesAzureServiceBus } from "./boards/messages/MessagesAzureServiceBus";
+import { MessagesKinesis } from "./boards/messages/MessagesKinesis";
 import { ProducerSqs } from "./boards/producer/ProducerSqs";
 import { ProducerGooglePubSub } from "./boards/producer/ProducerGooglePubSub";
 import { ProducerAzureServiceBus } from "./boards/producer/ProducerAzureServiceBus";
+import { ProducerKinesis } from "./boards/producer/ProducerKinesis";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
 import { DlqGooglePubSub } from "./boards/dlq/DlqGooglePubSub";
 import { DlqAzureServiceBus } from "./boards/dlq/DlqAzureServiceBus";
 import { OverviewSqs } from "./boards/overview/OverviewSqs";
 import { OverviewGooglePubSub } from "./boards/overview/OverviewGooglePubSub";
 import { OverviewAzureServiceBus } from "./boards/overview/OverviewAzureServiceBus";
+import { OverviewKinesis } from "./boards/overview/OverviewKinesis";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
 import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
@@ -155,6 +161,7 @@ const BOARDS: Partial<
     sqs: OverviewSqs,
     "google-pubsub": OverviewGooglePubSub,
     "azure-servicebus": OverviewAzureServiceBus,
+    kinesis: OverviewKinesis,
   },
   topics: {
     rocketmq: TopicsRocketMQ,
@@ -169,7 +176,11 @@ const BOARDS: Partial<
     sqs: QueuesSqs,
     "google-pubsub": TopicsGooglePubSub,
     "azure-servicebus": EntitiesAzureServiceBus,
+    kinesis: StreamsKinesis,
   },
+  /* One family, and that is the point rather than an oversight: every other
+     partitioned broker here reports a count, and a shard is an object. */
+  shards: { kinesis: ShardsKinesis },
   exchanges: {
     rabbitmq: ExchangesRabbitMQ,
     // The same slot for the same reason: a rule decides which of a topic's
@@ -193,6 +204,7 @@ const BOARDS: Partial<
     nsq: ChannelsNsq,
     "google-pubsub": SubscriptionsGooglePubSub,
     "azure-servicebus": SubscriptionsAzureServiceBus,
+    kinesis: ConsumersKinesis,
   },
   subscribe: { mqtt: MqttWorkbench, nats: NatsWorkbench, activemq: ActiveMQWorkbench },
   clients: {
@@ -213,6 +225,7 @@ const BOARDS: Partial<
     sqs: MessagesSqs,
     "google-pubsub": MessagesGooglePubSub,
     "azure-servicebus": MessagesAzureServiceBus,
+    kinesis: MessagesKinesis,
   },
   dlq: {
     rocketmq: DlqRocketMQ,
@@ -287,6 +300,12 @@ export function renderBoard(
        every publish and discards it. */
     if (protocol === "google-pubsub") return <ProducerGooglePubSub />;
     if (protocol === "azure-servicebus") return <ProducerAzureServiceBus />;
+    /* Kinesis's own too, and it is the console with the least in common with
+       the shared one: a record is bytes and a partition key, so the topic is
+       the only field of the four that survives. What it needs instead is the
+       key that decides the shard, and the explicit hash key that overrides it
+       - the only way anywhere in the service to aim a record at one. */
+    if (protocol === "kinesis") return <ProducerKinesis />;
     return <Producer protocol={protocol} nav={nav} />;
   }
   /* Alerts is one board for every family: the rules are numeric comparisons

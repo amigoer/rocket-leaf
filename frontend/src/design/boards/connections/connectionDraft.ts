@@ -46,6 +46,9 @@ import {
   OPTION_ACTIVEMQ_TLS_SKIP_VERIFY,
   OPTION_NSQ_LOOKUPD,
   OPTION_NSQ_TLS_SKIP_VERIFY,
+  OPTION_KINESIS_ENDPOINT_URL,
+  OPTION_KINESIS_REGION,
+  OPTION_KINESIS_STREAM_PREFIX,
   OPTION_SQS_ENDPOINT_URL,
   OPTION_SQS_QUEUE_PREFIX,
   OPTION_SQS_REGION,
@@ -82,6 +85,7 @@ import {
   emptyKafkaDraft,
   emptyMqttDraft,
   emptyNsqDraft,
+  emptyKinesisDraft,
   emptySqsDraft,
   emptyGooglePubSubDraft,
   emptyAzureServiceBusDraft,
@@ -99,6 +103,7 @@ import {
   type MqttTransport,
   type NatsDraft,
   type NsqDraft,
+  type KinesisDraft,
   type SqsDraft,
   type GooglePubSubDraft,
   type AzureServiceBusDraft,
@@ -131,7 +136,8 @@ export type ProtocolDraft =
   | { protocol: "nsq"; value: NsqDraft }
   | { protocol: "sqs"; value: SqsDraft }
   | { protocol: "google-pubsub"; value: GooglePubSubDraft }
-  | { protocol: "azure-servicebus"; value: AzureServiceBusDraft };
+  | { protocol: "azure-servicebus"; value: AzureServiceBusDraft }
+  | { protocol: "kinesis"; value: KinesisDraft };
 
 /** The protocols this file can build a submission for. */
 export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
@@ -147,6 +153,7 @@ export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
   "sqs",
   "google-pubsub",
   "azure-servicebus",
+  "kinesis",
 ];
 
 export function isDraftable(protocol: ProtocolId): protocol is ProtocolDraft["protocol"] {
@@ -177,6 +184,8 @@ export function emptyDraft(protocol: ProtocolDraft["protocol"]): ProtocolDraft {
       return { protocol, value: emptyGooglePubSubDraft() };
     case "azure-servicebus":
       return { protocol, value: emptyAzureServiceBusDraft() };
+    case "kinesis":
+      return { protocol, value: emptyKinesisDraft() };
     default:
       return { protocol, value: emptyRocketMQDraft() };
   }
@@ -206,6 +215,8 @@ export function toSubmission(draft: ProtocolDraft): Submission {
       return googlePubSubSubmission(draft.value);
     case "azure-servicebus":
       return azureServiceBusSubmission(draft.value);
+    case "kinesis":
+      return kinesisSubmission(draft.value);
     default:
       return rocketMQSubmission(draft.value);
   }
@@ -236,6 +247,8 @@ export function toDraft(profile: ConnectionProfile): ProtocolDraft {
       return { protocol: "google-pubsub", value: toGooglePubSubDraft(profile) };
     case MQKind.KindAzureServiceBus:
       return { protocol: "azure-servicebus", value: toAzureServiceBusDraft(profile) };
+    case MQKind.KindKinesis:
+      return { protocol: "kinesis", value: toKinesisDraft(profile) };
     default:
       return { protocol: "rocketmq", value: toRocketMQDraft(profile) };
   }
@@ -1086,6 +1099,77 @@ function toAzureServiceBusDraft(profile: ConnectionProfile): AzureServiceBusDraf
     group: profile.group,
     remark: profile.remark,
     timeoutSec: profile.timeoutSec,
+    credentialsStored:
+      profile.authMechanism === AuthMechanism.AuthPlain && profile.secretsConfigured.length > 0,
+    clearCredentials: false,
+  };
+}
+
+/*
+ * The second submission that writes an empty `endpoints`, and it is SQS's for
+ * the same reason rather than by copying: a stream is reached by naming a
+ * region and signing a request, so there is no address to write and the driver
+ * declares no endpoint field for one to go in.
+ *
+ * The credential pair is optional here too. Absent, the driver uses the
+ * machine's own AWS identity, so an empty pair is a real choice rather than a
+ * blank form - which is why the mechanism drops to none rather than staying
+ * plain and dialling with nothing to sign with.
+ */
+function kinesisSubmission(draft: KinesisDraft): Submission {
+  const accessKeyId = draft.accessKeyId.trim();
+  const secretAccessKey = draft.secretAccessKey.trim();
+  const sessionToken = draft.sessionToken.trim();
+  const typed = accessKeyId !== "" || secretAccessKey !== "" || sessionToken !== "";
+  const keepStored = draft.credentialsStored && !draft.clearCredentials;
+
+  return {
+    draft: {
+      name: draft.name.trim(),
+      group: draft.group,
+      kind: MQKind.KindKinesis,
+      // No address, because there is none. The region below is what says
+      // where the streams are.
+      endpoints: "",
+      timeoutSec: draft.timeoutSec,
+      authMechanism: typed || keepStored ? AuthMechanism.AuthPlain : AuthMechanism.AuthNone,
+      options: {
+        [OPTION_KINESIS_REGION]: draft.region.trim(),
+        [OPTION_KINESIS_STREAM_PREFIX]: draft.streamPrefix.trim(),
+        [OPTION_KINESIS_ENDPOINT_URL]: draft.endpointUrl.trim(),
+      },
+      secrets: {
+        // Not accessKey and secretKey: those two names are reserved for
+        // RocketMQ's ACL and are cleared on save for any other family.
+        awsAccessKeyId: accessKeyId,
+        awsSecretAccessKey: secretAccessKey,
+        awsSessionToken: sessionToken,
+      },
+      remark: draft.remark,
+    },
+    // "preserve" for the reason SQS has it: the session token is a third
+    // credential on one form, and a user editing the region would otherwise
+    // wipe whichever of the three they did not retype.
+    credentialsMode: draft.clearCredentials ? "clear" : keepStored ? "preserve" : "replace",
+  };
+}
+
+function toKinesisDraft(profile: ConnectionProfile): KinesisDraft {
+  return {
+    name: profile.name,
+    region: profile.options?.[OPTION_KINESIS_REGION] ?? "",
+    // Secrets never come back from the store. Blank with credentialsStored set
+    // is what tells the form to say "kept" rather than "empty".
+    accessKeyId: "",
+    secretAccessKey: "",
+    sessionToken: "",
+    streamPrefix: profile.options?.[OPTION_KINESIS_STREAM_PREFIX] ?? "",
+    endpointUrl: profile.options?.[OPTION_KINESIS_ENDPOINT_URL] ?? "",
+    group: profile.group,
+    remark: profile.remark,
+    timeoutSec: profile.timeoutSec,
+    // A profile signing with the machine's own identity has no credential to
+    // keep, whatever is still sitting in the secret store.
     credentialsStored:
       profile.authMechanism === AuthMechanism.AuthPlain && profile.secretsConfigured.length > 0,
     clearCredentials: false,

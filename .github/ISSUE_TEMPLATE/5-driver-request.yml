@@ -27,7 +27,6 @@ body:
     attributes:
       label: Which broker
       options:
-        - Amazon Kinesis
         - IBM MQ
         - Solace
         - Something else
@@ -44,7 +43,7 @@ body:
     id: deployment
     attributes:
       label: Version and how you run it
-      placeholder: Amazon Kinesis in eu-west-1, four shards, read by a Lambda
+      placeholder: IBM MQ 9.3 on z/OS, reached through the administrative REST API
     validations:
       required: true
 
