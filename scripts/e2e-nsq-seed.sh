@@ -81,8 +81,16 @@ for daemon in (NSQD1, NSQD2):
 print("==> removing anything left from a previous run")
 # One at a time and ignored: on a first run every one of these is a 404, and
 # a topic that is not there is exactly the state the seed wants.
+#
+# EVENTS is left alone. Deleting a topic disconnects whoever is reading it,
+# and the compose file keeps a consumer on that one so the clients board has a
+# row; it would have to notice the delete and resubscribe before a suite run
+# straight after the seed looks, which is a race it loses in CI. Nothing
+# publishes to EVENTS, so leaving it in place costs no determinism.
 for daemon in (NSQD1, NSQD2):
     for topic in TOPICS:
+        if topic == EVENTS:
+            continue
         call(daemon, "/topic/delete", {"topic": topic}, body=b"", quiet=True)
 
 

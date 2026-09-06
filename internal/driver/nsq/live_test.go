@@ -1207,13 +1207,39 @@ func TestLiveNodeConfigReportsTheLookupdItRegistersWith(t *testing.T) {
  * figure looks healthy. The compose file keeps one consumer attached for
  * exactly this, on a topic nothing publishes to so it drains nothing.
  */
+// consumerAttachBudget is how long the compose consumer may take to come back.
+//
+// The seed deletes the seeded topics before remaking them, which disconnects
+// nsq_tail; it resubscribes on its own, but not within the moment a suite
+// started straight after the seed would look. Reading once sees the gap.
+const consumerAttachBudget = 30 * time.Second
+
+// waitForAttachedConsumer polls until the compose consumer is subscribed,
+// returning whatever the last read saw so the caller reports the absence.
+func waitForAttachedConsumer(t *testing.T, conn *Conn) []*model.ClientConnection {
+	t.Helper()
+	deadline := time.Now().Add(consumerAttachBudget)
+	for {
+		clients, err := conn.ListClientConnections(liveContext(t), "")
+		if err != nil {
+			t.Fatalf("clients: %v", err)
+		}
+		for _, client := range clients {
+			if client.Attribute(AttrRole) == roleConsumer {
+				return clients
+			}
+		}
+		if time.Now().After(deadline) {
+			return clients
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
 func TestLiveListClientConnectionsFindsTheAttachedConsumer(t *testing.T) {
 	conn := liveConn(t)
 
-	clients, err := conn.ListClientConnections(liveContext(t), "")
-	if err != nil {
-		t.Fatalf("clients: %v", err)
-	}
+	clients := waitForAttachedConsumer(t, conn)
 	consumers := 0
 	for _, client := range clients {
 		// Consumers only. A producer is in the same list and reports none of

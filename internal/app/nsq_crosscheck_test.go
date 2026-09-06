@@ -460,24 +460,38 @@ func TestCrossCheckNSQClients(t *testing.T) {
 		topic string
 		chans string
 	}
+	// The seed deletes the seeded topics before remaking them, which
+	// disconnects the compose consumer. It resubscribes on its own, but not
+	// within the moment a suite started straight after the seed would look, so
+	// this reads until it is back rather than once.
 	wanted := map[string]wantedClient{}
-	for _, address := range []string{crossNSQD1, crossNSQD2} {
-		stats := nsqProbe{address}.stats(t)
-		for _, topic := range stats.Topics {
-			for _, channel := range topic.Channels {
-				for _, client := range channel.Clients {
-					wanted[client.RemoteAddress] = wantedClient{
-						role:  "consumer",
-						ready: client.ReadyCount,
-						topic: topic.Name,
-						chans: channel.Name,
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		wanted = map[string]wantedClient{}
+		attached := false
+		for _, address := range []string{crossNSQD1, crossNSQD2} {
+			stats := nsqProbe{address}.stats(t)
+			for _, topic := range stats.Topics {
+				for _, channel := range topic.Channels {
+					for _, client := range channel.Clients {
+						wanted[client.RemoteAddress] = wantedClient{
+							role:  "consumer",
+							ready: client.ReadyCount,
+							topic: topic.Name,
+							chans: channel.Name,
+						}
+						attached = true
 					}
 				}
 			}
+			for _, producer := range stats.Producers {
+				wanted[producer.RemoteAddress] = wantedClient{role: "producer"}
+			}
 		}
-		for _, producer := range stats.Producers {
-			wanted[producer.RemoteAddress] = wantedClient{role: "producer"}
+		if attached || time.Now().After(deadline) {
+			break
 		}
+		time.Sleep(500 * time.Millisecond)
 	}
 	if len(wanted) == 0 {
 		e2e.Missing(t, "no consumer is attached; the compose file keeps one on %s, "+
