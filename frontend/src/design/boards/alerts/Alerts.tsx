@@ -60,6 +60,12 @@ const RULE_SEVERITY: Record<AlertRuleKey, AlertSeverity> = {
   // it lasts, and neither shows up anywhere else at all.
   topicUnsubscribed: "warn",
   subscriptionOrphaned: "warn",
+  // Service Bus's two, warnings for the same reason again: each is a state
+  // somebody arrived at on purpose - the $Default rule deleted, an entity
+  // switched off for a migration - that stops being a plan and starts being a
+  // leak if it is left. Neither is visible anywhere else in the app.
+  subscriptionUnroutable: "warn",
+  entityDisabled: "warn",
   slowConsumer: "warn",
 };
 

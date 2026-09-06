@@ -208,7 +208,9 @@
       "deliveryPaused": "Delivery paused",
       "slowConsumer": "Clients dropped for falling behind",
       "topicUnsubscribed": "Topic with no subscription",
-      "subscriptionOrphaned": "Subscription whose topic is gone"
+      "subscriptionOrphaned": "Subscription whose topic is gone",
+      "subscriptionUnroutable": "Subscription with no rule",
+      "entityDisabled": "Entity switched off"
     },
     "tabs": {
       "active": "Active",
@@ -264,7 +266,9 @@
       "deliveryPaused": "{{target}} · {{lag}} waiting; publishing carries on and nothing is delivered while it is paused",
       "slowConsumer": "{{broker}} · {{count}} client(s) disconnected since the server started; what they missed is gone",
       "topicUnsubscribed": "{{topic}} · nothing subscribes; every message published here is accepted and discarded",
-      "subscriptionOrphaned": "{{subscription}} · its topic has been deleted; it will never receive another message and still holds what it has"
+      "subscriptionOrphaned": "{{subscription}} · its topic has been deleted; it will never receive another message and still holds what it has",
+      "subscriptionUnroutable": "{{subscription}} · no rules, so nothing can reach it; it stays Active with an empty backlog because nothing arrives",
+      "entityDisabled": "{{entity}} · status {{status}}; work is refused at the client and leaves no mark on any board"
     },
     "duration": {
       "minutes": "for {{count}} min",
@@ -5161,6 +5165,23 @@
           "action": "What it changes"
         },
         "note": "A rule is an object rather than a setting: it has a name, several may sit on one subscription, and each is a filter plus an optional action. A subscription with no rules receives nothing while still reporting itself Active."
+      },
+      "overview": {
+        "subtitle": "{{namespace}} · {{entities}} queue(s) and topic(s)",
+        "queues": "Queues",
+        "queuesHint": "Each holds what is sent to it whether or not anything is reading.",
+        "topics": "Topics",
+        "topicsHint": "Each holds nothing: a send is copied into the subscriptions whose rules let it through.",
+        "subscriptions": "Subscriptions",
+        "subscriptionsHint": "Where a topic's messages actually are, and what has a backlog.",
+        "unsubscribed": "Topics with no subscription",
+        "unsubscribedHint": "Every message sent to one is accepted and discarded on arrival, leaving no backlog anywhere.",
+        "unroutable": "Subscriptions with no rule",
+        "unroutableHint": "Nothing can reach them. They stay Active with an empty backlog, which is what makes this the only place it shows.",
+        "disabled": "Switched off",
+        "disabledHint": "Entities whose status is not Active: sends or receives are refused at the client and leave no mark on any board.",
+        "busiest": "Topics by subscription",
+        "note": "There is no cluster panel and no throughput here: Microsoft runs the service, and the rates live in Azure Monitor under a different credential. What the tiles count instead is where routing is broken, because those are the faults with no other symptom."
       }
     }
   }

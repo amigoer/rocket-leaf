@@ -208,7 +208,9 @@
       "deliveryPaused": "投递已暂停",
       "slowConsumer": "有客户端因为跟不上被踢掉",
       "topicUnsubscribed": "主题没有任何订阅",
-      "subscriptionOrphaned": "订阅的主题已被删除"
+      "subscriptionOrphaned": "订阅的主题已被删除",
+      "subscriptionUnroutable": "订阅没有任何规则",
+      "entityDisabled": "实体已停用"
     },
     "tabs": {
       "active": "活跃告警",
@@ -264,7 +266,9 @@
       "deliveryPaused": "{{target}} · {{lag}} 条在等待；暂停期间发送照常，但一条也不会投递",
       "slowConsumer": "{{broker}} · 服务器启动以来断开了 {{count}} 个客户端；它们错过的消息没有了",
       "topicUnsubscribed": "{{topic}} · 没有任何订阅；发布到这里的消息会被接受然后丢弃",
-      "subscriptionOrphaned": "{{subscription}} · 它的主题已被删除；再也收不到任何消息，而已有的内容仍然留在那里"
+      "subscriptionOrphaned": "{{subscription}} · 它的主题已被删除；再也收不到任何消息，而已有的内容仍然留在那里",
+      "subscriptionUnroutable": "{{subscription}} · 没有规则，什么都进不来；因为没有消息到达，它的状态仍是 Active、积压仍是 0",
+      "entityDisabled": "{{entity}} · 状态为 {{status}}；请求会在客户端被拒绝，任何面板上都看不出来"
     },
     "duration": {
       "minutes": "持续 {{count}} 分钟",
@@ -5161,6 +5165,23 @@
           "action": "改动什么"
         },
         "note": "规则是对象而不是设置项：它有名称，一个订阅可以挂多条，每条是一个过滤条件加一个可选动作。没有规则的订阅什么都收不到，状态却依然显示为 Active。"
+      },
+      "overview": {
+        "subtitle": "{{namespace}} · {{entities}} 个队列与主题",
+        "queues": "队列",
+        "queuesHint": "无论有没有人读取，队列都会保存发给它的消息。",
+        "topics": "主题",
+        "topicsHint": "主题自己不保存：消息会被复制进规则放行的那些订阅。",
+        "subscriptions": "订阅",
+        "subscriptionsHint": "主题的消息真正所在的地方，也是产生积压的地方。",
+        "unsubscribed": "无订阅的主题",
+        "unsubscribedHint": "发到这类主题的消息会被接收后立刻丢弃，任何地方都不会留下积压。",
+        "unroutable": "无规则的订阅",
+        "unroutableHint": "没有消息能进来。它们状态仍是 Active、积压仍是 0，所以只有这里看得出来。",
+        "disabled": "已停用",
+        "disabledHint": "状态不是 Active 的实体：发送或接收会在客户端被拒绝，任何面板上都看不出来。",
+        "busiest": "按订阅数排列的主题",
+        "note": "这里没有集群面板，也没有吞吐曲线：服务由微软运行，速率数据在 Azure Monitor 里，需要另一套凭据。这些卡片统计的是路由在哪里断了，因为那些故障没有别的表现。"
       }
     }
   }

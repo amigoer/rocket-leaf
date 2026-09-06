@@ -659,3 +659,362 @@ func TestARuleNeedsTheTextItsKindTakes(t *testing.T) {
 		t.Errorf("a rule with no kind was refused: %v", err)
 	}
 }
+
+/*
+ * The sidebar contract, from the Go side.
+ *
+ * The list below is the one frontend/src/mq/navigation.azure-servicebus.test.ts
+ * holds, and that test asserts which pages those capabilities make reachable.
+ * This one asserts the driver still declares exactly them.
+ *
+ * Neither half is worth much alone. A capability dropped here takes a finished
+ * page out of the sidebar and nothing else notices; a page added there with no
+ * capability behind it is drawn and fails when opened. Together they cannot
+ * drift without one of them going red.
+ *
+ * The failure messages say what to do rather than what is different, because
+ * the fix is never in this file alone.
+ */
+func TestCapabilitiesMatchTheSidebarContract(t *testing.T) {
+	sidebar := []string{
+		"destination.list",
+		"destination.create",
+		"destination.update",
+		"destination.delete",
+		"subscription.list",
+		"subscription.create",
+		"subscription.delete",
+		"subscription.lag",
+		"message.query",
+		"message.publish",
+		"message.delayedDelivery",
+		"message.dlq",
+		"message.resend",
+		"routing.exchanges",
+		"routing.admin",
+	}
+
+	declared := make(map[string]bool, len(capabilities()))
+	for _, capability := range capabilities() {
+		declared[string(capability)] = true
+	}
+	expected := make(map[string]bool, len(sidebar))
+	for _, capability := range sidebar {
+		expected[capability] = true
+	}
+
+	for _, capability := range sidebar {
+		if !declared[capability] {
+			t.Errorf("the sidebar expects %s and the driver no longer declares it; "+
+				"restore it or drop the page, and update navigation.azure-servicebus.test.ts "+
+				"in the same commit", capability)
+		}
+	}
+	for capability := range declared {
+		if !expected[capability] {
+			t.Errorf("the driver declares %s and the sidebar contract does not list it; "+
+				"add it to navigation.azure-servicebus.test.ts in the same commit", capability)
+		}
+	}
+}
+
+/*
+ * What Service Bus has no concept of, and why.
+ *
+ * Every entry is a capability another family in this app declares and this one
+ * must not, and each reason is about Service Bus rather than about how far the
+ * driver has got. Without this list the cheapest way to add a family is to
+ * copy a neighbour's capability set, and the result is a sidebar full of pages
+ * that open onto nothing.
+ *
+ * Three roots cover nearly all of it. Microsoft runs the service, so there is
+ * no node, no process and no setting an operator here could read or change;
+ * nothing registers as a reader, so no page can say who is consuming what; and
+ * a message's place in an entity is a sequence number the service assigns
+ * rather than a position anything can be moved to.
+ *
+ * The backlog is deliberately not on this list. It is declared, and degraded
+ * only against an emulator, because a real namespace reports it -
+ * TestBacklogNarrowsOnlyForAnEmulator is where that is pinned.
+ */
+func TestConnDeclaresNoConceptServiceBusDoesNotHave(t *testing.T) {
+	absent := []struct {
+		capability model.Capability
+		because    string
+	}{
+		{
+			model.CapDestinationPurge,
+			"there is no purge call anywhere in the service. Emptying a queue means " +
+				"receiving its messages, which is what the portal's own purge does and is " +
+				"not something a button here should do quietly.",
+		},
+		{
+			model.CapDestinationMove,
+			"and nothing drains one entity into another on demand. Forwarding does move " +
+				"messages, but it is a setting on the entity that applies to everything " +
+				"arriving from then on rather than an operation on what is already there.",
+		},
+		{
+			model.CapStreamTrim,
+			"there is no log to trim. A message leaves an entity when it is completed, " +
+				"expires, or is dead-lettered, and none of those is a bound a caller names.",
+		},
+		{
+			model.CapPartitions,
+			"partitioning is a flag rather than a count. The service spreads a partitioned " +
+				"entity across its own brokers and reports no shard, no number and no range.",
+		},
+		{
+			model.CapQueueRebalance,
+			"placement is Microsoft's. There is nothing to spread and no node to spread it " +
+				"across that this app can see.",
+		},
+		{
+			model.CapReassign,
+			"and no replicas either: nothing in the API says where a message is kept.",
+		},
+		{
+			model.CapSubscriptionRuntime,
+			"nothing registers as a consumer. A subscription is read by whoever opens a " +
+				"receiver on it, and the service reports neither who nor how many - so " +
+				"there is no connected member to ask what it is working on.",
+		},
+		{
+			model.CapOffsetReset,
+			"a subscription has no position to move. Its state is which messages have been " +
+				"completed, and there is no call that takes it back to a moment in time.",
+		},
+		{
+			model.CapSubscriptionPosition,
+			"and none that takes it to a place either. A sequence number addresses a " +
+				"message for a peek and cannot be seeked to.",
+		},
+		{
+			model.CapOffsetClone,
+			"with no position there is nothing to copy onto a second subscription.",
+		},
+		{
+			model.CapQueueOffset,
+			"and with no partitions, not even a per-partition position to write.",
+		},
+		{
+			model.CapMessageByID,
+			"a message id is the sender's own field. Nothing assigns one, nothing indexes " +
+				"one, and it need not be unique - what addresses a message here is the " +
+				"sequence number the browse resumes from.",
+		},
+		{
+			model.CapMessageTrack,
+			"there is no trace. The service reports how many times a message has been " +
+				"delivered and nothing about who received it or what they did.",
+		},
+		{
+			model.CapMessageLiveTail,
+			"tailing is an incremental read of a durable log, and an entity is not one: a " +
+				"completed message is gone, so reading twice from the same place does not " +
+				"return the same thing twice.",
+		},
+		{
+			model.CapLiveStream,
+			"nothing is pushed. A receiver pulls, and what it pulls it takes - which is " +
+				"the opposite of what a live view is for.",
+		},
+		{
+			model.CapDeadLetterTopology,
+			"a dead-letter store is part of its entity rather than an object something " +
+				"points at. There is nothing to walk backwards through, which is why this " +
+				"driver declares the per-entity shape instead.",
+		},
+		{
+			model.CapMessageReplay,
+			"there is nothing connected to hand a message to. The service knows of no " +
+				"consumer, so there is no listener to run and no result to report.",
+		},
+		{
+			model.CapPendingEntries,
+			"outstanding deliveries are not enumerable. A message is locked for its lock " +
+				"duration and there is no call that lists what is locked or by whom.",
+		},
+		{
+			model.CapPendingAdmin,
+			"and with no list to read there is nothing to acknowledge or reassign.",
+		},
+		{
+			model.CapEntryPublish,
+			"a message is a body with system fields and a table of properties, not an " +
+				"ordered list of named fields with an id the caller chooses.",
+		},
+		{
+			model.CapProducerInspect,
+			"nothing records who is sending. A sender authenticates, sends, and is " +
+				"forgotten.",
+		},
+		{
+			model.CapClusterTopology,
+			"there is no cluster. Service Bus is a managed service with no node, address " +
+				"or process an operator here could be shown, and a topology board would " +
+				"have exactly one invented row on it.",
+		},
+		{
+			model.CapClusterMetrics,
+			"and no node to attribute a figure to. Every number about throughput is in " +
+				"Azure Monitor, which is a different API with a different credential.",
+		},
+		{
+			model.CapDirectory,
+			"there is no discovery tier. A namespace is one address and nothing has to be " +
+				"asked where an entity lives.",
+		},
+		{
+			model.CapNodeConfig,
+			"an entity's settings are already on its own page. There is no node underneath " +
+				"with settings of its own.",
+		},
+		{
+			model.CapNodeMaintenance,
+			"nothing here is maintained by its user. Expiry and auto-delete run on " +
+				"Microsoft's schedule.",
+		},
+		{
+			model.CapLogDirs,
+			"the only storage figure is an entity's maximum size, which is a quota rather " +
+				"than a disk. There is no free space and no percentage anywhere.",
+		},
+		{
+			model.CapClusterHealth,
+			"Service Bus answers no question about itself. Service health is the Azure " +
+				"status page, which is not an API this connection is signed for.",
+		},
+		{
+			model.CapClusterCensus,
+			"there is no namespace-wide total. Every figure worth having is per entity, " +
+				"and summing them would mean a request each and a number that was never " +
+				"true at any single moment.",
+		},
+		{
+			model.CapClientInspect,
+			"nothing holds a connection this app can see. A sender and a receiver each " +
+				"authenticate and are forgotten, so there is no session to list.",
+		},
+		{
+			model.CapClientClose,
+			"and nothing to disconnect for the same reason.",
+		},
+		{
+			model.CapAccessControl,
+			"access is a shared access policy on the namespace, which is what this " +
+				"connection authenticated with. The management API will not enumerate them, " +
+				"and a page editing half of that would claim to control access it cannot see.",
+		},
+		{
+			model.CapAccessDirectory,
+			"same reason, one layer further out: identity-based access is Entra ID's.",
+		},
+		{
+			model.CapAclUsers,
+			"and Service Bus keeps no users of its own to attach rules to.",
+		},
+		{
+			model.CapNamespaceList,
+			"the namespace is the boundary and one connection is one namespace. There is " +
+				"no tenant or vhost inside it for an entity to live in.",
+		},
+		{
+			model.CapPolicyList,
+			"settings are set on the entity rather than matched to it by pattern. There is " +
+				"no policy object to list.",
+		},
+		{
+			model.CapDefinitionsExport,
+			"nothing hands back a namespace's topology as one document, and nothing takes " +
+				"one back. The emulator reads a config file at startup and the real service " +
+				"has no counterpart to it.",
+		},
+		{
+			model.CapReplication,
+			"there is no shovel and no federation. Forwarding moves messages between " +
+				"entities in one namespace and reaches no further.",
+		},
+		{
+			model.CapStreamClients,
+			"there is no second protocol. Everything speaks AMQP over the same namespace, " +
+				"so there is no set of clients the ordinary listing cannot see.",
+		},
+		{
+			model.CapTransactions,
+			"a transaction here spans one entity and lives inside one AMQP session. " +
+				"Nothing gives it an identity the service would list.",
+		},
+		{
+			model.CapQuotaList,
+			"the limits are the tier's own and are set per namespace in a different " +
+				"console. They are not stored on an entity and nothing in this API could " +
+				"change one.",
+		},
+		{
+			model.CapConnectionScope,
+			"the name prefix on this form filters a listing; it does not re-point the " +
+				"connection. A name outside it is still perfectly reachable, which is not " +
+				"what a scope means anywhere else in this app.",
+		},
+	}
+
+	live := offlineConn().Capabilities()
+	for _, entry := range absent {
+		if live.Has(entry.capability) {
+			t.Errorf("declares %s, but %s", entry.capability, entry.because)
+		}
+		if _, degraded := live.DegradedReason(entry.capability); degraded {
+			t.Errorf("degrades %s, which implies the family has it; %s",
+				entry.capability, entry.because)
+		}
+	}
+}
+
+/*
+ * The backlog is the one thing that varies by endpoint, and it varies the
+ * right way round.
+ *
+ * Service Bus reports a subscription's active message count, so a real
+ * namespace supports it. The emulator sends a CountDetails element whose five
+ * children are renamed to tokens the SDK cannot read, so a connection to one
+ * degrades it with a reason. Declaring it absent everywhere would be a lie
+ * about Azure; declaring it supported everywhere would put a zero on a board
+ * where there is no number at all.
+ */
+func TestBacklogNarrowsOnlyForAnEmulator(t *testing.T) {
+	real := (&Conn{
+		closed: make(chan struct{}),
+		config: clientConfig{namespace: "real.servicebus.windows.net"},
+	}).declare()
+	if !real.Has(model.CapSubscriptionLag) {
+		t.Error("a real namespace does not offer the backlog, and Service Bus reports it")
+	}
+	if _, degraded := real.DegradedReason(model.CapSubscriptionLag); degraded {
+		t.Error("a real namespace degrades the backlog it can answer")
+	}
+
+	emulator := (&Conn{
+		closed: make(chan struct{}),
+		config: clientConfig{namespace: "localhost:5672", emulatorManagement: "127.0.0.1:5300"},
+	}).declare()
+	if emulator.Has(model.CapSubscriptionLag) {
+		t.Error("an emulator offers the backlog as a figure, and it reports none")
+	}
+	reason, degraded := emulator.DegradedReason(model.CapSubscriptionLag)
+	if !degraded {
+		t.Fatal("an emulator neither supports nor explains the backlog")
+	}
+	if reason != countsNotInEmulator {
+		t.Errorf("reason = %q, want %q", reason, countsNotInEmulator)
+	}
+	// Every other capability survives the narrowing: only the one figure goes.
+	for _, capability := range capabilities() {
+		if capability == model.CapSubscriptionLag {
+			continue
+		}
+		if !emulator.Has(capability) {
+			t.Errorf("%s was lost along with the backlog", capability)
+		}
+	}
+}
