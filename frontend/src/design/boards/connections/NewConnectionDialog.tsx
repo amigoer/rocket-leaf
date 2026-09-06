@@ -31,6 +31,7 @@ import {
   SqsForm,
   GooglePubSubForm,
   IbmMqForm,
+  SolaceForm,
   KinesisForm,
   AzureServiceBusForm,
 } from "./ConnectionForms";
@@ -73,6 +74,10 @@ const TILE: Record<ProtocolId, { name: string; versions: string }> = {
   // the web server beside it. The version printed is the mqweb server's REST
   // API rather than the product's, because that is what the driver speaks.
   ibmmq: { name: "IBM MQ", versions: "9.1+ (mqweb REST)" },
+  // Not managed either, and the version printed is SEMP's rather than the
+  // broker's: v2 is what the driver speaks, and it is the half of the API
+  // that has a config and a monitor tree instead of an XML RPC.
+  solace: { name: "Solace PubSub+", versions: "9.4+ (SEMP v2)" },
 };
 
 /** What the probe last reported, drawn in the footer beside the test button. */
@@ -280,6 +285,11 @@ export function NewConnectionDialog({
         <IbmMqForm
           value={draft.value}
           onChange={(next) => setDraft({ protocol: "ibmmq", value: next })}
+        />
+      ) : draft.protocol === "solace" ? (
+        <SolaceForm
+          value={draft.value}
+          onChange={(next) => setDraft({ protocol: "solace", value: next })}
         />
       ) : (
         <RocketMQForm

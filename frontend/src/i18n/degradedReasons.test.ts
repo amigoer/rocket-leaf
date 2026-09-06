@@ -84,6 +84,13 @@ const REASONS: Record<string, string[]> = {
   // that lead two different places - the mqweb server's role mapping, and the
   // connection form's second credential.
   ibmmq: ["messagingForbidden", "messagingRefused"],
+  // internal/driver/solace/conn.go
+  //
+  // Two, and both about one tier: SEMP does not carry messages, so a send
+  // goes through the REST messaging interface on another port. It can be
+  // unavailable two ways that lead two different places - nothing listening
+  // there, and a client-username the Message VPN refuses.
+  solace: ["restUnreachable", "restForbidden"],
 };
 
 /**

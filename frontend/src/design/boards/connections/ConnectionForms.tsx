@@ -3691,3 +3691,277 @@ export function IbmMqForm({
     </>
   );
 }
+
+/** Option keys the Solace driver reads back off a stored profile. */
+export const OPTION_SOLACE_MSG_VPN = "msgVpn";
+export const OPTION_SOLACE_REST_URL = "restUrl";
+export const OPTION_SOLACE_TLS_SKIP_VERIFY = "tlsSkipVerify";
+
+/**
+ * Two mechanisms, because SEMP has two.
+ *
+ * These credentials are the broker's management users - broker-wide accounts
+ * with an access level - and not the Message VPN's client-usernames, which is
+ * what an application authenticates as. The two live in different directories
+ * and neither stands in for the other, which is why the REST messaging pair
+ * below is its own.
+ */
+export type SolaceMechanism = "none" | "plain";
+
+export interface SolaceDraft {
+  name: string;
+  /** The broker's SEMP URL. For this family the endpoint is HTTP. */
+  endpoints: string;
+  mechanism: SolaceMechanism;
+  username: string;
+  password: string;
+  /** Which Message VPN on that broker. Blank falls back to "default". */
+  msgVpn: string;
+  /** The REST messaging interface, when it is not simply another port here. */
+  restUrl: string;
+  /** A client-username in that VPN. Blank sends no credential at all. */
+  restUsername: string;
+  restPassword: string;
+  /** A broker signs its own certificate unless it has been given a real one. */
+  tlsSkipVerify: boolean;
+  group: string;
+  remark: string;
+  timeoutSec: number;
+  /** A stored secret never comes back, so blank means "keep it". */
+  credentialsStored: boolean;
+  clearCredentials: boolean;
+}
+
+export function emptySolaceDraft(): SolaceDraft {
+  return {
+    name: "",
+    endpoints: "",
+    mechanism: "plain",
+    username: "",
+    password: "",
+    msgVpn: "",
+    restUrl: "",
+    restUsername: "",
+    restPassword: "",
+    tlsSkipVerify: false,
+    group: "",
+    remark: "",
+    timeoutSec: DEFAULT_TIMEOUT_SEC,
+    credentialsStored: false,
+    clearCredentials: false,
+  };
+}
+
+/**
+ * Solace PubSub+, addressed by SEMP rather than by its messaging listener.
+ *
+ * The address is the broker's SEMP URL and not port 55555, which is the shape
+ * ActiveMQ and IBM MQ already have: the management plane is HTTP, and it is
+ * the whole of what the boards read. 55555 belongs to applications.
+ *
+ * The Message VPN is a field rather than part of that address because it is a
+ * path segment on the broker, and it is optional because every broker ships
+ * one called "default". It is also the field the sidebar's scope switcher
+ * writes, so a connection is re-pointed at another VPN without being edited.
+ *
+ * Two credential blocks, and the second is not the first under another name.
+ * SEMP authenticates a management user; the REST messaging interface
+ * authenticates a client-username, which is an object inside one Message VPN.
+ * A Message VPN that takes any username - the out-of-the-box setting - needs
+ * neither, which is why the pair is in the advanced block and may be left
+ * empty.
+ */
+export function SolaceForm({
+  value,
+  onChange,
+}: {
+  value: SolaceDraft;
+  onChange: (next: SolaceDraft) => void;
+}) {
+  const { t } = useTranslation();
+  const set = <K extends keyof SolaceDraft>(key: K, next: SolaceDraft[K]) =>
+    onChange({ ...value, [key]: next });
+  const [advancedOpen, setAdvancedOpen] = useState(
+    value.timeoutSec !== DEFAULT_TIMEOUT_SEC ||
+      value.remark !== "" ||
+      value.restUrl !== "" ||
+      value.restUsername !== "" ||
+      value.tlsSkipVerify,
+  );
+  const stored = value.credentialsStored && !value.clearCredentials;
+
+  return (
+    <>
+      <div style={GRID}>
+        <Fld label={t("page.connections.form.name")}>
+          <Input
+            value={value.name}
+            placeholder="solace-prod"
+            onChange={(event) => set("name", event.target.value)}
+          />
+        </Fld>
+        <Fld label={t("page.connections.form.solace.mechanism")}>
+          <SelectField<SolaceMechanism>
+            value={value.mechanism}
+            options={[
+              { value: "plain", label: t("page.connections.form.solace.mechanismPlain") },
+              { value: "none", label: t("page.connections.form.solace.mechanismNone") },
+            ]}
+            onValueChange={(next) =>
+              onChange({
+                ...value,
+                mechanism: next,
+                username: next === "plain" ? value.username : "",
+                password: next === "plain" ? value.password : "",
+              })
+            }
+          />
+        </Fld>
+        <Fld
+          span
+          label={t("page.connections.form.solace.semp")}
+          hint={t("page.connections.form.solace.sempHint")}
+        >
+          <Input
+            className="mono3"
+            style={MONO}
+            value={value.endpoints}
+            placeholder="http://solace.example.com:8080"
+            onChange={(event) => set("endpoints", event.target.value)}
+          />
+        </Fld>
+        <Fld
+          span
+          label={t("page.connections.form.solace.msgVpn")}
+          hint={t("page.connections.form.solace.msgVpnHint")}
+        >
+          <Input
+            className="mono3"
+            style={MONO}
+            value={value.msgVpn}
+            placeholder="default"
+            onChange={(event) => set("msgVpn", event.target.value)}
+          />
+        </Fld>
+        {value.mechanism === "plain" && (
+          <>
+            <Fld
+              label={t("page.connections.form.username")}
+              hint={
+                stored ? (
+                  <button
+                    type="button"
+                    className="mqs-linkbtn"
+                    onClick={() => set("clearCredentials", true)}
+                  >
+                    {t("page.connections.form.clearCredentials")}
+                  </button>
+                ) : (
+                  t("page.connections.form.solace.adminHint")
+                )
+              }
+            >
+              <Input
+                value={value.username}
+                placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+                onChange={(event) => set("username", event.target.value)}
+              />
+            </Fld>
+            <Fld label={t("page.connections.form.password")}>
+              <Input
+                type="password"
+                value={value.password}
+                placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+                onChange={(event) => set("password", event.target.value)}
+              />
+            </Fld>
+          </>
+        )}
+      </div>
+
+      <FormNote
+        advanced={
+          <button
+            type="button"
+            className="mqs-disclosure"
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((open) => !open)}
+          >
+            <ChevronRight size={12} aria-hidden />
+            {t("page.connections.form.rocketmq.advanced")}
+          </button>
+        }
+        note={t("page.connections.form.solace.note")}
+      />
+      {advancedOpen && (
+        <div style={GRID}>
+          <Fld
+            span
+            label={t("page.connections.form.solace.restUrl")}
+            hint={t("page.connections.form.solace.restUrlHint")}
+          >
+            <Input
+              className="mono3"
+              style={MONO}
+              value={value.restUrl}
+              placeholder="http://solace.example.com:9000"
+              onChange={(event) => set("restUrl", event.target.value)}
+            />
+          </Fld>
+          <Fld
+            label={t("page.connections.form.solace.restUsername")}
+            hint={t("page.connections.form.solace.restHint")}
+          >
+            <Input
+              value={value.restUsername}
+              placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+              onChange={(event) => set("restUsername", event.target.value)}
+            />
+          </Fld>
+          <Fld label={t("page.connections.form.solace.restPassword")}>
+            <Input
+              type="password"
+              value={value.restPassword}
+              placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+              onChange={(event) => set("restPassword", event.target.value)}
+            />
+          </Fld>
+          <Fld
+            label={t("page.connections.form.rocketmq.timeout")}
+            hint={t("page.connections.form.rocketmq.timeoutHint")}
+          >
+            <Input
+              type="number"
+              value={value.timeoutSec > 0 ? String(value.timeoutSec) : ""}
+              onChange={(event) => {
+                const seconds = Number.parseInt(event.target.value, 10);
+                set("timeoutSec", Number.isNaN(seconds) ? 0 : seconds);
+              }}
+            />
+          </Fld>
+          <Fld
+            label={t("page.connections.form.remark")}
+            hint={t("page.connections.form.remarkHint")}
+          >
+            <Input value={value.remark} onChange={(event) => set("remark", event.target.value)} />
+          </Fld>
+          <Fld
+            span
+            label={t("page.connections.form.solace.skipVerify")}
+            hint={t("page.connections.form.solace.skipVerifyHint")}
+          >
+            <div style={SWITCH_ROW}>
+              <Switch
+                checked={value.tlsSkipVerify}
+                onCheckedChange={(next: boolean) => set("tlsSkipVerify", next)}
+              />
+              <span style={{ color: "var(--c-muted)" }}>
+                {t("page.connections.form.kafka.skipVerifyNote")}
+              </span>
+            </div>
+          </Fld>
+        </div>
+      )}
+    </>
+  );
+}

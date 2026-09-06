@@ -48,6 +48,9 @@ import {
   OPTION_NSQ_TLS_SKIP_VERIFY,
   OPTION_IBMMQ_QUEUE_MANAGER,
   OPTION_IBMMQ_TLS_SKIP_VERIFY,
+  OPTION_SOLACE_MSG_VPN,
+  OPTION_SOLACE_REST_URL,
+  OPTION_SOLACE_TLS_SKIP_VERIFY,
   OPTION_KINESIS_ENDPOINT_URL,
   OPTION_KINESIS_REGION,
   OPTION_KINESIS_STREAM_PREFIX,
@@ -88,6 +91,7 @@ import {
   emptyMqttDraft,
   emptyNsqDraft,
   emptyIbmMqDraft,
+  emptySolaceDraft,
   emptyKinesisDraft,
   emptySqsDraft,
   emptyGooglePubSubDraft,
@@ -108,6 +112,8 @@ import {
   type NsqDraft,
   type IbmMqDraft,
   type IbmMqMechanism,
+  type SolaceDraft,
+  type SolaceMechanism,
   type KinesisDraft,
   type SqsDraft,
   type GooglePubSubDraft,
@@ -143,7 +149,8 @@ export type ProtocolDraft =
   | { protocol: "google-pubsub"; value: GooglePubSubDraft }
   | { protocol: "azure-servicebus"; value: AzureServiceBusDraft }
   | { protocol: "kinesis"; value: KinesisDraft }
-  | { protocol: "ibmmq"; value: IbmMqDraft };
+  | { protocol: "ibmmq"; value: IbmMqDraft }
+  | { protocol: "solace"; value: SolaceDraft };
 
 /** The protocols this file can build a submission for. */
 export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
@@ -161,6 +168,7 @@ export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
   "azure-servicebus",
   "kinesis",
   "ibmmq",
+  "solace",
 ];
 
 export function isDraftable(protocol: ProtocolId): protocol is ProtocolDraft["protocol"] {
@@ -195,6 +203,8 @@ export function emptyDraft(protocol: ProtocolDraft["protocol"]): ProtocolDraft {
       return { protocol, value: emptyKinesisDraft() };
     case "ibmmq":
       return { protocol, value: emptyIbmMqDraft() };
+    case "solace":
+      return { protocol, value: emptySolaceDraft() };
     default:
       return { protocol, value: emptyRocketMQDraft() };
   }
@@ -228,6 +238,8 @@ export function toSubmission(draft: ProtocolDraft): Submission {
       return kinesisSubmission(draft.value);
     case "ibmmq":
       return ibmMqSubmission(draft.value);
+    case "solace":
+      return solaceSubmission(draft.value);
     default:
       return rocketMQSubmission(draft.value);
   }
@@ -262,6 +274,8 @@ export function toDraft(profile: ConnectionProfile): ProtocolDraft {
       return { protocol: "kinesis", value: toKinesisDraft(profile) };
     case MQKind.KindIBMMQ:
       return { protocol: "ibmmq", value: toIbmMqDraft(profile) };
+    case MQKind.KindSolace:
+      return { protocol: "solace", value: toSolaceDraft(profile) };
     default:
       return { protocol: "rocketmq", value: toRocketMQDraft(profile) };
   }
@@ -1259,6 +1273,92 @@ function toIbmMqDraft(profile: ConnectionProfile): IbmMqDraft {
     messagingUsername: "",
     messagingPassword: "",
     tlsSkipVerify: profile.options?.[OPTION_IBMMQ_TLS_SKIP_VERIFY] === "true",
+    group: profile.group,
+    remark: profile.remark,
+    timeoutSec: profile.timeoutSec,
+    credentialsStored: profile.secretsConfigured.length > 0,
+    clearCredentials: false,
+  };
+}
+
+/*
+ * Solace PubSub+, which has an address like the on-premise families and two
+ * credential pairs like IBM MQ - but the second pair means something else.
+ *
+ * The address is the broker's SEMP URL. The Message VPN is an option rather
+ * than part of it because it is a path segment on that broker, and it may be
+ * left blank: every broker ships one called "default" and the driver falls
+ * back to it.
+ *
+ * The REST pair does not fall back to the SEMP one, which is where this parts
+ * company with IBM MQ. Both of that family's interfaces authenticate against
+ * one mqweb registry, so reusing the administrative account is the ordinary
+ * deployment; Solace's two are a broker-wide management user and a
+ * client-username inside one Message VPN, and offering the first as the second
+ * would be refused by any broker that checks. So an empty REST pair is written
+ * as empty and means "send no credential", which is what a Message VPN whose
+ * basic authentication type is none expects.
+ */
+function solaceSubmission(draft: SolaceDraft): Submission {
+  const mechanism = draft.mechanism;
+  const keepStored = draft.credentialsStored && !draft.clearCredentials;
+  const authenticated = mechanism === "plain";
+
+  return {
+    draft: {
+      name: draft.name.trim(),
+      group: draft.group,
+      kind: MQKind.KindSolace,
+      endpoints: draft.endpoints.trim(),
+      timeoutSec: draft.timeoutSec,
+      authMechanism: SOLACE_MECHANISMS[mechanism],
+      options: {
+        [OPTION_SOLACE_MSG_VPN]: draft.msgVpn.trim(),
+        [OPTION_SOLACE_REST_URL]: draft.restUrl.trim(),
+        [OPTION_SOLACE_TLS_SKIP_VERIFY]: String(draft.tlsSkipVerify),
+      },
+      secrets: {
+        // Not accessKey and secretKey: those two names are reserved for
+        // RocketMQ's ACL and are cleared on save for any other family.
+        username: authenticated ? draft.username.trim() : "",
+        password: authenticated ? draft.password.trim() : "",
+        // Kept whatever the SEMP mechanism is, because it is a different
+        // credential for a different interface: a broker with management
+        // security switched off still authenticates its clients.
+        restUsername: draft.restUsername.trim(),
+        restPassword: draft.restPassword.trim(),
+      },
+      remark: draft.remark,
+    },
+    // "preserve" rather than "replace", for the reason ActiveMQ and IBM MQ
+    // have it: with two credential pairs on one form, a user editing the
+    // address would otherwise wipe whichever pair they did not retype.
+    credentialsMode: draft.clearCredentials ? "clear" : keepStored ? "preserve" : "replace",
+  };
+}
+
+const SOLACE_MECHANISMS: Record<SolaceMechanism, AuthMechanism> = {
+  none: AuthMechanism.AuthNone,
+  plain: AuthMechanism.AuthPlain,
+};
+
+function toSolaceDraft(profile: ConnectionProfile): SolaceDraft {
+  const mechanism: SolaceMechanism =
+    profile.authMechanism === AuthMechanism.AuthNone ? "none" : "plain";
+
+  return {
+    name: profile.name,
+    endpoints: profile.endpoints,
+    mechanism,
+    // Secrets never come back from the store. Blank with credentialsStored set
+    // is what tells the form to say "kept" rather than "empty".
+    username: "",
+    password: "",
+    msgVpn: profile.options?.[OPTION_SOLACE_MSG_VPN] ?? "",
+    restUrl: profile.options?.[OPTION_SOLACE_REST_URL] ?? "",
+    restUsername: "",
+    restPassword: "",
+    tlsSkipVerify: profile.options?.[OPTION_SOLACE_TLS_SKIP_VERIFY] === "true",
     group: profile.group,
     remark: profile.remark,
     timeoutSec: profile.timeoutSec,

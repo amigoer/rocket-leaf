@@ -54,6 +54,7 @@ const PROTOCOL_BY_KIND: Partial<Record<MQKind, ProtocolId>> = {
   [MQKind.KindAzureServiceBus]: "azure-servicebus",
   [MQKind.KindKinesis]: "kinesis",
   [MQKind.KindIBMMQ]: "ibmmq",
+  [MQKind.KindSolace]: "solace",
 };
 
 export function protocolOfKind(kind: MQKind): ProtocolId | null {
@@ -85,6 +86,13 @@ export function protocolOfKind(kind: MQKind): ProtocolId | null {
  * queue managers, they share nothing, and two profiles pointed at two of them
  * would otherwise print the same row. So the queue manager is appended as the
  * path segment it actually is in every REST call the driver makes.
+ *
+ * Solace is here for the same reason and not quite the same one. A Message VPN
+ * is also a path segment on a broker that hosts several, so two profiles would
+ * print the same row - but unlike a queue manager it is a scope, and the
+ * sidebar re-points it without the profile being edited. That makes the row the
+ * only place a user can see which VPN a connection is on while looking at the
+ * list.
  */
 function addressOf(profile: ConnectionProfile): string {
   if (profile.kind === MQKind.KindSQS) return profile.options?.region ?? "";
@@ -92,6 +100,7 @@ function addressOf(profile: ConnectionProfile): string {
   if (profile.kind === MQKind.KindGooglePubSub) return profile.options?.projectId ?? "";
   if (profile.kind === MQKind.KindAzureServiceBus) return namespaceOf(profile.endpoints);
   if (profile.kind === MQKind.KindIBMMQ) return queueManagerAddress(profile);
+  if (profile.kind === MQKind.KindSolace) return msgVpnAddress(profile);
   return profile.endpoints;
 }
 
@@ -107,6 +116,21 @@ function queueManagerAddress(profile: ConnectionProfile): string {
   const qmgr = (profile.options?.queueManager ?? "").trim();
   if (server === "" || qmgr === "") return server;
   return `${server}/${qmgr}`;
+}
+
+/**
+ * The SEMP address with the Message VPN on it, when the profile names one.
+ *
+ * It may not, and blank means something different here than it does for IBM
+ * MQ: the driver falls back to "default", which every broker ships. Printing
+ * that fallback would still be printing something the profile does not say, so
+ * the row shows the broker alone until the scope switcher writes a name.
+ */
+function msgVpnAddress(profile: ConnectionProfile): string {
+  const broker = profile.endpoints.trim().replace(/\/+$/, "");
+  const vpn = (profile.options?.msgVpn ?? "").trim();
+  if (broker === "" || vpn === "") return broker;
+  return `${broker}/${vpn}`;
 }
 
 /**

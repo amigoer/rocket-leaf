@@ -756,6 +756,30 @@
         "browseCharacterOnly": "浏览不会取走任何东西：读完之后队列深度不变，任意多个读者都能看到同一条消息。mqweb 服务器不会返回它无法按文本解析的消息体——死信、事件消息、应用自定义结构都是如此——这些消息只会列出标识与格式，打开时会被拒绝。",
         "sendQueueOnly": "发送的目标是队列：消息 REST API 根本没有主题端点，因此这个控制台无法发布。它也只承载字符数据，其他内容一律拒绝，所以二进制消息只能由 MQ 客户端发送。"
       }
+    },
+    "solace": {
+      "name": "Solace PubSub+",
+      "terms": {
+        "destination": "队列",
+        "destinationPlural": "队列",
+        "namespace": "Message VPN",
+        "backlog": "堆积"
+      },
+      "form": {
+        "semp": "SEMP 地址",
+        "msgVpn": "Message VPN",
+        "mechanism": "认证方式",
+        "authPlain": "用户名与密码",
+        "username": "用户名",
+        "password": "密码",
+        "restUrl": "REST 消息地址",
+        "restUsername": "客户端用户名",
+        "restPassword": "客户端密码"
+      },
+      "degraded": {
+        "restUnreachable": "REST 消息端口没有响应，此连接无法发送消息。SEMP 只负责管理，不传输消息；消息接口在另一个端口上，端口号由 Message VPN 配置决定。请确认该 VPN 已开启 REST 服务，或在连接里填写它实际发布的地址。",
+        "restForbidden": "Broker 拒绝了 REST 消息接口上的这个客户端用户名。从 SEMP 读取的内容仍然可用，但在凭据修正之前无法发送。客户端用户名是 Message VPN 内部的对象，与 SEMP 管理账号不是一回事。"
+      }
     }
   },
   "shell": {
@@ -978,6 +1002,17 @@
         "messages": "消息",
         "producer": "发送",
         "dlq": "死信",
+        "alerts": "告警"
+      },
+      "solace": {
+        "overview": "总览",
+        "topics": "队列",
+        "exchanges": "路由",
+        "messages": "消息",
+        "producer": "发送",
+        "clients": "客户端",
+        "dlq": "死信消息",
+        "cluster": "Broker",
         "alerts": "告警"
       }
     }
@@ -1364,6 +1399,28 @@
           "mqwebScheme": "mqweb 地址是完整 URL——请以 https:// 或 http:// 开头。",
           "queueManagerName": "队列管理器名称最长 48 个字符，只能包含字母、数字以及 . _ / % 。",
           "messagingPairRequired": "填写了消息接口用户名就必须填写密码。两者都留空则两个接口都使用管理员账号。"
+        },
+        "solace": {
+          "mechanism": "认证方式",
+          "mechanismPlain": "用户名与密码",
+          "mechanismNone": "无",
+          "semp": "SEMP 地址",
+          "sempHint": "Broker 的管理端口，默认 8080。不是 55555，那是应用连接的端口。",
+          "msgVpn": "Message VPN",
+          "msgVpnHint": "留空则使用 default。侧边栏可以直接把此连接切换到别的 VPN，无需编辑。",
+          "adminHint": "Broker 上的管理账号，不是客户端用户名。",
+          "restUrl": "REST 消息地址",
+          "restUrlHint": "留空则使用 Message VPN 自己声明的 REST 端口。若该端口发布在别处，请在此填写。",
+          "restUsername": "客户端用户名",
+          "restPassword": "客户端密码",
+          "restHint": "该 Message VPN 内的客户端用户名。若 VPN 接受任意用户名，两项均可留空。",
+          "skipVerify": "跳过证书校验",
+          "skipVerifyHint": "未配置证书的 Broker 会使用自签名证书。",
+          "note": "SEMP 负责读取与管理；发送消息走独立端口上的 REST 消息接口。",
+          "sempRequired": "SEMP 地址不能为空。",
+          "sempScheme": "SEMP 地址需要 http:// 或 https:// 前缀。",
+          "msgVpnName": "Message VPN 名称最长 32 个字符，且不能包含 * 或 ?。",
+          "restPairRequired": "客户端用户名与密码需要同时填写或同时留空：只填密码不会被发送。"
         }
       },
       "deleteTitle": "删除连接",

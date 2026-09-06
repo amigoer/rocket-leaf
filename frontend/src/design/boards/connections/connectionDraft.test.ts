@@ -10,6 +10,7 @@ import {
   emptyRocketMQDraft,
   emptyKinesisDraft,
   emptyIbmMqDraft,
+  emptySolaceDraft,
   emptySqsDraft,
   emptyGooglePubSubDraft,
   emptyAzureServiceBusDraft,
@@ -817,6 +818,7 @@ describe("the draft registry", () => {
       "azure-servicebus",
       "kinesis",
       "ibmmq",
+      "solace",
     ] as const) {
       expect(isDraftable(protocol)).toBe(true);
       expect(emptyDraft(protocol).protocol).toBe(protocol);
@@ -827,14 +829,14 @@ describe("the draft registry", () => {
   // one, which is what disabling it is for. Every protocol the picker draws
   // has a form now, so the list of exceptions is empty and a loop over it
   // would pass vacuously. What is pinned instead is that every tile has one,
-  // and that the gate still refuses a name that is not a protocol here at all
-  // - solace is next on the roadmap and has no driver, which is what makes it
-  // the honest stand-in.
+  // and that the gate still refuses a name that is not a protocol here at all.
+  // The stand-in used to be whichever family was next on the roadmap; Solace
+  // was the last of them, so it is a name no roadmap will ever claim.
   it("has a form for every protocol the picker can draw", () => {
     for (const protocol of Object.values(PROTOCOLS)) {
       expect(isDraftable(protocol.id)).toBe(true);
     }
-    expect(isDraftable("solace" as unknown as ProtocolId)).toBe(false);
+    expect(isDraftable("no-such-broker" as unknown as ProtocolId)).toBe(false);
   });
 });
 
@@ -1186,6 +1188,138 @@ describe("the IBM MQ connection draft", () => {
     expect(draft.value.credentialsStored).toBe(true);
     expect(draft.value.username).toBe("");
     expect(draft.value.messagingPassword).toBe("");
+  });
+});
+
+/**
+ * The last family, and the first whose second credential pair is not a
+ * fallback for the first. Pinned separately for the reason every other
+ * family's draft is: each has its own submission function and its own copy of
+ * the secret names, and nothing but a test keeps them in step.
+ */
+describe("the Solace connection draft", () => {
+  const filled = () => ({
+    ...emptySolaceDraft(),
+    name: "  solace-orders  ",
+    endpoints: "  http://solace.example:8080  ",
+    username: "  admin  ",
+    password: "  adminpw  ",
+    msgVpn: "  orders  ",
+    restUrl: "  http://solace.example:9000  ",
+    restUsername: "  app  ",
+    restPassword: "  apppw  ",
+    tlsSkipVerify: true,
+  });
+
+  it("submits semp as the address and the message vpn as an option", () => {
+    const { draft, credentialsMode } = toSubmission({ protocol: "solace", value: filled() });
+
+    expect(draft.kind).toBe(MQKind.KindSolace);
+    expect(draft.name).toBe("solace-orders");
+    expect(draft.endpoints).toBe("http://solace.example:8080");
+    expect(draft.options).toEqual({
+      msgVpn: "orders",
+      restUrl: "http://solace.example:9000",
+      tlsSkipVerify: "true",
+    });
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthPlain);
+    expect(credentialsMode).toBe("replace");
+  });
+
+  // The names matter more than they look. accessKey and secretKey are
+  // reserved for RocketMQ's ACL and are cleared on save for any other family,
+  // so a rename here loses the credential silently.
+  it("stores both credential pairs under names of its own", () => {
+    const { draft } = toSubmission({ protocol: "solace", value: filled() });
+
+    expect(draft.secrets).toEqual({
+      username: "admin",
+      password: "adminpw",
+      restUsername: "app",
+      restPassword: "apppw",
+    });
+    expect(draft.secrets).not.toHaveProperty("accessKey");
+    expect(draft.secrets).not.toHaveProperty("secretKey");
+  });
+
+  /*
+   * The REST pair survives a mechanism of none, which is where this differs
+   * from every other two-pair form here. That mechanism is SEMP's: a broker
+   * with management security switched off still authenticates the clients that
+   * publish to it, so dropping the client-username with it would take away a
+   * credential the send genuinely needs.
+   */
+  it("keeps the rest credential when semp authenticates nobody", () => {
+    const { draft } = toSubmission({
+      protocol: "solace",
+      value: { ...filled(), mechanism: "none" },
+    });
+
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthNone);
+    expect(draft.secrets).toEqual({
+      username: "",
+      password: "",
+      restUsername: "app",
+      restPassword: "apppw",
+    });
+  });
+
+  // An empty REST pair is not an unfinished form: it is what a Message VPN
+  // whose basic authentication type is none expects, which is how every broker
+  // ships.
+  it("submits an empty rest pair when the message vpn takes any username", () => {
+    const { draft } = toSubmission({
+      protocol: "solace",
+      value: {
+        ...emptySolaceDraft(),
+        name: "solace-orders",
+        endpoints: "http://solace.example:8080",
+        username: "admin",
+        password: "adminpw",
+      },
+    });
+
+    expect(draft.secrets?.restUsername).toBe("");
+    expect(draft.secrets?.restPassword).toBe("");
+  });
+
+  it("keeps a stored credential when the form is reopened and nothing retyped", () => {
+    const { draft, credentialsMode } = toSubmission({
+      protocol: "solace",
+      value: {
+        ...emptySolaceDraft(),
+        name: "solace-orders",
+        endpoints: "http://solace.example:8080",
+        credentialsStored: true,
+      },
+    });
+
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthPlain);
+    expect(credentialsMode).toBe("preserve");
+  });
+
+  it("reads a stored profile back without inventing a credential", () => {
+    const profile = {
+      id: 15,
+      name: "solace-orders",
+      group: "",
+      kind: MQKind.KindSolace,
+      endpoints: "http://solace.example:8080",
+      timeoutSec: 10,
+      authMechanism: AuthMechanism.AuthPlain,
+      options: { msgVpn: "orders", restUrl: "", tlsSkipVerify: "true" },
+      secretsConfigured: ["username", "password"],
+      remark: "",
+    } as unknown as ConnectionProfile;
+
+    const draft = toDraft(profile);
+    if (draft.protocol !== "solace") throw new Error("expected a solace draft");
+    expect(draft.value.endpoints).toBe("http://solace.example:8080");
+    expect(draft.value.msgVpn).toBe("orders");
+    expect(draft.value.tlsSkipVerify).toBe(true);
+    expect(draft.value.credentialsStored).toBe(true);
+    expect(draft.value.username).toBe("");
+    expect(draft.value.restPassword).toBe("");
   });
 });
 

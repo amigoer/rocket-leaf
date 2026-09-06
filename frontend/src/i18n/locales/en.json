@@ -756,6 +756,30 @@
         "browseCharacterOnly": "Browsing takes nothing away: the queue's depth is the same afterwards, and any number of readers can look at the same message. What the mqweb server will not do is hand back a body it cannot read as text — a dead letter, an event message, an application's own structure — so those messages are listed with their identifier and format, and opening one is refused.",
         "sendQueueOnly": "A send goes to a queue: the messaging REST API has no topic endpoint at all, so this console cannot publish. It also carries character data only and refuses anything else, so a binary payload has to be sent by an MQ client rather than from here."
       }
+    },
+    "solace": {
+      "name": "Solace PubSub+",
+      "terms": {
+        "destination": "Queue",
+        "destinationPlural": "Queues",
+        "namespace": "Message VPN",
+        "backlog": "Spooled"
+      },
+      "form": {
+        "semp": "SEMP address",
+        "msgVpn": "Message VPN",
+        "mechanism": "Authentication",
+        "authPlain": "User and password",
+        "username": "User",
+        "password": "Password",
+        "restUrl": "REST messaging address",
+        "restUsername": "Client username",
+        "restPassword": "Client password"
+      },
+      "degraded": {
+        "restUnreachable": "Nothing answered on the REST messaging port, so this connection cannot send. SEMP manages the broker and carries no messages, and the messaging interface is a separate port whose number is a Message VPN setting. Check that the VPN serves REST, or give the connection the address it is published on.",
+        "restForbidden": "The broker refused this client username on the REST messaging interface. Everything read from SEMP still works; sending will not until that credential is right. Client usernames are objects inside the Message VPN and are not the SEMP management account."
+      }
     }
   },
   "shell": {
@@ -978,6 +1002,17 @@
         "messages": "Messages",
         "producer": "Send",
         "dlq": "Dead letters",
+        "alerts": "Alerts"
+      },
+      "solace": {
+        "overview": "Overview",
+        "topics": "Queues",
+        "exchanges": "Routing",
+        "messages": "Messages",
+        "producer": "Send",
+        "clients": "Clients",
+        "dlq": "Dead messages",
+        "cluster": "Broker",
         "alerts": "Alerts"
       }
     }
@@ -1364,6 +1399,28 @@
           "mqwebScheme": "The mqweb address is a full URL — start it with https:// or http://.",
           "queueManagerName": "A queue manager name is at most 48 characters of letters, digits and . _ / %.",
           "messagingPairRequired": "A messaging user needs a password. Leave both blank to use the administrative user for both interfaces."
+        },
+        "solace": {
+          "mechanism": "Authentication",
+          "mechanismPlain": "User and password",
+          "mechanismNone": "None",
+          "semp": "SEMP address",
+          "sempHint": "The broker's management port, 8080 by default. Not 55555, which is where applications connect.",
+          "msgVpn": "Message VPN",
+          "msgVpnHint": "Leave empty for default. The sidebar can point this connection at another VPN without editing it.",
+          "adminHint": "A management account on the broker, not a client username.",
+          "restUrl": "REST messaging address",
+          "restUrlHint": "Leave empty to use the port the Message VPN says it serves REST on. Fill it in when that port is published elsewhere.",
+          "restUsername": "Client username",
+          "restPassword": "Client password",
+          "restHint": "A client username in this Message VPN. Leave both empty when the VPN takes any username.",
+          "skipVerify": "Skip certificate verification",
+          "skipVerifyHint": "A broker that has not been given a certificate presents one it made for itself.",
+          "note": "SEMP reads and manages; sending goes through the REST messaging interface on its own port.",
+          "sempRequired": "The SEMP address is required.",
+          "sempScheme": "The SEMP address needs an http:// or https:// scheme.",
+          "msgVpnName": "A Message VPN name is at most 32 characters and cannot contain * or ?.",
+          "restPairRequired": "Give both the client username and its password, or neither: a password on its own is never sent."
         }
       },
       "deleteTitle": "Delete connection",

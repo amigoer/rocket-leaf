@@ -117,6 +117,33 @@ describe("the address a connection row shows", () => {
     expect(row.address).toBe("https://mq.example:9443");
   });
 
+  /*
+   * Solace's row is the same shape and a different reason: the Message VPN is
+   * a scope the sidebar re-points without editing the profile, so this row is
+   * the only place a user can see which VPN a connection is on while looking
+   * at the list.
+   */
+  it("shows the broker with the message vpn for Solace", () => {
+    const row = toShellConnection(
+      profileOf({
+        kind: MQKind.KindSolace,
+        endpoints: "http://solace.example:8080",
+        options: { msgVpn: "orders" },
+      }),
+    );
+    expect(row.address).toBe("http://solace.example:8080/orders");
+    expect(row.protocol).toBe("solace");
+  });
+
+  // A profile that named none is asking the driver to fall back to "default".
+  // Printing that fallback would print something the profile does not say.
+  it("shows only the broker when a Solace profile names no message vpn", () => {
+    const row = toShellConnection(
+      profileOf({ kind: MQKind.KindSolace, endpoints: "http://solace.example:8080" }),
+    );
+    expect(row.address).toBe("http://solace.example:8080");
+  });
+
   it("shows the project for Pub/Sub, which has no address either", () => {
     const row = toShellConnection(
       profileOf({ kind: MQKind.KindGooglePubSub, options: { projectId: "orders-prod" } }),
