@@ -682,7 +682,20 @@ func TestLiveCreateRefusesSettingsTheServiceWould(t *testing.T) {
 	}
 }
 
-const testSubscription = "mqs-test-sub"
+/*
+ * Names a test creates for itself, one per test rather than one shared.
+ *
+ * Sharing one caused a flake worth recording: a subscription deleted by one
+ * test and recreated by the next came back briefly with the earlier one's rule
+ * state, so the second test's send reached nothing. The emulator settles a
+ * deleted name a moment after the delete returns, and a distinct name per test
+ * is cheaper than waiting for it.
+ */
+const (
+	testSubscription     = "mqs-test-sub"
+	testDeadLetterSub    = "mqs-test-dl-sub"
+	testUnroutableSubKey = "mqs-test-unroutable-sub"
+)
 
 /*
  * Subscriptions, which is where a topic's messages actually are.
@@ -852,20 +865,20 @@ func TestLiveASubscriptionWithNoRulesIsOffline(t *testing.T) {
 	ctx := liveContext(t)
 	t.Cleanup(func() {
 		_ = conn.RemoveSubscription(context.Background(),
-			model.SubscriptionRef{Namespace: seedEvents, Name: testSubscription})
+			model.SubscriptionRef{Namespace: seedEvents, Name: testUnroutableSubKey})
 	})
 
 	if err := conn.CreateSubscriptionFrom(ctx, SubscriptionSpec{
-		Topic: seedEvents, Name: testSubscription,
+		Topic: seedEvents, Name: testUnroutableSubKey,
 	}); err != nil {
 		t.Fatalf("CreateSubscriptionFrom: %v", err)
 	}
-	if _, err := conn.management.DeleteRule(ctx, seedEvents, testSubscription, "$Default", nil); err != nil {
+	if _, err := conn.management.DeleteRule(ctx, seedEvents, testUnroutableSubKey, "$Default", nil); err != nil {
 		t.Fatalf("deleting the default rule: %v", err)
 	}
 
 	stranded, err := conn.SubscriptionDetail(ctx,
-		model.SubscriptionRef{Namespace: seedEvents, Name: testSubscription})
+		model.SubscriptionRef{Namespace: seedEvents, Name: testUnroutableSubKey})
 	if err != nil {
 		t.Fatalf("SubscriptionDetail: %v", err)
 	}
@@ -1399,18 +1412,18 @@ func TestLiveASubscriptionHasItsOwnDeadLetters(t *testing.T) {
 	ctx := liveContext(t)
 	t.Cleanup(func() {
 		_ = conn.RemoveSubscription(context.Background(),
-			model.SubscriptionRef{Namespace: seedEvents, Name: testSubscription})
+			model.SubscriptionRef{Namespace: seedEvents, Name: testDeadLetterSub})
 	})
 
 	if err := conn.CreateSubscriptionFrom(ctx, SubscriptionSpec{
-		Topic: seedEvents, Name: testSubscription,
+		Topic: seedEvents, Name: testDeadLetterSub,
 	}); err != nil {
 		t.Fatalf("CreateSubscriptionFrom: %v", err)
 	}
 
 	// Nothing has failed yet, and the store still exists: that is the
 	// difference from a topology, where there would be no object at all.
-	empty, err := conn.DLQMessages(ctx, seedEvents+"/"+testSubscription, 10)
+	empty, err := conn.DLQMessages(ctx, seedEvents+"/"+testDeadLetterSub, 10)
 	if err != nil {
 		t.Fatalf("DLQMessages on a fresh subscription: %v", err)
 	}
@@ -1424,7 +1437,7 @@ func TestLiveASubscriptionHasItsOwnDeadLetters(t *testing.T) {
 		t.Fatalf("Send: %v", err)
 	}
 
-	receiver, err := conn.receiver(seedEvents, testSubscription, false)
+	receiver, err := conn.receiver(seedEvents, testDeadLetterSub, false)
 	if err != nil {
 		t.Fatalf("opening a receiver: %v", err)
 	}
@@ -1445,7 +1458,7 @@ func TestLiveASubscriptionHasItsOwnDeadLetters(t *testing.T) {
 	}
 	_ = receiver.Close(context.Background())
 
-	dead, err := conn.DLQMessages(ctx, seedEvents+"/"+testSubscription, 10)
+	dead, err := conn.DLQMessages(ctx, seedEvents+"/"+testDeadLetterSub, 10)
 	if err != nil {
 		t.Fatalf("DLQMessages: %v", err)
 	}
