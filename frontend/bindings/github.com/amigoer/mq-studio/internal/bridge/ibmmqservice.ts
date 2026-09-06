@@ -43,6 +43,15 @@ export function CreateDestination(connID: number, input: $models.IBMMQDestinatio
 }
 
 /**
+ * Publish sends to one queue and reports what the queue manager took.
+ */
+export function Publish(connID: number, input: $models.IBMMQPublishInput): $CancellablePromise<$models.IBMMQPublishResult | null> {
+    return $Call.ByID(3409958470, connID, input).then(($result: any) => {
+        return $$createType4($result);
+    });
+}
+
+/**
  * QueueManager is which queue manager this connection speaks to.
  */
 export function QueueManager(connID: number): $CancellablePromise<string> {
@@ -64,3 +73,5 @@ export function RemoveDestination(connID: number, name: string, purge: boolean):
 const $$createType0 = model$0.Channel.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
 const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = $models.IBMMQPublishResult.createFrom;
+const $$createType4 = $Create.Nullable($$createType3);

@@ -1899,6 +1899,133 @@ export class IBMMQDestinationInput {
 }
 
 /**
+ * IBMMQPublishInput is a send as the IBM MQ console collects it.
+ * 
+ * Deliberately not MessageService.Send's shape. That one takes a topic, tags,
+ * keys and a delay level; an MQ message has a descriptor instead - a
+ * correlation identifier, a persistence, an expiry and whatever properties the
+ * sender attached - and nothing anywhere in the queue manager holds a message
+ * back until later.
+ */
+export class IBMMQPublishInput {
+    /**
+     * Queue, not a topic: the messaging REST API has no topic resource at all,
+     * so publishing needs an MQ client and this console cannot offer it.
+     */
+    "queue": string;
+    "body": string;
+
+    /**
+     * ContentType reaches the message descriptor's format. It has to be a
+     * character type - the server refuses anything else outright.
+     */
+    "contentType": string;
+
+    /**
+     * CorrelationID is 48 hexadecimal characters or empty.
+     */
+    "correlationId": string;
+
+    /**
+     * Persistent decides whether the queue manager writes the message to its
+     * log, and so whether it survives a restart.
+     */
+    "persistent": boolean;
+
+    /**
+     * ExpirySeconds discards the message if nothing has read it by then. Zero
+     * is MQ's own unlimited.
+     */
+    "expirySeconds": number;
+
+    /**
+     * Properties are attached under their own names, and are what a receiving
+     * application reads back as message properties.
+     */
+    "properties": { [_ in string]?: string };
+
+    /**
+     * Count sends the same body more than once. Each copy is its own request.
+     */
+    "count": number;
+
+    /** Creates a new IBMMQPublishInput instance. */
+    constructor($$source: Partial<IBMMQPublishInput> = {}) {
+        if (!("queue" in $$source)) {
+            this["queue"] = "";
+        }
+        if (!("body" in $$source)) {
+            this["body"] = "";
+        }
+        if (!("contentType" in $$source)) {
+            this["contentType"] = "";
+        }
+        if (!("correlationId" in $$source)) {
+            this["correlationId"] = "";
+        }
+        if (!("persistent" in $$source)) {
+            this["persistent"] = false;
+        }
+        if (!("expirySeconds" in $$source)) {
+            this["expirySeconds"] = 0;
+        }
+        if (!("properties" in $$source)) {
+            this["properties"] = {};
+        }
+        if (!("count" in $$source)) {
+            this["count"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new IBMMQPublishInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): IBMMQPublishInput {
+        const $$createField6_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("properties" in $$parsedSource) {
+            $$parsedSource["properties"] = $$createField6_0($$parsedSource["properties"]);
+        }
+        return new IBMMQPublishInput($$parsedSource as Partial<IBMMQPublishInput>);
+    }
+}
+
+/**
+ * IBMMQPublishResult is what the send did.
+ */
+export class IBMMQPublishResult {
+    "sent": number;
+
+    /**
+     * MessageID is the first message's, as the queue manager assigned it. It
+     * is the handle the browse lists, so it is worth handing straight back.
+     */
+    "messageId": string;
+
+    /** Creates a new IBMMQPublishResult instance. */
+    constructor($$source: Partial<IBMMQPublishResult> = {}) {
+        if (!("sent" in $$source)) {
+            this["sent"] = 0;
+        }
+        if (!("messageId" in $$source)) {
+            this["messageId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new IBMMQPublishResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): IBMMQPublishResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new IBMMQPublishResult($$parsedSource as Partial<IBMMQPublishResult>);
+    }
+}
+
+/**
  * IdentityInput creates or updates a user.
  */
 export class IdentityInput {

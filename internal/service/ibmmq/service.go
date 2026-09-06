@@ -137,3 +137,21 @@ func (s *Service) Channels(ctx context.Context, connID int) ([]*model.Channel, e
 	defer cancel()
 	return api.ListChannels(ctx)
 }
+
+// Publish sends one body, or the same body several times, to one queue.
+//
+// Beside the canonical send rather than through it: MessageService.Send
+// collects a topic, tags, keys and a delay level - RocketMQ's vocabulary, of
+// which an MQ message has none. What it carries instead is a descriptor, and
+// what the canonical shape cannot express is the whole of it.
+func (s *Service) Publish(
+	ctx context.Context, connID int, request ibmmqdriver.PublishRequest,
+) (*ibmmqdriver.PublishResult, error) {
+	api, err := s.ibmmqConn(connID, model.CapPublish)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.Publish(ctx, request)
+}

@@ -1,9 +1,13 @@
 import { IBMMQService } from "@bindings/bridge";
-import type { IBMMQDestinationInput } from "@bindings/bridge/models";
+import type {
+  IBMMQDestinationInput,
+  IBMMQPublishInput,
+  IBMMQPublishResult,
+} from "@bindings/bridge/models";
 import type { Channel } from "@bindings/model/models";
-import { present } from "./client";
+import { present, required } from "./client";
 
-export type { IBMMQDestinationInput };
+export type { IBMMQDestinationInput, IBMMQPublishInput, IBMMQPublishResult };
 
 /**
  * The IBM MQ-only half of the surface.
@@ -46,3 +50,15 @@ export const removeDestination = (connID: number, name: string, purge: boolean):
  */
 export const channels = async (connID: number): Promise<Channel[]> =>
   present(await IBMMQService.Channels(connID));
+
+/**
+ * Send one body, or the same body several times, to one queue.
+ *
+ * A queue, not a topic: the messaging REST API has no topic resource, so
+ * publishing needs an MQ client and this console does not pretend otherwise.
+ * Each copy is its own request, which is why the count is capped.
+ */
+export const publish = (
+  connID: number,
+  input: IBMMQPublishInput,
+): Promise<IBMMQPublishResult> => IBMMQService.Publish(connID, input).then(required);

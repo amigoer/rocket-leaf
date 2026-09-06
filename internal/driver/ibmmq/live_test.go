@@ -957,3 +957,137 @@ func TestLiveTheEmptyMessageIdentifierIsRefusedRatherThanMatched(t *testing.T) {
 			"first message on the queue")
 	}
 }
+
+/*
+ * A send, read back through the browse that the same interface answers.
+ *
+ * The round trip is the point: the descriptor goes out in request headers and
+ * comes back in response headers, and every one of those pairs is a place a
+ * name could be wrong in a way nothing else notices.
+ */
+func TestLiveSendReachesTheQueueWithItsDescriptor(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	const queue = "MQS.TEST.SENT"
+	_ = conn.RemoveQueueGuarded(ctx, model.DestinationRef{Name: queue}, true, false)
+	if err := conn.CreateDestination(ctx, model.DestinationSpec{
+		Ref:        model.DestinationRef{Name: queue},
+		Attributes: map[string]string{AttrKind: KindQueue, AttrQueueType: "local"},
+	}); err != nil {
+		t.Fatalf("CreateDestination: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = conn.RemoveQueueGuarded(context.Background(), model.DestinationRef{Name: queue}, true, false)
+	})
+
+	correlation := strings.Repeat("ab", 24)
+	result, err := conn.Publish(ctx, PublishRequest{
+		Queue:         queue,
+		Body:          `{"sent":"by the live test"}`,
+		ContentType:   "application/json",
+		CorrelationID: correlation,
+		Persistent:    true,
+		ExpirySeconds: 600,
+		Properties:    map[string]string{"orderNo": "42"},
+		Count:         3,
+	})
+	if err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	if result.Sent != 3 {
+		t.Errorf("sent %d of 3", result.Sent)
+	}
+	if result.MessageID == "" {
+		t.Error("the send reported no message id, and the queue manager assigns one to every message")
+	}
+
+	if depth := depthOf(t, conn, queue); depth != 3 {
+		t.Fatalf("%s holds %d messages after sending three", queue, depth)
+	}
+
+	messages, err := conn.QueryMessages(ctx, model.MessageQueryParams{Topic: queue})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(messages) != 3 {
+		t.Fatalf("browsed %d of the three messages sent", len(messages))
+	}
+
+	first := messages[0]
+	if first.Body != `{"sent":"by the live test"}` {
+		t.Errorf("the body came back as %q", first.Body)
+	}
+	if got := first.Properties[PropCorrelationID]; !strings.EqualFold(got, correlation) {
+		t.Errorf("correlation id came back as %q, want %q", got, correlation)
+	}
+	if got := first.Properties[PropPersistence]; got != "persistent" {
+		t.Errorf("persistence came back as %q; the send asked for persistent", got)
+	}
+	// Expiry is set in tenths of a second, which is the sort of thing that is
+	// quietly wrong by a factor of ten. Anything but "unlimited" proves the
+	// header reached the descriptor.
+	if got := first.Properties[PropExpiry]; got == "" || got == "unlimited" {
+		t.Errorf("expiry came back as %q; the send asked for 600 seconds", got)
+	}
+}
+
+/*
+ * Sending to a topic is refused here rather than at the queue manager.
+ *
+ * The messaging interface has no topic resource at all, so a send that reached
+ * it would fail with a 404 naming a URI. What the reader needs to know is that
+ * publishing needs an MQ client, which is a statement about the interface
+ * rather than about the name they typed.
+ */
+func TestLiveSendRefusesATopic(t *testing.T) {
+	conn := liveConn(t)
+
+	_, err := conn.Publish(liveContext(t), PublishRequest{Queue: seedTopic, Body: "nope"})
+	if err == nil {
+		t.Fatal("sent a message to a topic object")
+	}
+	if !strings.Contains(err.Error(), "topic") {
+		t.Errorf("the refusal does not say the destination is a topic: %v", err)
+	}
+}
+
+/*
+ * The canonical send refuses the three arguments this family has no
+ * counterpart for, rather than dropping them.
+ *
+ * A tag and a key are RocketMQ's, and a delay level is a scheduled send MQ has
+ * no equivalent of. Accepting them would be three controls that appear to work.
+ */
+func TestLiveTheCanonicalSendRefusesWhatItCannotCarry(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	if _, err := conn.SendMessage(ctx, seedQueue, "orders", "", "body", 0); err == nil {
+		t.Error("a tag was accepted, and an ibm mq message has none")
+	}
+	if _, err := conn.SendMessage(ctx, seedQueue, "", "key-1", "body", 0); err == nil {
+		t.Error("a key was accepted, and an ibm mq message has none")
+	}
+	if _, err := conn.SendMessage(ctx, seedQueue, "", "", "body", 3); err == nil {
+		t.Error("a delay level was accepted, and ibm mq has no scheduled send")
+	}
+}
+
+// A correlation identifier that is not 24 bytes of hexadecimal is refused
+// where the message can name the field, rather than by the server naming a
+// hex string.
+func TestLiveSendRefusesAMalformedCorrelationID(t *testing.T) {
+	conn := liveConn(t)
+
+	for _, correlation := range []string{"not-hex", strings.Repeat("a", 47), strings.Repeat("z", 48)} {
+		_, err := conn.Publish(liveContext(t), PublishRequest{
+			Queue:         seedQueue,
+			Body:          "body",
+			CorrelationID: correlation,
+		})
+		if err == nil {
+			t.Errorf("accepted %q as a correlation id", correlation)
+		}
+	}
+}

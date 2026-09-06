@@ -89,6 +89,8 @@ export {
     GooglePubSubTopicInput,
     GroupInput,
     IBMMQDestinationInput,
+    IBMMQPublishInput,
+    IBMMQPublishResult,
     IdentityInput,
     KafkaTopicInput,
     KinesisPublishInput,

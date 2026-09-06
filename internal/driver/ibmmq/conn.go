@@ -155,6 +155,7 @@ func capabilities() []model.Capability {
 
 		model.CapMessageQuery,
 		model.CapMessageByID,
+		model.CapPublish,
 	}
 }
 
@@ -214,6 +215,7 @@ func (c *Conn) declare(messagingReason string) model.Capabilities {
 	}
 
 	declared.Caveats[model.CapMessageQuery] = browseCharacterOnly
+	declared.Caveats[model.CapPublish] = sendQueueOnly
 	return declared
 }
 
@@ -223,6 +225,7 @@ func messagingCapabilities() []model.Capability {
 	return []model.Capability{
 		model.CapMessageQuery,
 		model.CapMessageByID,
+		model.CapPublish,
 	}
 }
 

@@ -5571,6 +5571,36 @@
         "section": {
           "properties": "消息属性"
         }
+      },
+      "producer": {
+        "title": "发送消息",
+        "subtitle": "向一个队列发送一条消息",
+        "queue": "队列",
+        "pickQueue": "选择队列",
+        "queueHint": "只能选队列。REST 接口没有主题端点，向主题发布需要使用 MQ 客户端，而不是这个控制台。",
+        "body": "消息体",
+        "bodyHint": "只能是字符数据。服务器会直接拒绝其他内容，二进制消息只能由 MQ 客户端发送。",
+        "contentType": "内容类型",
+        "persistent": "持久化",
+        "persistentHint": "持久消息会写入队列管理器的日志，重启后仍在。非持久消息更快，但重启后就没了。",
+        "correlationId": "关联 ID（可选）",
+        "correlationIdHint": "48 个十六进制字符——也就是 MQ 的 24 字节写法，用于把回复和请求对应起来。留空则保持全零，这是常见做法。",
+        "expiry": "有效期（秒，可选）",
+        "expiryHint": "超过这个时间仍无人读取，队列管理器会丢弃该消息。留空表示不限，这是 MQ 的默认值。",
+        "count": "发送份数",
+        "countHint": "最多 {{max}} 份。每一份都是一次独立请求，数量大只会更慢，并不会变成批量发送。",
+        "send": "发送",
+        "sent": "已发送 {{count}} 条消息",
+        "sentAs": "队列管理器分配的消息 ID 为 {{id}}",
+        "failed": "发送失败",
+        "problem": {
+          "queueRequired": "请选择要发送到的队列。",
+          "bodyRequired": "消息必须有内容。",
+          "correlationIdLength": "关联 ID 必须正好是 48 个十六进制字符。",
+          "correlationIdHex": "关联 ID 只能是十六进制字符——0-9 和 a-f。",
+          "countRange": "发送份数需在 1 到 100 之间。"
+        },
+        "note": "没有定时发送：队列管理器接收的消息立即可读。也没有 tag 和 key——IBM MQ 消息携带的是上面的描述符，以及发送方自行附加的消息属性。"
       }
     }
   }

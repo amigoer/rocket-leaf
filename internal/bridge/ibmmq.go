@@ -91,3 +91,59 @@ func (s *IBMMQService) RemoveDestination(connID int, name string, purge bool) er
 func (s *IBMMQService) Channels(connID int) ([]*model.Channel, error) {
 	return s.service.Channels(context.Background(), connID)
 }
+
+// IBMMQPublishInput is a send as the IBM MQ console collects it.
+//
+// Deliberately not MessageService.Send's shape. That one takes a topic, tags,
+// keys and a delay level; an MQ message has a descriptor instead - a
+// correlation identifier, a persistence, an expiry and whatever properties the
+// sender attached - and nothing anywhere in the queue manager holds a message
+// back until later.
+type IBMMQPublishInput struct {
+	// Queue, not a topic: the messaging REST API has no topic resource at all,
+	// so publishing needs an MQ client and this console cannot offer it.
+	Queue string `json:"queue"`
+	Body  string `json:"body"`
+	// ContentType reaches the message descriptor's format. It has to be a
+	// character type - the server refuses anything else outright.
+	ContentType string `json:"contentType"`
+	// CorrelationID is 48 hexadecimal characters or empty.
+	CorrelationID string `json:"correlationId"`
+	// Persistent decides whether the queue manager writes the message to its
+	// log, and so whether it survives a restart.
+	Persistent bool `json:"persistent"`
+	// ExpirySeconds discards the message if nothing has read it by then. Zero
+	// is MQ's own unlimited.
+	ExpirySeconds int `json:"expirySeconds"`
+	// Properties are attached under their own names, and are what a receiving
+	// application reads back as message properties.
+	Properties map[string]string `json:"properties"`
+	// Count sends the same body more than once. Each copy is its own request.
+	Count int `json:"count"`
+}
+
+// IBMMQPublishResult is what the send did.
+type IBMMQPublishResult struct {
+	Sent int `json:"sent"`
+	// MessageID is the first message's, as the queue manager assigned it. It
+	// is the handle the browse lists, so it is worth handing straight back.
+	MessageID string `json:"messageId"`
+}
+
+// Publish sends to one queue and reports what the queue manager took.
+func (s *IBMMQService) Publish(connID int, input IBMMQPublishInput) (*IBMMQPublishResult, error) {
+	result, err := s.service.Publish(context.Background(), connID, ibmmqdriver.PublishRequest{
+		Queue:         input.Queue,
+		Body:          input.Body,
+		ContentType:   input.ContentType,
+		CorrelationID: input.CorrelationID,
+		Persistent:    input.Persistent,
+		ExpirySeconds: input.ExpirySeconds,
+		Properties:    input.Properties,
+		Count:         input.Count,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &IBMMQPublishResult{Sent: result.Sent, MessageID: result.MessageID}, nil
+}

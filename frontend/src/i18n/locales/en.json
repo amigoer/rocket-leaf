@@ -5571,6 +5571,36 @@
         "section": {
           "properties": "Message properties"
         }
+      },
+      "producer": {
+        "title": "Send a message",
+        "subtitle": "One message onto one queue",
+        "queue": "Queue",
+        "pickQueue": "Choose a queue",
+        "queueHint": "Queues only. The REST interface has no topic endpoint, so publishing to a topic needs an MQ client rather than this console.",
+        "body": "Body",
+        "bodyHint": "Character data. The server refuses anything else outright, so a binary payload has to be sent by an MQ client.",
+        "contentType": "Content type",
+        "persistent": "Persistent",
+        "persistentHint": "A persistent message is written to the queue manager's log and survives a restart. A non-persistent one is faster and is gone.",
+        "correlationId": "Correlation ID (optional)",
+        "correlationIdHint": "48 hexadecimal characters — 24 bytes, as MQ spells them. It is what matches a reply to its request. Blank leaves the field at zeroes, which is the ordinary case.",
+        "expiry": "Expiry in seconds (optional)",
+        "expiryHint": "The queue manager discards the message if nothing has read it by then. Blank means unlimited, which is MQ's own default.",
+        "count": "Copies",
+        "countHint": "Up to {{max}}. Each copy is its own request, so a large number is a long wait rather than a bigger batch.",
+        "send": "Send",
+        "sent": "Sent {{count}} messages",
+        "sentAs": "The queue manager assigned message ID {{id}}",
+        "failed": "Could not send",
+        "problem": {
+          "queueRequired": "Choose a queue to send to.",
+          "bodyRequired": "A message needs a body.",
+          "correlationIdLength": "A correlation ID is exactly 48 hexadecimal characters.",
+          "correlationIdHex": "A correlation ID is hexadecimal — 0-9 and a-f only.",
+          "countRange": "Send between 1 and 100 copies."
+        },
+        "note": "There is no scheduled send: a message the queue manager accepts is readable immediately. There is no tag and no key either — what an IBM MQ message carries instead is the descriptor above and whatever properties the sending application attaches."
       }
     }
   }

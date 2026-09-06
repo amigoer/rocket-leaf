@@ -98,6 +98,7 @@ import { ProducerSqs } from "./boards/producer/ProducerSqs";
 import { ProducerGooglePubSub } from "./boards/producer/ProducerGooglePubSub";
 import { ProducerAzureServiceBus } from "./boards/producer/ProducerAzureServiceBus";
 import { ProducerKinesis } from "./boards/producer/ProducerKinesis";
+import { ProducerIbmMq } from "./boards/producer/ProducerIbmMq";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
 import { DlqGooglePubSub } from "./boards/dlq/DlqGooglePubSub";
 import { DlqAzureServiceBus } from "./boards/dlq/DlqAzureServiceBus";
@@ -312,6 +313,13 @@ export function renderBoard(
        key that decides the shard, and the explicit hash key that overrides it
        - the only way anywhere in the service to aim a record at one. */
     if (protocol === "kinesis") return <ProducerKinesis />;
+    /* IBM MQ's own too: the shared console collects tags and a delay level,
+       and a message here has neither - what it carries instead is a
+       descriptor, and nothing in the queue manager holds a message back until
+       later. The destination list is queues only, which is the interface
+       rather than tidiness: the messaging REST API has no topic resource at
+       all, so publishing needs an MQ client. */
+    if (protocol === "ibmmq") return <ProducerIbmMq />;
     return <Producer protocol={protocol} nav={nav} />;
   }
   /* Alerts is one board for every family: the rules are numeric comparisons
