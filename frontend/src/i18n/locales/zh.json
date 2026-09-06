@@ -5276,6 +5276,28 @@
           "tooShort": "Kinesis 至少保留记录 24 小时。",
           "tooLong": "Kinesis 最多保留记录 8760 小时，也就是一年。"
         }
+      },
+      "shards": {
+        "count": "{{open}} 个开放，{{closed}} 个已关闭",
+        "pickStream": "选择一个流",
+        "id": "分片",
+        "state": "状态",
+        "open": "开放",
+        "closed": "已关闭",
+        "keyShare": "键空间占比",
+        "parents": "父分片",
+        "children": "子分片",
+        "startHashKey": "起始哈希键",
+        "endHashKey": "结束哈希键",
+        "startSequence": "起始序列号",
+        "endSequence": "结束序列号",
+        "section": {
+          "range": "键范围",
+          "sequence": "序列号",
+          "lineage": "血缘"
+        },
+        "closedNote": "这个分片不再接受写入，但它并不是空的：拆分或合并之前写入的记录会一直保留到过期为止。直接跳到子分片的消费者会漏掉它们。",
+        "note": "分片靠拆分与合并来调整，而不是重新调整大小，所以调整过容量的流列出的分片会多于它开放的数量。键空间占比是分片所占的哈希区间——记录会落到其区间覆盖了分区键哈希值的那个分片上。"
       }
     }
   }

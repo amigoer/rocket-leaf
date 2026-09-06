@@ -743,6 +743,21 @@ export enum Capability {
     CapPartitions = "destination.partitions",
 
     /**
+     * CapShards is a family whose destination is divided into parts that are
+     * objects rather than indexes.
+     * 
+     * Distinct from CapPartitions, and the distinction is not a shade of
+     * meaning. That capability's page is built around a partition number and
+     * the read range at it, which is all every family that has one reports. A
+     * Kinesis shard is named, owns the slice of the hash space that decides
+     * which records land on it, and is changed by being split or merged rather
+     * than resized - which leaves the old shard in place, closed, still
+     * holding its records and named as its children's parent. A page built for
+     * a number would drop exactly that.
+     */
+    CapShards = "destination.shards",
+
+    /**
      * CapDestinationPurge empties a destination without deleting it, and
      * CapDestinationMove drains one into another. Separate capabilities
      * because they are separate buttons with very different blast radii: one
@@ -4329,6 +4344,89 @@ export class Scope {
     static createFrom($$source: any = {}): Scope {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new Scope($$parsedSource as Partial<Scope>);
+    }
+}
+
+/**
+ * Shard is one part of a stream, open or closed.
+ */
+export class Shard {
+    "id": string;
+
+    /**
+     * ParentID is the shard this one was split from or merged out of, and
+     * AdjacentParentID is the second parent a merge has. Both empty means the
+     * shard was there when the stream was created.
+     * 
+     * They are what makes a listing a lineage rather than a set: a consumer
+     * that has to read a stream in order has to finish a parent before it
+     * starts a child, and the parent is the only place that says so.
+     */
+    "parentId": string;
+    "adjacentParentId": string;
+
+    /**
+     * StartHashKey and EndHashKey bound the slice of the key space this shard
+     * takes. They are 128-bit unsigned integers, so they are carried as
+     * decimal strings: the largest of them does not fit in an int64, and a
+     * float would round the low digits away - which are exactly the digits
+     * that decide which of two neighbouring shards a key lands on.
+     */
+    "startHashKey": string;
+    "endHashKey": string;
+
+    /**
+     * StartSequence is the first sequence number in the shard, and
+     * EndSequence is the last. EndSequence is set only on a closed shard, and
+     * setting it is what closing means.
+     */
+    "startSequence": string;
+    "endSequence": string;
+
+    /**
+     * Closed is true for a shard that takes no more writes because it was
+     * split or merged. It still holds its records until retention expires, so
+     * it is not the same as deleted and must not be hidden - a stream that
+     * looks like it lost data usually just has a closed parent nobody drained.
+     */
+    "closed": boolean;
+
+    /** Creates a new Shard instance. */
+    constructor($$source: Partial<Shard> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("parentId" in $$source)) {
+            this["parentId"] = "";
+        }
+        if (!("adjacentParentId" in $$source)) {
+            this["adjacentParentId"] = "";
+        }
+        if (!("startHashKey" in $$source)) {
+            this["startHashKey"] = "";
+        }
+        if (!("endHashKey" in $$source)) {
+            this["endHashKey"] = "";
+        }
+        if (!("startSequence" in $$source)) {
+            this["startSequence"] = "";
+        }
+        if (!("endSequence" in $$source)) {
+            this["endSequence"] = "";
+        }
+        if (!("closed" in $$source)) {
+            this["closed"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Shard instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Shard {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Shard($$parsedSource as Partial<Shard>);
     }
 }
 

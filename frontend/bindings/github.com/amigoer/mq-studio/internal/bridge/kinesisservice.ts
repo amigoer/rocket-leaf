@@ -14,6 +14,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as model$0 from "../model/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 /**
@@ -35,6 +39,20 @@ export function RemoveStream(connID: number, name: string): $CancellablePromise<
 }
 
 /**
+ * Shards lists a stream's shards, open and closed.
+ * 
+ * Closed ones are included on purpose. A shard split or merged yesterday takes
+ * no more writes and still holds every record written to it until retention
+ * expires, so leaving it out would hide both those records and the reason the
+ * stream reports fewer open shards than the page lists rows.
+ */
+export function Shards(connID: number, stream: string): $CancellablePromise<(model$0.Shard | null)[]> {
+    return $Call.ByID(901783872, connID, stream).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
+
+/**
  * UpdateStream changes an existing stream's capacity mode, shard count or
  * retention.
  * 
@@ -45,3 +63,8 @@ export function RemoveStream(connID: number, name: string): $CancellablePromise<
 export function UpdateStream(connID: number, input: $models.KinesisStreamInput): $CancellablePromise<void> {
     return $Call.ByID(2588592708, connID, input);
 }
+
+// Private type creation functions
+const $$createType0 = model$0.Shard.createFrom;
+const $$createType1 = $Create.Nullable($$createType0);
+const $$createType2 = $Create.Array($$createType1);

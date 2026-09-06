@@ -5276,6 +5276,28 @@
           "tooShort": "Kinesis keeps a record for at least 24 hours.",
           "tooLong": "Kinesis keeps a record for at most 8760 hours, which is a year."
         }
+      },
+      "shards": {
+        "count": "{{open}} open, {{closed}} closed",
+        "pickStream": "Pick a stream",
+        "id": "Shard",
+        "state": "State",
+        "open": "Open",
+        "closed": "Closed",
+        "keyShare": "Key share",
+        "parents": "Parents",
+        "children": "Children",
+        "startHashKey": "First hash key",
+        "endHashKey": "Last hash key",
+        "startSequence": "First sequence number",
+        "endSequence": "Last sequence number",
+        "section": {
+          "range": "Key range",
+          "sequence": "Sequence numbers",
+          "lineage": "Lineage"
+        },
+        "closedNote": "This shard takes no more writes, and it is not empty: it keeps the records written before the split or merge until the retention period expires. A consumer that jumped straight to the children skipped them.",
+        "note": "Shards are split and merged rather than resized, so a resized stream lists more shards than it has open. Key share is the slice of the hash space a shard takes — records land on the shard whose range covers the hash of their partition key."
       }
     }
   }

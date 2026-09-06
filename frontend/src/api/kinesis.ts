@@ -1,5 +1,7 @@
 import { KinesisService } from "@bindings/bridge";
 import type { KinesisStreamInput } from "@bindings/bridge/models";
+import type { Shard } from "@bindings/model/models";
+import { present } from "./client";
 
 export type { KinesisStreamInput };
 
@@ -40,3 +42,13 @@ export const updateStream = (connID: number, input: KinesisStreamInput): Promise
  */
 export const removeStream = (connID: number, name: string): Promise<void> =>
   KinesisService.RemoveStream(connID, name);
+
+/**
+ * One stream's shards, open and closed.
+ *
+ * Closed ones are included: a shard split or merged still holds its records
+ * until retention expires, so leaving it out would hide both the records and
+ * the reason a stream lists more shards than its open count.
+ */
+export const shards = async (connID: number, stream: string): Promise<Shard[]> =>
+  present(await KinesisService.Shards(connID, stream));

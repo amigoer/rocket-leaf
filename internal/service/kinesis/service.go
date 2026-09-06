@@ -108,3 +108,24 @@ func (s *Service) RemoveStream(ctx context.Context, connID int, name string) err
 	defer cancel()
 	return api.RemoveDestination(ctx, model.DestinationRef{Name: name})
 }
+
+/*
+ * Shards lists the parts a stream is divided into, open and closed.
+ *
+ * Beside the canonical services because no canonical service owns this. The
+ * destination service answers CapPartitions through DestinationStats, which
+ * returns a read range per partition number - a shard has a name rather than a
+ * number, and the fields that make it worth looking at have nowhere to go in
+ * that shape.
+ */
+func (s *Service) Shards(ctx context.Context, connID int, stream string) ([]*model.Shard, error) {
+	api, err := s.kinesisConn(connID, model.CapShards)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	// No namespace: a stream name is flat and unique within an account and
+	// region, and Kinesis has nothing inside it for one to belong to.
+	return api.ListShards(ctx, model.DestinationRef{Name: stream})
+}

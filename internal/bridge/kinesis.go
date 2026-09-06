@@ -4,6 +4,7 @@ import (
 	"context"
 
 	kinesisdriver "github.com/amigoer/mq-studio/internal/driver/kinesis"
+	"github.com/amigoer/mq-studio/internal/model"
 	kinesisservice "github.com/amigoer/mq-studio/internal/service/kinesis"
 )
 
@@ -70,4 +71,14 @@ func (s *KinesisService) UpdateStream(connID int, input KinesisStreamInput) erro
 // it as a side effect would be a bigger action than the one asked for.
 func (s *KinesisService) RemoveStream(connID int, name string) error {
 	return s.service.RemoveStream(context.Background(), connID, name)
+}
+
+// Shards lists a stream's shards, open and closed.
+//
+// Closed ones are included on purpose. A shard split or merged yesterday takes
+// no more writes and still holds every record written to it until retention
+// expires, so leaving it out would hide both those records and the reason the
+// stream reports fewer open shards than the page lists rows.
+func (s *KinesisService) Shards(connID int, stream string) ([]*model.Shard, error) {
+	return s.service.Shards(context.Background(), connID, stream)
 }

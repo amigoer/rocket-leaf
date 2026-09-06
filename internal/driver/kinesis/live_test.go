@@ -497,3 +497,150 @@ func TestLiveDeleteNamesAStreamThatIsNotThere(t *testing.T) {
 		t.Errorf("error does not name the missing stream: %v", err)
 	}
 }
+
+/*
+ * The concept this family needed a port for, read off a stream that has one.
+ *
+ * MQS-SEED-split was created with one shard, written to, then split. What the
+ * seed leaves is the shape a count cannot describe: three shards, of which one
+ * is closed and two name it as their parent, and the closed one still holds
+ * the records written before the split. A driver that listed only the open
+ * shards would report two rows and lose the records on the third.
+ */
+func TestLiveListShardsKeepsTheClosedParentOfASplit(t *testing.T) {
+	conn := liveConn(t)
+
+	shards, err := conn.ListShards(liveContext(t), model.DestinationRef{Name: seedSplit})
+	if err != nil {
+		e2e.Missing(t, "%s is not seeded; run `npm run e2e:kinesis:seed` (%v)", seedSplit, err)
+	}
+	if len(shards) != 3 {
+		t.Fatalf("%s reports %d shards, want the closed parent and its two children",
+			seedSplit, len(shards))
+	}
+
+	var closed, children int
+	byID := make(map[string]*model.Shard, len(shards))
+	for _, shard := range shards {
+		byID[shard.ID] = shard
+		if shard.Closed {
+			closed++
+			if shard.EndSequence == "" {
+				t.Errorf("%s is closed with no ending sequence number, which is what closes it",
+					shard.ID)
+			}
+		}
+		if shard.ParentID != "" {
+			children++
+			if byID[shard.ParentID] == nil {
+				t.Errorf("%s names %s as its parent and the listing does not carry it",
+					shard.ID, shard.ParentID)
+			}
+		}
+		if shard.StartHashKey == "" || shard.EndHashKey == "" {
+			t.Errorf("%s reports no hash key range, which is what decides its records", shard.ID)
+		}
+	}
+	if closed != 1 {
+		t.Errorf("%d closed shards, want the one the split left", closed)
+	}
+	if children != 2 {
+		t.Errorf("%d shards name a parent, want the two the split created", children)
+	}
+
+	// The open shards between them cover the whole key space, and the closed
+	// parent covers it a second time - which is exactly why a listing cannot
+	// be read as a partition table.
+	detail, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: seedSplit})
+	if err != nil {
+		t.Fatalf("DestinationDetail: %v", err)
+	}
+	if detail.Partitions != len(shards)-closed {
+		t.Errorf("the stream reports %d open shards and the listing has %d that are not closed",
+			detail.Partitions, len(shards)-closed)
+	}
+}
+
+// A stream nobody has resized has no closed shards and no lineage, which is
+// the state the split test cannot show: every shard is open, none names a
+// parent, and the ranges partition the key space exactly once.
+func TestLiveListShardsOnAnUntouchedStream(t *testing.T) {
+	conn := liveConn(t)
+
+	shards, err := conn.ListShards(liveContext(t), model.DestinationRef{Name: seedOrders})
+	if err != nil {
+		e2e.Missing(t, "%s is not seeded; run `npm run e2e:kinesis:seed` (%v)", seedOrders, err)
+	}
+	if len(shards) != 3 {
+		t.Fatalf("%s reports %d shards, want the 3 the seed created", seedOrders, len(shards))
+	}
+	for _, shard := range shards {
+		if shard.Closed {
+			t.Errorf("%s is closed on a stream nothing has resized", shard.ID)
+		}
+		if shard.ParentID != "" || shard.AdjacentParentID != "" {
+			t.Errorf("%s names a parent on a stream nothing has split", shard.ID)
+		}
+		if shard.StartSequence == "" {
+			t.Errorf("%s reports no starting sequence number", shard.ID)
+		}
+	}
+
+	if _, err := conn.ListShards(liveContext(t), model.DestinationRef{Name: "MQS-TEST-no-shards"}); err == nil {
+		t.Fatal("listed the shards of a stream that does not exist")
+	} else if !strings.Contains(err.Error(), "MQS-TEST-no-shards") {
+		t.Errorf("error does not name the missing stream: %v", err)
+	}
+}
+
+/*
+ * A merge, which is the half of the lineage a split cannot show.
+ *
+ * A merged shard has two parents rather than one, and the second is
+ * AdjacentParentShardId - a field nothing else in this app has a counterpart
+ * for. It is exercised here rather than in the seed because a merge needs two
+ * adjacent open shards to consume, which the seeded split has and the seeded
+ * stream must keep.
+ */
+func TestLiveListShardsRecordsBothParentsOfAMerge(t *testing.T) {
+	conn := liveConn(t)
+	name := testStream(t, conn, "MQS-TEST-merge", StreamSpec{Shards: 2})
+
+	before, err := conn.ListShards(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("ListShards: %v", err)
+	}
+	if len(before) != 2 {
+		t.Fatalf("created with %d shards, want 2 to merge", len(before))
+	}
+
+	// Two shards merge into one, which the resize path spells as a target
+	// count: the driver offers no shard-level split or merge, and this is what
+	// the service does with the request.
+	if err := conn.UpdateStream(liveContext(t), StreamSpec{Name: name, Shards: 1}); err != nil {
+		t.Fatalf("UpdateStream down to 1 shard: %v", err)
+	}
+
+	after, err := conn.ListShards(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("ListShards after the merge: %v", err)
+	}
+	var merged *model.Shard
+	for _, shard := range after {
+		if shard.AdjacentParentID != "" {
+			merged = shard
+		}
+	}
+	if merged == nil {
+		t.Fatalf("no shard names a second parent after a merge; got %d shards", len(after))
+	}
+	if merged.ParentID == "" {
+		t.Error("the merged shard names an adjacent parent and no first parent")
+	}
+	if merged.ParentID == merged.AdjacentParentID {
+		t.Errorf("both parents are %s; a merge consumes two shards", merged.ParentID)
+	}
+	if merged.Closed {
+		t.Error("the shard a merge produced is closed, and it is the one taking writes")
+	}
+}

@@ -94,6 +94,7 @@ func capabilities() []model.Capability {
 		model.CapDestinationCreate,
 		model.CapDestinationUpdate,
 		model.CapDestinationDelete,
+		model.CapShards,
 	}
 }
 

@@ -82,6 +82,7 @@ import { QueuesSqs } from "./boards/topics/QueuesSqs";
 import { TopicsGooglePubSub } from "./boards/topics/TopicsGooglePubSub";
 import { EntitiesAzureServiceBus } from "./boards/topics/EntitiesAzureServiceBus";
 import { StreamsKinesis } from "./boards/topics/StreamsKinesis";
+import { ShardsKinesis } from "./boards/shards/ShardsKinesis";
 import { RulesAzureServiceBus } from "./boards/topics/RulesAzureServiceBus";
 import { SubscriptionsGooglePubSub } from "./boards/consumers/SubscriptionsGooglePubSub";
 import { SubscriptionsAzureServiceBus } from "./boards/consumers/SubscriptionsAzureServiceBus";
@@ -172,6 +173,9 @@ const BOARDS: Partial<
     "azure-servicebus": EntitiesAzureServiceBus,
     kinesis: StreamsKinesis,
   },
+  /* One family, and that is the point rather than an oversight: every other
+     partitioned broker here reports a count, and a shard is an object. */
+  shards: { kinesis: ShardsKinesis },
   exchanges: {
     rabbitmq: ExchangesRabbitMQ,
     // The same slot for the same reason: a rule decides which of a topic's
