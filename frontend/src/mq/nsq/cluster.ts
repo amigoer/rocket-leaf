@@ -25,7 +25,6 @@ const AttrGCRuns = "gcTotalRuns";
 const AttrProducerCount = "producerCount";
 const AttrDirectoryTopics = "directoryTopics";
 const AttrNodes = "nodes";
-const AttrDirectory = "directory";
 
 export interface NsqNode {
   name: string;
@@ -110,12 +109,6 @@ export function directoryNode(entry: Node): NsqDirectoryNode {
     topics: number(entry, AttrDirectoryTopics),
     advertises: advertised === "" ? [] : advertised.split(","),
   };
-}
-
-/** How many nsqlookupd this connection names, off the overview. */
-export function directorySize(attributes: Record<string, string | undefined> | undefined): number {
-  const value = attributes?.[AttrDirectory];
-  return value == null ? 0 : Number(value);
 }
 
 /**

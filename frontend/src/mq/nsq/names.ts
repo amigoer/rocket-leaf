@@ -17,7 +17,7 @@
  */
 
 /** Sixty-four, and the #ephemeral suffix is inside it rather than extra. */
-export const NAME_MAX = 64;
+const NAME_MAX = 64;
 
 const VALID = /^[.a-zA-Z0-9_-]+(#ephemeral)?$/;
 

@@ -100,7 +100,7 @@ export function ClusterNsq() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+              gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
               gap: "12px",
               flex: "none",
             }}
@@ -120,6 +120,14 @@ export function ClusterNsq() {
             <StatTile
               label={t("board.nsq.cluster.channels")}
               value={formatCount(overview?.subscriptions ?? 0)}
+            />
+            <StatTile
+              label={t("board.nsq.cluster.depth")}
+              value={formatCount(Number(overview?.attributes?.depth ?? 0))}
+            />
+            <StatTile
+              label={t("board.nsq.cluster.clients")}
+              value={formatCount(Number(overview?.attributes?.clientCount ?? 0))}
             />
           </div>
 

@@ -26,21 +26,25 @@ function count(value: number | null): string {
 }
 
 /**
- * Who is consuming, and what each of them is asking for.
+ * Who is connected, in the two roles nsqd reports them in.
  *
- * Consumers only, and the page says so rather than being titled for every
- * socket the daemons hold. There is no connection list in NSQ: a client
- * appears in the stats of the channel it subscribed to and nowhere else, so a
- * connection that has not subscribed yet is invisible and a producer is
- * invisible always.
+ * A consumer and a producer are found in different places and carry different
+ * figures, so the role is a column rather than a detail: a consumer has a
+ * channel and a ready count, a producer has neither and instead reports what
+ * it has published per topic. A producer with no ready count is not a stalled
+ * consumer, and the page must not read like it is.
  *
- * The ready count is the column to read. It is what the consumer told nsqd it
- * will accept, and a zero means it is connected, holding its channel, and
- * asking for nothing - a backlog that will not move however healthy every
- * other figure looks. Nothing else in this app can see that.
+ * The ready count is still the column that earns the page. It is what a
+ * consumer told nsqd it will accept, and a zero means it is connected, holding
+ * its channel, and asking for nothing - a backlog that will not move however
+ * healthy every other figure looks. Nothing else in this app can see that.
  *
- * One consumer process shows up once per daemon it found, which is not
+ * One client process shows up once per daemon it found, which is not
  * duplication: those are separate connections holding separate messages.
+ *
+ * Anything publishing over HTTP is absent, and no page can fix it: /pub is a
+ * request rather than a connection, so nsqd has nothing left to list once it
+ * has answered.
  */
 export function ClientsNsq() {
   const { t } = useTranslation();
@@ -94,6 +98,7 @@ export function ClientsNsq() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("board.nsq.clients.peer")}</TableHead>
+                    <TableHead>{t("board.nsq.clients.roleColumn")}</TableHead>
                     <TableHead>{t("board.nsq.clients.topic")}</TableHead>
                     <TableHead>{t("board.nsq.clients.channel")}</TableHead>
                     <TableHead className="num">{t("board.nsq.clients.ready")}</TableHead>
@@ -120,11 +125,14 @@ export function ClientsNsq() {
                           </Status>
                         )}
                       </TableCell>
-                      <TableCell className="mono3" style={MONO11}>
-                        {entry.topic}
+                      <TableCell style={MONO11}>
+                        {t(`board.nsq.clients.role.${entry.role}`)}
                       </TableCell>
                       <TableCell className="mono3" style={MONO11}>
-                        {entry.channel}
+                        {entry.topic || DASH}
+                      </TableCell>
+                      <TableCell className="mono3" style={MONO11}>
+                        {entry.channel || DASH}
                       </TableCell>
                       <TableCell className="num mono3" style={MONO11}>
                         {count(entry.ready)}
@@ -187,16 +195,24 @@ function ClientDetail({ entry }: { entry: NsqClient }) {
 
         <SectionLabel>{t("board.nsq.clients.section.work")}</SectionLabel>
         <KV
-          rows={[
-            [t("board.nsq.clients.topic"), entry.topic],
-            [t("board.nsq.clients.channel"), entry.channel],
-            [t("board.nsq.clients.node"), entry.node],
-            [t("board.nsq.clients.ready"), count(entry.ready)],
-            [t("board.nsq.clients.inFlight"), count(entry.inFlight)],
-            [t("board.nsq.clients.messages"), count(entry.messages)],
-            [t("board.nsq.clients.finished"), count(entry.finished)],
-            [t("board.nsq.clients.requeued"), count(entry.requeued)],
-          ]}
+          rows={
+            entry.role === "producer"
+              ? [
+                  [t("board.nsq.clients.node"), entry.node],
+                  [t("board.nsq.clients.published"), entry.published || DASH],
+                  [t("board.nsq.clients.messages"), count(entry.messages)],
+                ]
+              : [
+                  [t("board.nsq.clients.topic"), entry.topic],
+                  [t("board.nsq.clients.channel"), entry.channel],
+                  [t("board.nsq.clients.node"), entry.node],
+                  [t("board.nsq.clients.ready"), count(entry.ready)],
+                  [t("board.nsq.clients.inFlight"), count(entry.inFlight)],
+                  [t("board.nsq.clients.messages"), count(entry.messages)],
+                  [t("board.nsq.clients.finished"), count(entry.finished)],
+                  [t("board.nsq.clients.requeued"), count(entry.requeued)],
+                ]
+          }
         />
 
         <SectionLabel>{t("board.nsq.clients.section.transport")}</SectionLabel>

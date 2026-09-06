@@ -4337,7 +4337,6 @@
         "nodeHint": "The daemon that takes the message is the one holding it. A consumer attached to another sees it only if it also finds this one through nsqlookupd.",
         "delay": "Delay (seconds)",
         "delayHint": "Held back from the channels for this long. nsqd caps it at its --max-req-timeout, {{max}} seconds by default, and refuses anything longer — the limit is not readable over the API, so this is the default rather than your daemon's.",
-        "delayRange": "A delay is between 0 and nsqd's --max-req-timeout, 3600 seconds by default.",
         "count": "Repeat",
         "countHint": "Sends the same body this many times, up to {{max}}, as one batch.",
         "countRange": "Send between 1 and 1000 messages at a time.",
@@ -4345,7 +4344,9 @@
         "send": "Send",
         "sent": "Sent {{count}} messages",
         "sentTo": "Sent {{count}} to {{node}}",
-        "failed": "Could not send"
+        "failed": "Could not send",
+        "delayNegative": "A delay cannot be negative.",
+        "delayCeiling": "Past nsqd's default --max-req-timeout of {{max}} seconds. The send still goes: that limit is a daemon flag this app cannot read, so a deployment started with a longer one works and one on the default will answer INVALID_DEFER."
       },
       "cluster": {
         "subtitle": "{{nodes}} nsqd, {{directory}} nsqlookupd",
@@ -4381,9 +4382,9 @@
         "advertiseMismatch": "nsqlookupd is advertising {{addresses}}, which this connection cannot reach. Consumers that find their nsqd through discovery are being sent there; check each daemon's --broadcast-address."
       },
       "clients": {
-        "count": "{{count}} consumers",
-        "search": "Filter by consumer, topic, channel or nsqd",
-        "peer": "Consumer",
+        "count": "{{count}} connected",
+        "search": "Filter by client, topic, channel or nsqd",
+        "peer": "Client",
         "topic": "Topic",
         "channel": "Channel",
         "ready": "Ready",
@@ -4407,10 +4408,16 @@
           "transport": "Transport"
         },
         "notReady": "This consumer has told nsqd it will accept nothing. It is connected and holding its channel, and the backlog will not move until it asks for messages again — usually a handler that has stopped returning.",
-        "note": "Consumers only. A client appears in the stats of the channel it subscribed to and nowhere else, so a connection that has not subscribed yet is invisible and a producer is invisible always. One consumer process appears once per nsqd it found: those are separate connections holding separate messages."
+        "note": "Both roles, from the two places nsqd reports them: a consumer is listed under the channel it subscribed to, a producer under the daemon it is connected to with what it has published. A producer has no ready count and no channel — those are a subscription's. Anything publishing over HTTP is absent, because /pub is a request rather than a connection. One client process appears once per nsqd it found: those are separate connections holding separate messages.",
+        "roleColumn": "Role",
+        "role": {
+          "consumer": "Consumer",
+          "producer": "Producer"
+        },
+        "published": "Published"
       },
       "overview": {
-        "subtitle": "{{nodes}} nsqd on {{version}}",
+        "subtitle": "{{nodes}} nsqd and {{directory}} nsqlookupd, on {{version}}",
         "topics": "Topics",
         "channels": "Channels",
         "backlog": "Backlog",
@@ -4422,8 +4429,6 @@
         "paused": "Paused",
         "pausedHint": "Topics and channels still accepting publishes and delivering nothing",
         "consumers": "Consumers",
-        "nodes": "nsqd",
-        "nodesHint": "{{count}} nsqlookupd beside them",
         "busiest": "Where the backlog is",
         "channel": "Channel",
         "inFlight": "In flight",

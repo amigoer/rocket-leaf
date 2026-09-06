@@ -224,12 +224,15 @@ func probeLookupd(ctx context.Context, client *httpClient, addresses []string) e
 	group, groupCtx := errgroup.WithContext(ctx)
 	for _, address := range addresses {
 		group.Go(func() error {
-			var info lookupInfo
+			// Decoded as an nsqd's answer even though this should be a
+			// lookupd's: the shapes differ only by the fields nsqd adds, so
+			// one request settles both questions - whether anything is there,
+			// and which daemon it is.
+			var info nsqdInfo
 			if err := client.get(groupCtx, address, "/info", nil, &info); err != nil {
 				return fmt.Errorf("no nsqlookupd answered at %s: %w", address, err)
 			}
-			var full nsqdInfo
-			if err := client.get(groupCtx, address, "/info", nil, &full); err == nil && full.TCPPort != 0 {
+			if info.TCPPort != 0 {
 				return fmt.Errorf(
 					"%s is an nsqd rather than an nsqlookupd; its address belongs in the nsqd field",
 					address)

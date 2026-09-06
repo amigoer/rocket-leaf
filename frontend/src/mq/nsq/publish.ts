@@ -7,16 +7,22 @@
  *
  *   - An empty body is MSG_EMPTY, which says nothing about which field is
  *     blank on a form with four of them.
- *   - A delay past nsqd's --max-req-timeout is INVALID_DEFER. The limit is one
- *     hour by default and this driver cannot read the deployment's value -
- *     /info does not report it - so the console warns at the default and lets
- *     the daemon have the last word.
+ *   - A delay past nsqd's --max-req-timeout is INVALID_DEFER. That limit is a
+ *     daemon flag this app cannot read - /info does not report it - so the
+ *     ceiling here is a warning rather than a rule: a deployment started with
+ *     a longer one must still be usable, and the daemon has the last word.
  *   - A repeat count above what one call should carry. A batch goes through
  *     /mpub, and a send console is for producing a handful by hand.
  */
 import type { NSQPublishInput } from "@bindings/bridge/models";
 
-/** nsqd's own cap on a repeat, mirrored from internal/driver/nsq/publish.go. */
+/**
+ * How many copies one send may carry.
+ *
+ * This app's cap rather than nsqd's, mirrored from
+ * internal/driver/nsq/publish.go: /mpub takes as many messages as fit in the
+ * request, and a send console is for producing a handful by hand.
+ */
 export const MAX_COUNT = 1000;
 
 /** nsqd's --max-req-timeout default, in seconds. */
@@ -40,10 +46,20 @@ export function sendProblem(draft: NsqProducerDraft): string | null {
   if (draft.topic.trim() === "") return "board.nsq.producer.topicRequired";
   if (draft.body === "") return "board.nsq.producer.bodyRequired";
   if (draft.count < 1 || draft.count > MAX_COUNT) return "board.nsq.producer.countRange";
-  if (draft.delaySec < 0 || draft.delaySec > DEFAULT_MAX_DELAY_SEC) {
-    return "board.nsq.producer.delayRange";
-  }
+  if (draft.delaySec < 0) return "board.nsq.producer.delayNegative";
   return null;
+}
+
+/**
+ * What the console warns about but will still send, as an i18n key.
+ *
+ * The delay ceiling belongs here rather than in sendProblem: it is nsqd's
+ * --max-req-timeout, a daemon flag this app cannot read, so a deployment
+ * started with a longer one has to stay usable. Refusing at the default would
+ * be this app enforcing a number it only guessed.
+ */
+export function sendWarning(draft: NsqProducerDraft): string | null {
+  return draft.delaySec > DEFAULT_MAX_DELAY_SEC ? "board.nsq.producer.delayCeiling" : null;
 }
 
 /** The input to send, or null when the draft is not yet whole. */

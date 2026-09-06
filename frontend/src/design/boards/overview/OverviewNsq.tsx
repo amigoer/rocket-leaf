@@ -71,7 +71,6 @@ export function OverviewNsq() {
   const paused =
     topics.filter((entry) => entry.paused).length +
     channels.filter((entry) => entry.paused).length;
-  const consumers = channels.reduce((total, entry) => total + entry.clients, 0);
 
   // Worst first, and only what is actually waiting: a page of zeroes is a
   // page nobody reads twice.
@@ -90,6 +89,7 @@ export function OverviewNsq() {
         title={t("shell.nav.nsq.overview")}
         subtitle={t("board.nsq.overview.subtitle", {
           nodes: nodes.length,
+          directory: cluster.data?.directory?.length ?? 0,
           version: nodes[0]?.version ?? "",
         })}
         actions={
@@ -130,17 +130,6 @@ export function OverviewNsq() {
               label={t("board.nsq.overview.paused")}
               value={formatCount(paused)}
               hint={t("board.nsq.overview.pausedHint")}
-            />
-            <StatTile
-              label={t("board.nsq.overview.consumers")}
-              value={formatCount(consumers)}
-            />
-            <StatTile
-              label={t("board.nsq.overview.nodes")}
-              value={formatCount(nodes.length)}
-              hint={t("board.nsq.overview.nodesHint", {
-                count: cluster.data?.directory?.length ?? 0,
-              })}
             />
           </div>
 

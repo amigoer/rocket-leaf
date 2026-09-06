@@ -98,11 +98,13 @@ func (c *Conn) Publish(ctx context.Context, request PublishRequest) (*PublishRes
 		for sent := range count {
 			if err := c.client.post(ctx, target.address, "/pub", query,
 				[]byte(request.Body), nil); err != nil {
-				// The count is what already reached the daemon, which
-				// separates a send that did nothing from one that stopped
-				// partway.
+				// The count goes in the message as well as in the result: a
+				// send that stopped partway is a different situation from one
+				// that did nothing, and the bridge above hands a page the
+				// error alone.
 				return &PublishResult{Sent: sent, Node: hostPort(target.address)},
-					fmt.Errorf("%s: %w", hostPort(target.address), err)
+					fmt.Errorf("%s took %d of %d before failing: %w",
+						hostPort(target.address), sent, count, err)
 			}
 		}
 		return &PublishResult{Sent: count, Node: hostPort(target.address)}, nil
@@ -163,22 +165,35 @@ func (c *Conn) SendMessage(
 	return "", err
 }
 
-// publishTarget picks the daemon a send goes through.
+// publishTarget picks the daemon a send goes through, defaulting to the first.
 //
 // Named rather than chosen for the caller, because the choice is visible: the
 // message is held by the nsqd that took it, and a consumer connected to a
 // different one sees it only if it also finds this daemon through nsqlookupd.
+// A blank field is the console's "wherever" and lands on the first.
 func (c *Conn) publishTarget(name string) (node, error) {
 	if strings.TrimSpace(name) == "" {
 		return c.nodes[0], nil
 	}
-	wanted := hostPort(normaliseAddress(name))
+	return c.nodeAt(name)
+}
+
+// nodeAt resolves one of this connection's daemons by address.
+//
+// Separate from publishTarget, which treats a blank name as "the first": a
+// caller asking about a node has one in mind, and answering for a different
+// daemon would report its settings under the address that was asked for.
+func (c *Conn) nodeAt(address string) (node, error) {
+	if strings.TrimSpace(address) == "" {
+		return node{}, errors.New("no nsqd address given")
+	}
+	wanted := hostPort(normaliseAddress(address))
 	for _, candidate := range c.nodes {
 		if hostPort(candidate.address) == wanted {
 			return candidate, nil
 		}
 	}
-	return node{}, fmt.Errorf("%q is not one of this connection's nsqd", name)
+	return node{}, fmt.Errorf("%q is not one of this connection's nsqd", address)
 }
 
 // Nodes lists the daemons a send can be addressed to, in the order the profile

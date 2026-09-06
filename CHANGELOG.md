@@ -34,8 +34,11 @@ was open now redials instead of going on with the old one in silence.
   and deleting either, on every daemon at once; publishing to one named daemon,
   repeated or held back for a delivery time; the cluster's nsqd beside the
   nsqlookupd that tell consumers where to find them, with a warning when the
-  two disagree about an address; and the connected consumers, with the ready
-  count that says which of them has stopped asking for work.
+  two disagree about an address; and who is connected, in both roles nsqd
+  reports them in — consumers with the ready count that says which of them has
+  stopped asking for work, and producers with what each has published. Only a
+  producer holding a connection appears: publishing over HTTP is a request
+  rather than a connection, so nsqd has nothing left to list.
 
   There is no message board and no dead letters, and both follow from one fact:
   nsqd hands a message to a consumer and stops holding it. There is no stored

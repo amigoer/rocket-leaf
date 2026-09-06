@@ -4,6 +4,7 @@ import {
   MAX_COUNT,
   emptyNsqProducerDraft,
   sendProblem,
+  sendWarning,
   sendsOneAtATime,
   toPublishInput,
 } from "./publish";
@@ -51,15 +52,26 @@ describe("the nsq send console's rules", () => {
     expect(sendProblem(draft({ count: MAX_COUNT + 1 }))).toBe("board.nsq.producer.countRange");
   });
 
-  // Confirmed against 1.3.0: defer=3600000 answers OK and 3600001 answers
-  // INVALID_DEFER. The limit is a daemon flag this app cannot read, so the
-  // console warns at the default rather than pretending to know.
-  it("warns at nsqd's default delay ceiling", () => {
-    expect(sendProblem(draft({ delaySec: DEFAULT_MAX_DELAY_SEC }))).toBeNull();
-    expect(sendProblem(draft({ delaySec: DEFAULT_MAX_DELAY_SEC + 1 }))).toBe(
-      "board.nsq.producer.delayRange",
+  /*
+   * Confirmed against 1.3.0: defer=3600000 answers OK and 3600001 answers
+   * INVALID_DEFER. But that limit is --max-req-timeout, a daemon flag this app
+   * cannot read - so passing the default is a warning and the send still goes,
+   * because a deployment started with a longer one has to stay usable.
+   */
+  it("warns past nsqd's default delay ceiling without refusing the send", () => {
+    expect(sendWarning(draft({ delaySec: DEFAULT_MAX_DELAY_SEC }))).toBeNull();
+    expect(sendWarning(draft({ delaySec: DEFAULT_MAX_DELAY_SEC + 1 }))).toBe(
+      "board.nsq.producer.delayCeiling",
     );
-    expect(sendProblem(draft({ delaySec: -1 }))).toBe("board.nsq.producer.delayRange");
+    expect(sendProblem(draft({ delaySec: DEFAULT_MAX_DELAY_SEC + 1 }))).toBeNull();
+    expect(toPublishInput(draft({ delaySec: DEFAULT_MAX_DELAY_SEC + 1 }))).not.toBeNull();
+  });
+
+  // A negative delay is this form's own mistake rather than the daemon's
+  // limit, so it is refused rather than warned about.
+  it("refuses a negative delay", () => {
+    expect(sendProblem(draft({ delaySec: -1 }))).toBe("board.nsq.producer.delayNegative");
+    expect(toPublishInput(draft({ delaySec: -1 }))).toBeNull();
   });
 
   /*

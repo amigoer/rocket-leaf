@@ -36,7 +36,6 @@ const (
 	// which is the reason to run more than one.
 	AttrProducerCount   = "producerCount"
 	AttrDirectoryTopics = "directoryTopics"
-	AttrDirectory       = "directory"
 )
 
 // lookupdAbsent is why the directory board has nothing to draw, as an i18n key
@@ -77,7 +76,7 @@ func (c *Conn) NodeDetail(ctx context.Context, address string) (*model.Node, err
 	if err := c.live(); err != nil {
 		return nil, err
 	}
-	target, err := c.publishTarget(address)
+	target, err := c.nodeAt(address)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +134,6 @@ func (c *Conn) ClusterOverview(ctx context.Context) (*model.ClusterOverview, err
 		Attributes: map[string]string{
 			AttrDepth:       strconv.FormatInt(depth, 10),
 			AttrClientCount: strconv.Itoa(clients),
-			AttrDirectory:   strconv.Itoa(len(c.config.lookupd)),
 		},
 	}, nil
 }
@@ -178,7 +176,11 @@ func describeNode(n node, stats nsqdStats) *model.Node {
 		RateIn:    model.UnknownMetric,
 		RateOut:   model.UnknownMetric,
 		DiskUsage: model.UnknownMetric,
-		LastSeen:  time.Unix(stats.StartTime, 0).UTC().Format(time.RFC3339),
+		// Now, because the daemon just answered. nsqd reports when it started
+		// and nothing about when it was last heard from, and putting its start
+		// time here would date a healthy node to whenever it was deployed -
+		// the start time is on the row as an attribute instead.
+		LastSeen: time.Now().UTC().Format(time.RFC3339),
 		Attributes: map[string]string{
 			AttrHostname:         n.info.Hostname,
 			AttrBroadcastAddress: n.info.BroadcastAddress,
@@ -291,7 +293,7 @@ func (c *Conn) NodeConfig(ctx context.Context, address string) (map[string]strin
 	if err := c.live(); err != nil {
 		return nil, err
 	}
-	target, err := c.publishTarget(address)
+	target, err := c.nodeAt(address)
 	if err != nil {
 		return nil, err
 	}

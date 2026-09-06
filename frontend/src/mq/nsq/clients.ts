@@ -1,12 +1,17 @@
 /**
- * NSQ's view of a connected consumer.
+ * NSQ's view of a connected client, in both the roles it can be in.
  *
  * The keys are a contract with internal/driver/nsq/clients.go.
  *
- * Consumers only, and the page has to say so. There is no connection list in
- * NSQ: a client appears in the stats of the channel it subscribed to and
- * nowhere else, so a connection that has not subscribed yet is invisible and a
- * producer is invisible always.
+ * A consumer and a producer are reported by nsqd in different places and carry
+ * different figures: a consumer has a channel and a ready count, a producer
+ * has neither and instead reports what it has published per topic. Reading
+ * them into one shape is fine as long as the page keeps them apart - a
+ * producer with no ready count is not a stalled consumer.
+ *
+ * One kind of client is invisible and no page can fix it: anything publishing
+ * over HTTP. /pub is a request rather than a connection, so nsqd has nothing
+ * left to list once it has answered.
  */
 import type { ClientConnection } from "@bindings/model/models";
 
@@ -21,19 +26,33 @@ const AttrUserAgent = "userAgent";
 const AttrHostname = "hostname";
 const AttrSnappy = "snappy";
 const AttrNode = "node";
+const AttrRole = "role";
+const AttrProducerRole = "producer";
+const AttrPublished = "published";
+
+/** Which half of the picture a row is. The two carry different figures. */
+export type NsqClientRole = "consumer" | "producer";
 
 export interface NsqClient {
   /** The broker's own identifier: the peer, and the daemon it reached. */
   id: string;
+  role: NsqClientRole;
   clientId: string;
   peer: string;
   /** The nsqd holding this connection. One consumer process holds one per daemon. */
   node: string;
 
+  /** A consumer's channel; a producer's topics, which may be several. */
   topic: string;
+  /** A consumer's only. A producer subscribes to nothing. */
   channel: string;
+  /** A producer's only: "topic=count" per topic it has published to. */
+  published: string;
 
-  /** What this consumer told nsqd it will accept. Zero means it is asking for nothing. */
+  /**
+   * What a consumer told nsqd it will accept. Null on a producer, which has no
+   * such figure - printing a zero there would read as a stalled consumer.
+   */
   ready: number | null;
   inFlight: number | null;
   messages: number | null;
@@ -63,12 +82,14 @@ function number(row: ClientConnection, key: string): number | null {
 export function client(row: ClientConnection): NsqClient {
   return {
     id: row.name,
+    role: text(row, AttrRole) === AttrProducerRole ? "producer" : "consumer",
     clientId: row.clientName,
     peer: row.peerPort > 0 ? `${row.peerHost}:${row.peerPort}` : row.peerHost,
     node: text(row, AttrNode) || row.node,
 
     topic: text(row, AttrTopic),
     channel: text(row, AttrChannel),
+    published: text(row, AttrPublished),
 
     ready: number(row, AttrReadyCount),
     inFlight: number(row, AttrInFlight),
@@ -93,7 +114,10 @@ export function client(row: ClientConnection): NsqClient {
  * nsqd not to send it anything, so its channel's backlog will not move however
  * healthy everything else looks. It is usually a consumer whose handler is
  * stuck, and nothing else in the app can see it.
+ *
+ * A producer is never this. It has no ready count at all, and reading its
+ * absent one as a zero would flag every publisher on the cluster.
  */
 export function askingForNothing(entry: NsqClient): boolean {
-  return entry.ready === 0;
+  return entry.role === "consumer" && entry.ready === 0;
 }

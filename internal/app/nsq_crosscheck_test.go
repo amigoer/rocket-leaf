@@ -70,6 +70,13 @@ type nsqProbe struct{ address string }
 
 type probeStats struct {
 	Health string `json:"health"`
+	// Producers are the clients holding a connection open to publish. They are
+	// reported here rather than under a channel, because a producer subscribes
+	// to nothing - and reading only the channels is exactly the mistake this
+	// crosscheck caught in the driver.
+	Producers []struct {
+		RemoteAddress string `json:"remote_address"`
+	} `json:"producers"`
 	Topics []struct {
 		Name         string `json:"topic_name"`
 		Depth        int64  `json:"depth"`
@@ -448,6 +455,7 @@ func TestCrossCheckNSQClients(t *testing.T) {
 	connID := stack.dial(t, liveNSQProfile("nsq crosscheck clients", true))
 
 	type wantedClient struct {
+		role  string
 		ready int
 		topic string
 		chans string
@@ -458,14 +466,17 @@ func TestCrossCheckNSQClients(t *testing.T) {
 		for _, topic := range stats.Topics {
 			for _, channel := range topic.Channels {
 				for _, client := range channel.Clients {
-					key := client.RemoteAddress
-					wanted[key] = wantedClient{
+					wanted[client.RemoteAddress] = wantedClient{
+						role:  "consumer",
 						ready: client.ReadyCount,
 						topic: topic.Name,
 						chans: channel.Name,
 					}
 				}
 			}
+		}
+		for _, producer := range stats.Producers {
+			wanted[producer.RemoteAddress] = wantedClient{role: "producer"}
 		}
 	}
 	if len(wanted) == 0 {
@@ -478,13 +489,22 @@ func TestCrossCheckNSQClients(t *testing.T) {
 		t.Fatalf("connections: %v", err)
 	}
 	if len(clients) != len(wanted) {
-		t.Errorf("the app lists %d consumers, the daemons report %d", len(clients), len(wanted))
+		t.Errorf("the app lists %d clients, the daemons report %d", len(clients), len(wanted))
 	}
 	for _, client := range clients {
 		peer := fmt.Sprintf("%s:%d", client.PeerHost, client.PeerPort)
 		expected, known := wanted[peer]
 		if !known {
 			t.Errorf("the app lists %s, which no daemon reports", peer)
+			continue
+		}
+		if client.Attribute("role") != expected.role {
+			t.Errorf("%s: the app calls it a %s, the daemon reports it as a %s",
+				peer, client.Attribute("role"), expected.role)
+		}
+		// A producer has none of what follows, and must not: a ready count on
+		// one would read as a stalled consumer.
+		if expected.role != "consumer" {
 			continue
 		}
 		if client.Attribute("readyCount") != fmt.Sprint(expected.ready) {

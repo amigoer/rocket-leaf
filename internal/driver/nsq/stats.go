@@ -27,11 +27,17 @@ type nsqdInfo struct {
 
 // nsqdStats is nsqd's /stats?format=json, for this daemon only.
 type nsqdStats struct {
-	Version   string        `json:"version"`
-	Health    string        `json:"health"`
-	StartTime int64         `json:"start_time"`
-	Topics    []topicStats  `json:"topics"`
-	Memory    memoryStats   `json:"memory"`
+	Version   string       `json:"version"`
+	Health    string       `json:"health"`
+	StartTime int64        `json:"start_time"`
+	Topics    []topicStats `json:"topics"`
+	Memory    memoryStats  `json:"memory"`
+
+	// Producers are the clients holding a connection open to publish, which
+	// are nowhere in the topic tree: a producer subscribes to no channel, so
+	// it appears here and only here. A client that publishes over HTTP is in
+	// neither - that is a request rather than a connection - and is invisible
+	// for a reason no page can fix.
 	Producers []clientStats `json:"producers"`
 }
 
@@ -87,11 +93,22 @@ type clientStats struct {
 	RequeueCount  uint64 `json:"requeue_count"`
 	ConnectTS     int64  `json:"connect_ts"`
 
+	// PubCounts is what this client has published, per topic. Only a producer
+	// has any, and it is the whole of what distinguishes one here: a producer
+	// carries no topic and no channel of its own.
+	PubCounts []pubCount `json:"pub_counts"`
+
 	TLS    bool `json:"tls"`
 	Snappy bool `json:"snappy"`
 
 	TLSCipherSuite string `json:"tls_cipher_suite"`
 	TLSVersion     string `json:"tls_version"`
+}
+
+// pubCount is one topic a client has published to, and how much.
+type pubCount struct {
+	Topic string `json:"topic"`
+	Count uint64 `json:"count"`
 }
 
 // memoryStats is the Go runtime's own figures, which nsqd reports because it

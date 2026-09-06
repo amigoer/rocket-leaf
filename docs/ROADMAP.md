@@ -145,8 +145,9 @@ This is the delivery plan. The contract it delivers against is
   this family's consumer groups, with their backlog, in-flight, deferred and requeued counts;
   creating, emptying, pausing and deleting either, on every daemon at once; publishing to one
   named daemon, repeated or held back for a delivery time; the cluster's nsqd beside the
-  nsqlookupd that tell consumers where to find them; and the connected consumers with the ready
-  count that says which of them has stopped asking for work.
+  nsqlookupd that tell consumers where to find them; and who is connected, in both roles nsqd
+  reports them in - consumers with the ready count that says which of them has stopped asking
+  for work, and producers with what each has published.
 
   Four things it deliberately does not have, and all four follow from one fact: nsqd hands a
   message to a consumer and stops holding it. There is no browse, because there is no stored log
@@ -154,6 +155,10 @@ This is the delivery plan. The contract it delivers against is
   on the wire between nsqd and the consumer holding it. There are no dead letters, because a
   message requeued past its limit is dropped rather than moved. And there is no offset, so a
   channel's backlog can be consumed or emptied and moved no other way.
+
+  One client is invisible and no page can fix it: anything publishing over HTTP. /pub is a
+  request rather than a connection, so nsqd has nothing left to list once it has answered - only
+  a producer holding a connection over the wire protocol appears.
 
   Three more absences are about what nsqd reports rather than what it stores. No rate of any
   kind: it counts messages since it started and nothing else. No disk figure: a topic's overflow

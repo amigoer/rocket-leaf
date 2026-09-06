@@ -64,9 +64,11 @@ func (c *Conn) UpdateDestination(_ context.Context, _ model.DestinationSpec) err
  * register on the same connection, and the directory sweep afterwards removes
  * whatever the unregister did not.
  *
- * The sweep runs even when no daemon was carrying the topic. A registration
- * whose nsqd is long gone is exactly the state that needs cleaning, and
- * returning early would make it undeletable.
+ * The sweep runs when the daemons agreed - either they deleted it, or none of
+ * them was carrying it. A registration whose nsqd is long gone is exactly the
+ * state that needs cleaning, and refusing to sweep would make it undeletable;
+ * sweeping after a daemon actually failed would be the opposite mistake, and
+ * leave a topic that is still there and no longer findable.
  */
 func (c *Conn) RemoveDestination(ctx context.Context, ref model.DestinationRef) error {
 	if err := c.live(); err != nil {
@@ -79,6 +81,10 @@ func (c *Conn) RemoveDestination(ctx context.Context, ref model.DestinationRef) 
 	query := url.Values{"topic": {ref.Name}}
 	removed := c.onEveryCarrier(ctx, "/topic/delete", query,
 		fmt.Sprintf("no nsqd in this connection was carrying the topic %q", ref.Name))
+	if removed != nil && !notCarried(removed) {
+		return removed
+	}
+
 	if err := c.forgetAtLookupd(ctx, "/topic/delete", query); err != nil {
 		return err
 	}
@@ -90,6 +96,13 @@ func (c *Conn) RemoveDestination(ctx context.Context, ref model.DestinationRef) 
 // An object the discovery tier has never heard of is not an error: a topic
 // created while the tier was down is registered nowhere, and refusing to
 // delete it would leave it undeletable.
+//
+// The sweep cannot report what it cleaned, and the caller must not infer it.
+// nsqlookupd answers /topic/delete with 200 whether or not it had the topic -
+// confirmed against 1.3.0 against a name it had never seen - so "the
+// registration was stale and is now gone" and "there was nothing anywhere" are
+// the same answer. Only /channel/delete tells them apart, and one delete
+// behaving differently from the other would be worse than neither doing so.
 func (c *Conn) forgetAtLookupd(ctx context.Context, path string, query url.Values) error {
 	group, groupCtx := errgroup.WithContext(ctx)
 	for _, address := range c.config.lookupd {

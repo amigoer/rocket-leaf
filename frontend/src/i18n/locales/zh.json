@@ -4337,7 +4337,6 @@
         "nodeHint": "接收消息的那个 nsqd 就是持有它的那个。连在别的 nsqd 上的消费者，只有同样通过 nsqlookupd 找到这一个才看得到。",
         "delay": "延迟（秒）",
         "delayHint": "消息会被扣住这么久才进入通道。nsqd 以 --max-req-timeout 为上限，默认 {{max}} 秒，超过就拒绝——这个上限无法通过 API 读取，所以这里显示的是默认值而不是你的实际配置。",
-        "delayRange": "延迟须在 0 到 nsqd 的 --max-req-timeout 之间，默认 3600 秒。",
         "count": "重复",
         "countHint": "把同一条消息体发送这么多次，最多 {{max}} 条，合并成一次批量请求。",
         "countRange": "一次发送 1 到 1000 条。",
@@ -4345,7 +4344,9 @@
         "send": "发送",
         "sent": "已发送 {{count}} 条",
         "sentTo": "已向 {{node}} 发送 {{count}} 条",
-        "failed": "发送失败"
+        "failed": "发送失败",
+        "delayNegative": "延迟不能为负数。",
+        "delayCeiling": "超过了 nsqd 默认的 --max-req-timeout（{{max}} 秒）。发送仍会执行：这个上限是应用读不到的守护进程启动参数，配得更长的部署能正常工作，用默认值的则会返回 INVALID_DEFER。"
       },
       "cluster": {
         "subtitle": "{{nodes}} 个 nsqd，{{directory}} 个 nsqlookupd",
@@ -4381,9 +4382,9 @@
         "advertiseMismatch": "nsqlookupd 正在通告 {{addresses}}，而这个连接访问不到。通过服务发现查找 nsqd 的消费者会被指到那里；请检查各个守护进程的 --broadcast-address。"
       },
       "clients": {
-        "count": "{{count}} 个消费者",
-        "search": "按消费者、主题、通道或 nsqd 筛选",
-        "peer": "消费者",
+        "count": "{{count}} 个连接",
+        "search": "按客户端、主题、通道或 nsqd 筛选",
+        "peer": "客户端",
         "topic": "主题",
         "channel": "通道",
         "ready": "可接收",
@@ -4407,10 +4408,16 @@
           "transport": "传输"
         },
         "notReady": "该消费者已告诉 nsqd 它不再接收任何消息。连接还在、通道也还占着，但在它重新请求消息之前堆积不会下降——通常是处理函数卡住了。",
-        "note": "这里只列消费者。客户端只会出现在它所订阅通道的统计里，所以尚未订阅的连接看不到，生产者则永远看不到。一个消费者进程连了几个 nsqd 就会出现几行：那是各自持有不同消息的独立连接。"
+        "note": "两种角色都在这里，分别取自 nsqd 上报它们的两个位置：消费者列在它订阅的通道下面，生产者列在它连接的守护进程下面，并带上已发送的条数。生产者没有 ready 计数、也没有通道——那是订阅才有的。通过 HTTP 发送的客户端不会出现，因为 /pub 是一次请求而不是一条连接。一个客户端进程连了几个 nsqd 就会出现几行：那是各自持有不同消息的独立连接。",
+        "roleColumn": "角色",
+        "role": {
+          "consumer": "消费者",
+          "producer": "生产者"
+        },
+        "published": "已发送"
       },
       "overview": {
-        "subtitle": "{{nodes}} 个 nsqd，版本 {{version}}",
+        "subtitle": "{{nodes}} 个 nsqd、{{directory}} 个 nsqlookupd，版本 {{version}}",
         "topics": "主题",
         "channels": "通道",
         "backlog": "堆积",
@@ -4422,8 +4429,6 @@
         "paused": "已暂停",
         "pausedHint": "仍在接收发送、但一条也不投递的主题和通道",
         "consumers": "消费者",
-        "nodes": "nsqd",
-        "nodesHint": "另有 {{count}} 个 nsqlookupd",
         "busiest": "堆积在哪里",
         "channel": "通道",
         "inFlight": "投递中",

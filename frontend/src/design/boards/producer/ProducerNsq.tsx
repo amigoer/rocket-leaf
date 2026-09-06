@@ -17,6 +17,7 @@ import {
   MAX_COUNT,
   emptyNsqProducerDraft,
   sendProblem,
+  sendWarning,
   sendsOneAtATime,
   toPublishInput,
   type NsqProducerDraft,
@@ -38,10 +39,11 @@ import * as nsqApi from "@/api/nsq";
  * choice decides who can consume what is sent - a consumer attached to another
  * daemon sees it only if it also finds this one through nsqlookupd.
  *
- * Two limits are the daemon's rather than this form's, and the form says so
- * rather than pretending to enforce them. The delay ceiling is nsqd's
- * --max-req-timeout, one hour by default and not readable over the API; the
- * console warns at the default and lets the daemon have the last word.
+ * The delay ceiling is the daemon's rather than this form's, and the form says
+ * so rather than pretending to enforce it. --max-req-timeout is one hour by
+ * default and is not readable over the API, so a delay past it is a warning
+ * and the send still goes: a deployment started with a longer one has to stay
+ * usable, and the daemon has the last word either way.
  */
 export function ProducerNsq() {
   const { t } = useTranslation();
@@ -57,6 +59,7 @@ export function ProducerNsq() {
     setDraft((previous) => ({ ...previous, [key]: value }));
 
   const problem = sendProblem(draft);
+  const warning = sendWarning(draft);
 
   const send = useCallback(async () => {
     const input = toPublishInput(draft);
@@ -154,7 +157,9 @@ export function ProducerNsq() {
                     }
                   />
                   <FieldDescription>
-                    {t("board.nsq.producer.delayHint", { max: DEFAULT_MAX_DELAY_SEC })}
+                    {warning != null
+                      ? t(warning, { max: DEFAULT_MAX_DELAY_SEC })
+                      : t("board.nsq.producer.delayHint", { max: DEFAULT_MAX_DELAY_SEC })}
                   </FieldDescription>
                 </Field>
 

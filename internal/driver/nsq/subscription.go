@@ -110,6 +110,10 @@ func (c *Conn) RemoveSubscription(ctx context.Context, ref model.SubscriptionRef
 	removed := c.onEveryCarrier(ctx, "/channel/delete", query,
 		fmt.Sprintf("no nsqd in this connection was carrying the channel %q on %q",
 			ref.Name, ref.Namespace))
+	if removed != nil && !notCarried(removed) {
+		return removed
+	}
+
 	if err := c.forgetAtLookupd(ctx, "/channel/delete", query); err != nil {
 		return err
 	}

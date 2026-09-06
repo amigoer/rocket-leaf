@@ -260,6 +260,7 @@ const consumer = {
   connectedAtMs: 1788644706000,
   blockedBy: "",
   attributes: {
+    role: "consumer",
     topic: "MQS.SEED.events",
     channel: "watchers",
     readyCount: "0",
@@ -269,6 +270,29 @@ const consumer = {
     requeued: "0",
     userAgent: "nsq_tail/1.3.0 go-nsq/1.1.0",
     hostname: "consumer",
+    snappy: "false",
+    node: "127.0.0.1:4151",
+  },
+};
+
+/** The other role: no channel, no ready count, and a publish count instead. */
+const producer = {
+  ...consumer,
+  name: "172.17.0.9:41120 -> 127.0.0.1:4151",
+  clientName: "writer",
+  peerHost: "172.17.0.9",
+  peerPort: 41120,
+  state: "init",
+  channels: 0,
+  attributes: {
+    role: "producer",
+    topic: "MQS.SEED.orders",
+    published: "MQS.SEED.orders=1204",
+    inFlight: "0",
+    messageCount: "1204",
+    requeued: "0",
+    userAgent: "to_nsq/1.3.0 go-nsq/1.1.0",
+    hostname: "writer",
     snappy: "false",
     node: "127.0.0.1:4151",
   },
@@ -368,6 +392,26 @@ describe("the NSQ clients board", () => {
     expect(html).toContain("MQS.SEED.events");
     expect(html).toContain("watchers");
     expect(html).toContain("172.17.0.5:52344");
+  });
+
+  /*
+   * A producer has no ready count at all, and reading its absence as a zero
+   * would flag every publisher on the cluster as stalled. Its detail panel is
+   * a different set of rows for the same reason.
+   */
+  it("draws a producer without calling it a stalled consumer", () => {
+    clientsState.current = stateOf({ data: [producer] });
+    const html = render(<ClientsNsq />);
+    expect(html).toContain("172.17.0.9:41120");
+    expect(html).toContain("MQS.SEED.orders=1204");
+    // "Ready 0" is the badge, and a producer must not carry it.
+    expect(html).not.toContain("Ready 0");
+    expect(html).not.toContain("可接收 0");
+  });
+
+  it("lists both roles together", () => {
+    clientsState.current = stateOf({ data: [consumer, producer] });
+    expect(() => render(<ClientsNsq />)).not.toThrow();
   });
 });
 

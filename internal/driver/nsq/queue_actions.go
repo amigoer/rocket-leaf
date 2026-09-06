@@ -124,6 +124,22 @@ func (c *Conn) SetTopicPaused(ctx context.Context, name string, paused bool) err
 		fmt.Sprintf("no nsqd in this connection is carrying the topic %q", name))
 }
 
+// notCarriedError is what a management call reports when no daemon in the
+// connection had the object at all.
+//
+// A type rather than a message, because the two failures lead opposite ways: a
+// delete that found nothing should still sweep the discovery tier, and one
+// that failed on a daemon must not - a topic still there and no longer
+// registered is worse than a topic still there.
+type notCarriedError struct{ what string }
+
+func (e *notCarriedError) Error() string { return e.what }
+
+func notCarried(err error) bool {
+	var missing *notCarriedError
+	return errors.As(err, &missing)
+}
+
 // onEveryCarrier runs one management call on every daemon that has the object,
 // and reports missing when none of them did.
 //
@@ -155,5 +171,5 @@ func (c *Conn) onEveryCarrier(ctx context.Context, path string, query url.Values
 			return nil
 		}
 	}
-	return errors.New(missing)
+	return &notCarriedError{what: missing}
 }

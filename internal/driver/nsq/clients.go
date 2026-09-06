@@ -2,10 +2,12 @@ package nsq
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/amigoer/mq-studio/internal/model"
 )
@@ -19,6 +21,20 @@ const (
 	AttrUserAgent     = "userAgent"
 	AttrSnappy        = "snappy"
 	AttrClientNode    = "node"
+	// AttrRole is which half of the picture a row is. The two are reported by
+	// nsqd in different places and carry different figures, and a page that
+	// mixed them would show a producer with a ready count of nothing and call
+	// it stalled.
+	AttrRole = "role"
+	// AttrPublished is what a producer has published, per topic, since it
+	// connected. Producers only: it is the whole of what one reports.
+	AttrPublished = "published"
+)
+
+// The two roles a connected client can be in.
+const (
+	roleConsumer = "consumer"
+	roleProducer = "producer"
 )
 
 // clientStates spells nsqd's connection state machine, which /stats reports as
@@ -34,14 +50,19 @@ var clientStates = map[int]string{
 }
 
 /*
- * ListClientConnections is every consumer connected to the cluster.
+ * ListClientConnections is everything holding a connection open to the
+ * cluster, in the two places nsqd reports them.
  *
- * There is no connection list in NSQ. A client appears in the stats of the
+ * There is no single connection list. A consumer appears in the stats of the
  * channel it subscribed to and nowhere else, so this walks every topic and
- * channel on every daemon and collects them - which also means a connection
- * that has not subscribed to anything yet is invisible, and a producer is
- * invisible always. Both are worth knowing rather than being papered over: the
- * page is who is consuming, not who is connected.
+ * channel on every daemon; a producer subscribes to nothing and appears
+ * instead in the daemon's own producer list, with what it has published per
+ * topic. Reading only the first was this driver's original mistake, and it
+ * left the page asserting that producers could never be seen.
+ *
+ * One kind of client is still invisible, and no page can fix it: anything
+ * publishing over HTTP. /pub is a request rather than a connection, so nsqd
+ * has nothing to list once it has answered.
  *
  * The namespace argument is ignored. NSQ has no vhost, tenant or account for a
  * connection to belong to.
@@ -51,12 +72,19 @@ func (c *Conn) ListClientConnections(ctx context.Context, _ string) ([]*model.Cl
 		return nil, err
 	}
 
-	// include_clients is on here and off everywhere else: the per-channel
-	// client list is the largest thing in the response, and this is the one
-	// page that needs it.
+	// The client lists are asked for explicitly and the runtime memory block
+	// is refused. Both default the other way, and both are worth naming: the
+	// per-channel client list is the largest thing in the response and this is
+	// the one page that reads it, while the memory figures belong to the
+	// cluster board and are dead weight here.
+	values := url.Values{
+		"format":          {"json"},
+		"include_clients": {"true"},
+		"include_mem":     {"false"},
+	}
 	perNode, err := eachNode(ctx, c.nodes, func(ctx context.Context, n node) (nsqdStats, error) {
 		var stats nsqdStats
-		err := c.client.get(ctx, n.address, "/stats", url.Values{"format": {"json"}}, &stats)
+		err := c.client.get(ctx, n.address, "/stats", values, &stats)
 		return stats, err
 	})
 	if err != nil {
@@ -70,9 +98,12 @@ func (c *Conn) ListClientConnections(ctx context.Context, _ string) ([]*model.Cl
 			for _, channel := range topic.Channels {
 				for _, client := range channel.Clients {
 					connections = append(connections,
-						describeClient(daemon, topic.Name, channel.Name, client))
+						describeConsumer(daemon, topic.Name, channel.Name, client))
 				}
 			}
+		}
+		for _, producer := range stats.Producers {
+			connections = append(connections, describeProducer(daemon, producer))
 		}
 	}
 
@@ -98,7 +129,55 @@ func (c *Conn) ListClientChannels(_ context.Context, _ string) ([]*model.ClientC
 	return []*model.ClientChannel{}, nil
 }
 
-func describeClient(daemon, topic, channel string, client clientStats) *model.ClientConnection {
+// describeConsumer is a client that subscribed to a channel.
+func describeConsumer(daemon, topic, channel string, client clientStats) *model.ClientConnection {
+	connection := describeClient(daemon, client)
+	connection.Attributes[AttrRole] = roleConsumer
+	connection.Attributes[AttrClientTopic] = topic
+	connection.Attributes[AttrClientChannel] = channel
+	// What this consumer told nsqd it will accept. A zero here on a channel
+	// with a backlog is the whole explanation for a consumer that is connected
+	// and taking nothing.
+	connection.Attributes[AttrReadyCount] = strconv.Itoa(client.ReadyCount)
+	connection.Attributes[AttrFinishCount] = strconv.FormatUint(client.FinishCount, 10)
+	// A consumer reads one channel and cannot multiplex, so there is never
+	// more than one.
+	connection.Channels = 1
+	return connection
+}
+
+/*
+ * describeProducer is a client holding a connection open to publish.
+ *
+ * It carries no topic of its own and no ready count: those are a
+ * subscription's, and a producer has none. What it has instead is a count per
+ * topic it has published to, which is the only thing on this page that says a
+ * connection is doing anything at all.
+ */
+func describeProducer(daemon string, client clientStats) *model.ClientConnection {
+	connection := describeClient(daemon, client)
+	connection.Attributes[AttrRole] = roleProducer
+
+	topics := make([]string, 0, len(client.PubCounts))
+	published := make([]string, 0, len(client.PubCounts))
+	var total uint64
+	for _, count := range client.PubCounts {
+		topics = append(topics, count.Topic)
+		published = append(published, fmt.Sprintf("%s=%d", count.Topic, count.Count))
+		total += count.Count
+	}
+	sort.Strings(topics)
+	sort.Strings(published)
+
+	connection.Attributes[AttrClientTopic] = strings.Join(topics, ",")
+	connection.Attributes[AttrPublished] = strings.Join(published, ",")
+	connection.Attributes[AttrMessageCount] = strconv.FormatUint(total, 10)
+	return connection
+}
+
+// describeClient is what the two roles have in common: the socket, and who is
+// on the other end of it.
+func describeClient(daemon string, client clientStats) *model.ClientConnection {
 	host, port := splitPeer(client.RemoteAddress)
 
 	state := clientStates[client.State]
@@ -117,24 +196,14 @@ func describeClient(daemon, topic, channel string, client clientStats) *model.Cl
 		PeerPort:   port,
 		// nsqd speaks one protocol and names its versions V1 and V2, which is
 		// what the client reports here.
-		Protocol: "nsq " + client.Version,
-		State:    state,
-		// A connection reads one channel and cannot multiplex, so there is
-		// never more than one.
-		Channels:      1,
+		Protocol:      "nsq " + client.Version,
+		State:         state,
 		TLS:           client.TLS,
 		Cipher:        client.TLSCipherSuite,
 		ConnectedAtMs: client.ConnectTS * 1000,
 		Attributes: map[string]string{
-			AttrClientTopic:   topic,
-			AttrClientChannel: channel,
-			// What this consumer told nsqd it will accept. A zero here on a
-			// channel with a backlog is the whole explanation for a consumer
-			// that is connected and taking nothing.
-			AttrReadyCount:   strconv.Itoa(client.ReadyCount),
 			AttrInFlight:     strconv.Itoa(client.InFlightCount),
 			AttrMessageCount: strconv.FormatUint(client.MessageCount, 10),
-			AttrFinishCount:  strconv.FormatUint(client.FinishCount, 10),
 			AttrRequeued:     strconv.FormatUint(client.RequeueCount, 10),
 			AttrUserAgent:    client.UserAgent,
 			AttrHostname:     client.Hostname,

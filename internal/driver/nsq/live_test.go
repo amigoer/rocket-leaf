@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"slices"
 	"strings"
 	"testing"
@@ -1213,21 +1214,24 @@ func TestLiveListClientConnectionsFindsTheAttachedConsumer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("clients: %v", err)
 	}
-	if len(clients) == 0 {
-		e2e.Missing(t, "no consumer is attached; run `npm run e2e:nsq:seed` so the "+
-			"compose consumer has a topic to subscribe to")
-	}
-
+	consumers := 0
 	for _, client := range clients {
+		// Consumers only. A producer is in the same list and reports none of
+		// this: no channel, no ready count, and a state of init because it
+		// subscribed to nothing.
+		if client.Attribute(AttrRole) != roleConsumer {
+			continue
+		}
+		consumers++
 		if client.Attribute(AttrClientTopic) == "" || client.Attribute(AttrClientChannel) == "" {
-			t.Errorf("%s names no topic or channel, and a client exists only inside one",
+			t.Errorf("%s names no topic or channel, and a consumer exists only inside one",
 				client.Name)
 		}
 		if client.Node == "" {
 			t.Errorf("%s names no daemon; one consumer holds a connection per nsqd", client.Name)
 		}
 		if client.Channels != 1 {
-			t.Errorf("%s reports %d channels; an nsq connection reads exactly one",
+			t.Errorf("%s reports %d channels; an nsq consumer reads exactly one",
 				client.Name, client.Channels)
 		}
 		if client.State != "subscribed" {
@@ -1237,6 +1241,10 @@ func TestLiveListClientConnectionsFindsTheAttachedConsumer(t *testing.T) {
 		if client.ConnectedAtMs == 0 {
 			t.Errorf("%s reports no connect time", client.Name)
 		}
+	}
+	if consumers == 0 {
+		e2e.Missing(t, "no consumer is attached; run `npm run e2e:nsq:seed` so the "+
+			"compose consumer has a topic to subscribe to")
 	}
 
 	// There is no session layer under an NSQ connection, so the channel half
@@ -1248,5 +1256,128 @@ func TestLiveListClientConnectionsFindsTheAttachedConsumer(t *testing.T) {
 	}
 	if len(channels) != 0 {
 		t.Errorf("listed %d client channels; an nsq connection cannot multiplex", len(channels))
+	}
+}
+
+/*
+ * A producer holding a TCP connection is listed, and the driver read only
+ * consumers until this test was written.
+ *
+ * nsqd reports the two in different places: a consumer under the channel it
+ * subscribed to, a producer in the daemon's own producer list with what it has
+ * published per topic. Reading the first alone left the clients page asserting
+ * that a producer could never be seen, which is a sentence about NSQ that is
+ * simply untrue.
+ *
+ * The one that really is invisible is an HTTP publisher, and that is what
+ * every other test in this file uses - /pub is a request rather than a
+ * connection, so nsqd has nothing left to list once it has answered.
+ */
+func TestLiveListClientConnectionsFindsProducersToo(t *testing.T) {
+	conn := liveConn(t)
+	const topic = "MQS.TEST.producer"
+
+	testTopic(t, conn, topic)
+
+	before, err := conn.ListClientConnections(liveContext(t), "")
+	if err != nil {
+		t.Fatalf("clients: %v", err)
+	}
+	// The HTTP publish every other test uses leaves nothing behind.
+	rawPost(t, liveNSQD1, "/pub", url.Values{"topic": {topic}}, strings.NewReader("over http"))
+	after, err := conn.ListClientConnections(liveContext(t), "")
+	if err != nil {
+		t.Fatalf("clients: %v", err)
+	}
+	if len(after) != len(before) {
+		t.Errorf("an HTTP publish added %d rows; /pub is a request rather than a connection",
+			len(after)-len(before))
+	}
+
+	// A producer over the TCP protocol is a connection, and does appear.
+	stop := startTCPProducer(t, topic)
+	defer stop()
+
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		clients, err := conn.ListClientConnections(liveContext(t), "")
+		if err != nil {
+			t.Fatalf("clients: %v", err)
+		}
+		// Matched on the topic as well as the role: the environment keeps a
+		// consumer of its own, and another test's producer may still be
+		// winding down on the same daemon.
+		var producer *model.ClientConnection
+		for _, client := range clients {
+			if client.Attribute(AttrRole) == roleProducer &&
+				strings.Contains(client.Attribute(AttrClientTopic), topic) {
+				producer = client
+			}
+		}
+		if producer != nil {
+			if producer.Attribute(AttrPublished) == "" {
+				t.Error("the producer reports nothing published, which is all it reports")
+			}
+			if producer.Attribute(AttrClientChannel) != "" {
+				t.Errorf("the producer names a channel %q; it subscribed to nothing",
+					producer.Attribute(AttrClientChannel))
+			}
+			if producer.Attribute(AttrReadyCount) != "" {
+				t.Error("the producer carries a ready count, which would read as a stalled consumer")
+			}
+			if producer.Channels != 0 {
+				t.Errorf("the producer holds %d channels; it holds none", producer.Channels)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("a producer holding a TCP connection never appeared in the client list")
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+// startTCPProducer opens a publisher over the wire protocol, which is the only
+// kind of publisher nsqd can report. It runs inside the daemon's own container
+// because to_nsq ships in the image and this package has no NSQ client.
+func startTCPProducer(t *testing.T, topic string) func() {
+	t.Helper()
+	const container = "mq-studio-e2e-nsq-nsqd-1"
+	if err := exec.Command("docker", "inspect", container).Run(); err != nil {
+		e2e.Missing(t, "the nsq cluster is not running under compose, so there is no "+
+			"container to open a wire-protocol producer in: %v", err)
+	}
+
+	command := exec.Command("docker", "exec", container, "sh", "-c",
+		"while true; do echo produced; sleep 1; done | /to_nsq "+
+			"--nsqd-tcp-address=127.0.0.1:4150 --topic="+topic)
+	if err := command.Start(); err != nil {
+		t.Fatalf("starting a wire-protocol producer: %v", err)
+	}
+	return func() {
+		// Killing the local docker exec is not enough: the signal does not
+		// reach the process inside the container, and a producer left holding
+		// a connection is a row every later test has to account for.
+		_ = exec.Command("docker", "exec", container, "pkill", "-f", "to_nsq").Run()
+		_ = command.Process.Kill()
+		_ = command.Wait()
+
+		// The connection goes when nsqd notices, not when the process does.
+		deadline := time.Now().Add(10 * time.Second)
+		for time.Now().Before(deadline) {
+			response, err := http.Get(liveNSQD1 + "/stats?format=json")
+			if err != nil {
+				return
+			}
+			var stats struct {
+				Producers []struct{} `json:"producers"`
+			}
+			decodeErr := json.NewDecoder(response.Body).Decode(&stats)
+			_ = response.Body.Close()
+			if decodeErr != nil || len(stats.Producers) == 0 {
+				return
+			}
+			time.Sleep(200 * time.Millisecond)
+		}
 	}
 }
