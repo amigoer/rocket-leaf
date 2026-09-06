@@ -10,6 +10,7 @@ import (
 	"github.com/amigoer/mq-studio/internal/driver/activemq"
 	azureservicebusdriver "github.com/amigoer/mq-studio/internal/driver/azureservicebus"
 	googlepubsubdriver "github.com/amigoer/mq-studio/internal/driver/googlepubsub"
+	ibmmqdriver "github.com/amigoer/mq-studio/internal/driver/ibmmq"
 	"github.com/amigoer/mq-studio/internal/driver/kafka"
 	kinesisdriver "github.com/amigoer/mq-studio/internal/driver/kinesis"
 	"github.com/amigoer/mq-studio/internal/driver/mqtt"
@@ -106,6 +107,7 @@ func New() (*Services, error) {
 	driver.Register(googlepubsubdriver.New())
 	driver.Register(azureservicebusdriver.New())
 	driver.Register(kinesisdriver.New())
+	driver.Register(ibmmqdriver.New())
 
 	registry := driver.NewRegistry()
 	settingsService := settings.New(paths.SettingsFile)
