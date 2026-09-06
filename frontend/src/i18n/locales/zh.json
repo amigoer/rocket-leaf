@@ -4956,7 +4956,34 @@
           "delivery": "投递",
           "shape": "形态"
         },
-        "note": "队列自己保存消息；主题不保存，而是把每条消息复制进规则放行的每个订阅。数量来自实体的运行时属性，而 Service Bus 模拟器不报告它们。"
+        "note": "队列自己保存消息；主题不保存，而是把每条消息复制进规则放行的每个订阅。数量来自实体的运行时属性，而 Service Bus 模拟器不报告它们。",
+        "create": "新建实体",
+        "created": "已创建 {{name}}",
+        "updated": "已保存 {{name}}",
+        "deleted": "已删除 {{name}}",
+        "deleteFailed": "删除失败",
+        "createTitle": "新建队列或主题",
+        "editTitle": "编辑 {{name}}",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteQueueDesc": "它保存的全部内容都会一并删除，死信也在内——$DeadLetterQueue 属于所在队列，本身并不是一个独立队列。",
+        "deleteTopicDesc": "这同时会删除它的 {{count}} 个订阅，以及它们尚未投递的消息。这里的订阅不会比主题活得更久。",
+        "nameHint": "可用字母、数字和 - . _ ~，路径分段之间用 /。创建后不能改名：服务没有重命名接口。",
+        "kindHint": "只在创建时选择。队列和主题是同一路径下的两种不同对象，改动就意味着删掉一个，其中的内容也一并丢失。",
+        "lockHint": "接收方拿到消息后可以独占多久，超时后 Service Bus 会把它交给别人。填 0 表示沿用服务默认的一分钟。",
+        "lockRange": "锁定时长必须在 5 到 300 秒之间。",
+        "maxDeliveryHint": "消息被移入死信队列前可以投递几次。填 0 表示沿用服务默认的 10 次。",
+        "maxDeliveryRange": "投递上限必须在 1 到 2000 之间。",
+        "ttlHint": "无论有没有人读取，消息能存活多久。填 0 表示保持现状；新建实体的默认值是 14 天。",
+        "deadLetterOnExpiry": "过期消息转入死信",
+        "forwardDeadLettersToHint": "把这个实体的死信交给另一个实体，用来把多个队列的失败消息集中到一处。留空即取消。",
+        "fixedAtCreationHint": "两项都在创建时固定，服务不接受后续修改。",
+        "nameProblem": {
+          "empty": "请填写名称。",
+          "tooLong": "队列或主题名称最多 260 个字符。",
+          "charset": "只能使用字母、数字和 - . _ ~，路径分段之间用 /。",
+          "reserved": "以 $ 开头的名称指向 $DeadLetterQueue 这类子实体，它有自己的页面。",
+          "separator": "/ 用来分隔路径分段，名称不能以它开头或结尾。"
+        }
       }
     }
   }

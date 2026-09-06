@@ -26,6 +26,7 @@ import (
 	"github.com/amigoer/mq-studio/internal/service/configuration"
 	"github.com/amigoer/mq-studio/internal/service/connection"
 	"github.com/amigoer/mq-studio/internal/service/destination"
+	azureservicebusservice "github.com/amigoer/mq-studio/internal/service/azureservicebus"
 	googlepubsubservice "github.com/amigoer/mq-studio/internal/service/googlepubsub"
 	kafkaservice "github.com/amigoer/mq-studio/internal/service/kafka"
 	"github.com/amigoer/mq-studio/internal/service/message"
@@ -64,6 +65,7 @@ type Services struct {
 	NSQ          *nsqservice.Service
 	SQS          *sqsservice.Service
 	GooglePubSub *googlepubsubservice.Service
+	ServiceBus   *azureservicebusservice.Service
 
 	// Conns resolves a profile id to a live connection. The bridge needs it to
 	// answer capability questions without going through a domain service.
@@ -128,6 +130,7 @@ func New() (*Services, error) {
 		NSQ:          nsqservice.New(conns, settingsService),
 		SQS:          sqsservice.New(conns, settingsService),
 		GooglePubSub: googlepubsubservice.New(conns, settingsService),
+		ServiceBus:   azureservicebusservice.New(conns, settingsService),
 		Conns:        conns,
 		Collector:    collector.New(sampleActiveConnection(clusterService, registry), registry.HasActive),
 		registry:     registry,

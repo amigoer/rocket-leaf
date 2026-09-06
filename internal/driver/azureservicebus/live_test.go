@@ -470,3 +470,210 @@ func TestLiveGetQueueDoesNotRefuseATopicName(t *testing.T) {
 		t.Errorf("an entity that does not exist is described as %q", described.kind())
 	}
 }
+
+// Names a test creates for itself. Everything mqs-test-* is this suite's and
+// is removed again; everything mqs-seed-* is the seed's and is only read.
+const (
+	testQueue = "mqs-test-queue"
+	testTopic = "mqs-test-topic"
+)
+
+// removeEntities takes the test's own objects away whatever the test did.
+func removeEntities(t *testing.T, conn *Conn, names ...string) {
+	t.Helper()
+	t.Cleanup(func() {
+		for _, name := range names {
+			_ = conn.RemoveDestination(context.Background(), model.DestinationRef{Name: name})
+		}
+	})
+}
+
+/*
+ * Creating both kinds, which the emulator can do and its config file cannot.
+ *
+ * Worth saying out loud because the emulator's topology is otherwise declared
+ * in tests/e2e/azure-servicebus/config.json and read at startup: it would have
+ * been easy to assume that is the only way entities exist there. It is not -
+ * the management API creates and deletes them at runtime exactly as a real
+ * namespace does, which is what makes this path testable at all.
+ */
+func TestLiveCreateAndRemoveBothKinds(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	removeEntities(t, conn, testQueue, testTopic)
+
+	if err := conn.CreateEntity(ctx, EntitySpec{
+		Name:             testQueue,
+		Kind:             EntityQueue,
+		LockDurationSec:  45,
+		MaxDeliveryCount: 7,
+		TTLSec:           3600,
+	}); err != nil {
+		t.Fatalf("CreateEntity(queue): %v", err)
+	}
+
+	created, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: testQueue})
+	if err != nil {
+		t.Fatalf("DestinationDetail: %v", err)
+	}
+	if created.Attributes[AttrEntityType] != EntityQueue {
+		t.Errorf("%s was created as %q", testQueue, created.Attributes[AttrEntityType])
+	}
+	if created.Attributes[AttrLockDurationSec] != "45" {
+		t.Errorf("lock duration = %q, want 45", created.Attributes[AttrLockDurationSec])
+	}
+	if created.Attributes[AttrMaxDeliveryCount] != "7" {
+		t.Errorf("delivery limit = %q, want 7", created.Attributes[AttrMaxDeliveryCount])
+	}
+
+	if err := conn.CreateEntity(ctx, EntitySpec{Name: testTopic, Kind: EntityTopic}); err != nil {
+		t.Fatalf("CreateEntity(topic): %v", err)
+	}
+	topic, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: testTopic})
+	if err != nil {
+		t.Fatalf("DestinationDetail: %v", err)
+	}
+	if topic.Attributes[AttrEntityType] != EntityTopic {
+		t.Errorf("%s was created as %q", testTopic, topic.Attributes[AttrEntityType])
+	}
+
+	// Queues and topics share one name space, and the message has to say so:
+	// the service's own is "the messaging entity already exists" with a
+	// tracking id, which does not explain why a free-looking topic name is not.
+	err = conn.CreateEntity(ctx, EntitySpec{Name: testQueue, Kind: EntityTopic})
+	if err == nil {
+		t.Fatal("created a topic with a queue's name")
+	}
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("the refusal does not say the name is taken: %v", err)
+	}
+
+	for _, name := range []string{testQueue, testTopic} {
+		if err := conn.RemoveDestination(ctx, model.DestinationRef{Name: name}); err != nil {
+			t.Errorf("RemoveDestination(%s): %v", name, err)
+		}
+	}
+	if _, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: testQueue}); err == nil {
+		t.Error("a deleted queue is still described")
+	}
+	if err := conn.RemoveDestination(ctx, model.DestinationRef{Name: testQueue}); err == nil {
+		t.Error("deleting an entity twice succeeded twice")
+	}
+}
+
+/*
+ * An update reads the entity first and writes the whole thing back, because
+ * the management API replaces a description rather than patching one. What
+ * that has to buy is that an omitted setting survives: a form that edits the
+ * delivery limit must not reset the lock duration to the service's default.
+ */
+func TestLiveUpdateKeepsWhatTheFormDidNotSend(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	removeEntities(t, conn, testQueue)
+
+	if err := conn.CreateEntity(ctx, EntitySpec{
+		Name:             testQueue,
+		LockDurationSec:  45,
+		MaxDeliveryCount: 7,
+	}); err != nil {
+		t.Fatalf("CreateEntity: %v", err)
+	}
+
+	if err := conn.UpdateEntity(ctx, EntitySpec{Name: testQueue, MaxDeliveryCount: 9}); err != nil {
+		t.Fatalf("UpdateEntity: %v", err)
+	}
+
+	after, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: testQueue})
+	if err != nil {
+		t.Fatalf("DestinationDetail: %v", err)
+	}
+	if after.Attributes[AttrMaxDeliveryCount] != "9" {
+		t.Errorf("delivery limit = %q, want the 9 that was sent", after.Attributes[AttrMaxDeliveryCount])
+	}
+	if after.Attributes[AttrLockDurationSec] != "45" {
+		t.Errorf("lock duration = %q; the update reset a setting it was not given",
+			after.Attributes[AttrLockDurationSec])
+	}
+}
+
+/*
+ * An update cannot turn a queue into a topic, and the driver has to be the one
+ * that says so.
+ *
+ * The two are addressed at one Atom path, so a QueueDescription sent to a
+ * topic's path is not refused by the service: it replaces the topic with a
+ * queue, and every subscription on it goes with the old object. That is a
+ * silent data loss behind a form control, which is why this is checked before
+ * anything is sent.
+ */
+func TestLiveUpdateRefusesToChangeAnEntityIntoTheOtherKind(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	err := conn.UpdateEntity(ctx, EntitySpec{Name: seedEvents, Kind: EntityQueue, TTLSec: 60})
+	if err == nil {
+		t.Fatal("turned a topic into a queue, taking its subscriptions with it")
+	}
+	if !strings.Contains(err.Error(), "topic") || !strings.Contains(err.Error(), "queue") {
+		t.Errorf("the refusal does not name both kinds: %v", err)
+	}
+
+	// And the topic is still a topic, with its subscriptions.
+	after, err := conn.DestinationDetail(ctx, model.DestinationRef{Name: seedEvents})
+	if err != nil {
+		t.Fatalf("DestinationDetail: %v", err)
+	}
+	if after.Attributes[AttrEntityType] != EntityTopic || after.Subscribers != 3 {
+		t.Errorf("%s is now a %q with %d subscriptions",
+			seedEvents, after.Attributes[AttrEntityType], after.Subscribers)
+	}
+}
+
+/*
+ * What the emulator will not do, recorded rather than worked around.
+ *
+ * ForwardDeadLetteredMessagesTo takes a plain entity name against a real
+ * namespace - that is what the portal sends - and the emulator answers 400
+ * with "Absolute URI must be provided". So the forwarding fields on the entity
+ * form cannot be exercised here, and a user pointing this app at the emulator
+ * will meet the same refusal.
+ *
+ * Pinned rather than skipped silently: if the emulator ever accepts a name,
+ * this goes red and the gap can be closed.
+ */
+func TestLiveForwardingWantsAnAbsoluteURI(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	removeEntities(t, conn, testQueue)
+
+	err := conn.CreateEntity(ctx, EntitySpec{
+		Name:                 testQueue,
+		ForwardDeadLettersTo: seedQuiet,
+	})
+	if err == nil {
+		t.Fatal("the emulator took a plain entity name for forwarding; " +
+			"the gap this test records has closed and the comment above needs removing")
+	}
+	if !strings.Contains(err.Error(), "Absolute URI") {
+		t.Errorf("the emulator refused forwarding for some other reason: %v", err)
+	}
+}
+
+// The bounds are checked in the driver so the message can name the form's own
+// row: the service answers a 400 whose detail is a subcode and a tracking id.
+func TestLiveCreateRefusesSettingsTheServiceWould(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	for _, spec := range []EntitySpec{
+		{Name: testQueue, LockDurationSec: 301},
+		{Name: testQueue, LockDurationSec: 4},
+		{Name: testQueue, MaxDeliveryCount: 2001},
+	} {
+		if err := conn.CreateEntity(ctx, spec); err == nil {
+			removeEntities(t, conn, testQueue)
+			t.Fatalf("created a queue with %#v, which the service refuses", spec)
+		}
+	}
+}

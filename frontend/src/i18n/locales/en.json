@@ -4956,7 +4956,34 @@
           "delivery": "Delivery",
           "shape": "Shape"
         },
-        "note": "A queue holds its messages; a topic holds none and copies each into every subscription whose rules let it through. Counts come from the entity's runtime properties, which the Service Bus emulator does not report."
+        "note": "A queue holds its messages; a topic holds none and copies each into every subscription whose rules let it through. Counts come from the entity's runtime properties, which the Service Bus emulator does not report.",
+        "create": "New entity",
+        "created": "Created {{name}}",
+        "updated": "Saved {{name}}",
+        "deleted": "Deleted {{name}}",
+        "deleteFailed": "Could not delete it",
+        "createTitle": "New queue or topic",
+        "editTitle": "Edit {{name}}",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteQueueDesc": "Everything it holds goes with it, its dead letters included — a $DeadLetterQueue belongs to its queue rather than being one of its own.",
+        "deleteTopicDesc": "This also deletes its {{count}} subscription(s) and whatever they had not delivered. A subscription does not outlive its topic here.",
+        "nameHint": "Letters, digits and - . _ ~, with / between path segments. It cannot be changed afterwards: there is no rename call.",
+        "kindHint": "Chosen once. A queue and a topic are different objects at the same path, so changing it would mean deleting one and losing what it holds.",
+        "lockHint": "How long a receiver holds a message before Service Bus offers it to somebody else. Leave it at 0 for the service's own minute.",
+        "lockRange": "The lock is between 5 and 300 seconds.",
+        "maxDeliveryHint": "Deliveries before a message is moved to the dead-letter queue. Leave it at 0 for the service's own ten.",
+        "maxDeliveryRange": "The delivery limit is between 1 and 2000.",
+        "ttlHint": "How long a message lives whether or not anything reads it. Leave it at 0 to keep what is set, which for a new entity is fourteen days.",
+        "deadLetterOnExpiry": "Dead-letter expired messages",
+        "forwardDeadLettersToHint": "Another entity to hand this one's dead letters to, which is how several queues' failures are collected in one place. Empty removes it.",
+        "fixedAtCreationHint": "Both are fixed once the entity exists — the service refuses to change either.",
+        "nameProblem": {
+          "empty": "Give it a name.",
+          "tooLong": "A queue or topic name is at most 260 characters.",
+          "charset": "Letters, digits and - . _ ~ only, with / between path segments.",
+          "reserved": "A name starting with $ addresses a sub-entity such as $DeadLetterQueue, which has a page of its own.",
+          "separator": "A / separates path segments, so a name cannot start or end with one."
+        }
       }
     }
   }

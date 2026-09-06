@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Page, PageBody, PageHeader, RefreshButton } from "@/design/shell";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -10,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KV, Panel, PanelHeader, SectionLabel } from "@/components";
+import { KV, Panel, PanelHeader, SectionLabel, useConfirm } from "@/components";
 import { BoardState } from "@/design/boards/BoardState";
 import { useServiceBusEntities } from "@/hooks/azureservicebus/useServiceBusEntities";
 import {
@@ -20,6 +22,10 @@ import {
   type ServiceBusEntity,
 } from "@/mq/azureservicebus/entities";
 import { formatCount } from "@/lib/format";
+import { formatErrorMessage } from "@/lib/utils";
+import { useConnectionScope } from "@/mq/ConnectionScope";
+import * as serviceBusApi from "@/api/azureservicebus";
+import { EntityDialogAzureServiceBus } from "./EntityDialogAzureServiceBus";
 
 const MONO11 = { fontSize: "11px" } as const;
 
@@ -65,8 +71,12 @@ export function count(value: number | null): string {
 export function EntitiesAzureServiceBus() {
   const { t } = useTranslation();
   const state = useServiceBusEntities();
+  const { id: connID } = useConnectionScope();
+  const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [editing, setEditing] = useState<ServiceBusEntity | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
 
   const entities = useMemo(() => (state.data ?? []).map(readEntity), [state.data]);
 
@@ -78,6 +88,52 @@ export function EntitiesAzureServiceBus() {
   const detail = useMemo(
     () => shown.find((row) => row.name === selected) ?? shown[0] ?? null,
     [shown, selected],
+  );
+
+  const save = useCallback(
+    async (input: serviceBusApi.AzureServiceBusEntityInput) => {
+      if (editing == null) {
+        await serviceBusApi.createEntity(connID, input);
+        toast.success(t("board.azure-servicebus.entities.created", { name: input.name }));
+      } else {
+        await serviceBusApi.updateEntity(connID, input);
+        toast.success(t("board.azure-servicebus.entities.updated", { name: input.name }));
+      }
+      await state.refresh();
+    },
+    [connID, editing, state, t],
+  );
+
+  /*
+   * The confirmation says what goes with it. An entity's dead letters are a
+   * sub-entity of it rather than a queue of their own, and a topic takes every
+   * subscription on it - so a delete here discards backlogs that no other
+   * board would have shown as being at risk.
+   */
+  const remove = useCallback(
+    async (row: ServiceBusEntity) => {
+      const ok = await confirm({
+        title: t("board.azure-servicebus.entities.deleteTitle", { name: row.name }),
+        description:
+          row.kind === "topic"
+            ? t("board.azure-servicebus.entities.deleteTopicDesc", { count: row.subscribers ?? 0 })
+            : t("board.azure-servicebus.entities.deleteQueueDesc"),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await serviceBusApi.removeEntity(connID, row.name);
+        toast.success(t("board.azure-servicebus.entities.deleted", { name: row.name }));
+        setSelected(null);
+        await state.refresh();
+      } catch (deleteError) {
+        toast.error(t("board.azure-servicebus.entities.deleteFailed"), {
+          description: formatErrorMessage(deleteError),
+        });
+      }
+    },
+    [confirm, connID, state, t],
   );
 
   return (
@@ -96,6 +152,15 @@ export function EntitiesAzureServiceBus() {
               placeholder={t("board.azure-servicebus.entities.search")}
               onChange={(event) => setSearch(event.target.value)}
             />
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              {t("board.azure-servicebus.entities.create")}
+            </Button>
             <RefreshButton
               refreshing={state.refreshing}
               online={state.online}
@@ -103,6 +168,12 @@ export function EntitiesAzureServiceBus() {
             />
           </div>
         }
+      />
+      <EntityDialogAzureServiceBus
+        open={formOpen}
+        editing={editing}
+        onOpenChange={setFormOpen}
+        onSubmit={save}
       />
       <BoardState state={state}>
         <PageBody>
@@ -186,7 +257,16 @@ export function EntitiesAzureServiceBus() {
               </Table>
             </Panel>
 
-            {detail != null && <EntityDetail entry={detail} />}
+            {detail != null && (
+              <EntityDetail
+                entry={detail}
+                onEdit={() => {
+                  setEditing(detail);
+                  setFormOpen(true);
+                }}
+                onRemove={() => void remove(detail)}
+              />
+            )}
           </div>
           <p
             style={{
@@ -204,7 +284,15 @@ export function EntitiesAzureServiceBus() {
   );
 }
 
-function EntityDetail({ entry }: { entry: ServiceBusEntity }) {
+function EntityDetail({
+  entry,
+  onEdit,
+  onRemove,
+}: {
+  entry: ServiceBusEntity;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
   const { t } = useTranslation();
   const isTopic = entry.kind === "topic";
 
@@ -266,6 +354,15 @@ function EntityDetail({ entry }: { entry: ServiceBusEntity }) {
             ],
           ]}
         />
+
+        <div style={{ display: "flex", gap: "6px", marginTop: "12px" }}>
+          <Button size="sm" variant="outline" onClick={onEdit}>
+            {t("common.edit")}
+          </Button>
+          <Button size="sm" variant="destructive" onClick={onRemove}>
+            {t("common.delete")}
+          </Button>
+        </div>
 
         {/* Said where the number is, because a topic nothing subscribes to
             reports success on every send and leaves nothing behind. */}

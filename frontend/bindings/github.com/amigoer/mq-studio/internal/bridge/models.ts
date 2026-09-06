@@ -545,6 +545,108 @@ export class AutoClaimInput {
 }
 
 /**
+ * AzureServiceBusEntityInput is a queue or a topic as its form collects it.
+ * 
+ * Deliberately not TopicService.Create's shape. That one takes a broker
+ * address, two queue counts and a permission string - RocketMQ's vocabulary,
+ * of which a Service Bus entity has none. What it has instead is a delivery
+ * contract: how long a receiver holds a message, how many times it may be
+ * tried, how long it lives, and where it goes when it is given up on.
+ * 
+ * Every duration is zero when the form left it alone, which on an edit means
+ * "keep what is stored".
+ */
+export class AzureServiceBusEntityInput {
+    "name": string;
+
+    /**
+     * Kind is "queue" or "topic" and is fixed once the entity exists: the two
+     * are different objects, so changing it would mean deleting one and
+     * losing whatever it held. The driver refuses rather than doing that.
+     */
+    "kind": string;
+
+    /**
+     * The delivery half, which belongs to a queue. A topic carries none of it:
+     * its subscriptions do, because that is where the messages end up.
+     */
+    "lockDurationSec": number;
+    "maxDeliveryCount": number;
+    "deadLetterOnExpiry": boolean;
+    "ttlSec": number;
+    "autoDeleteOnIdleSec": number;
+    "maxSizeMb": number;
+
+    /**
+     * Fixed at creation: the service refuses all three in an update.
+     */
+    "requiresSession": boolean;
+    "requiresDuplicateDetection": boolean;
+    "partitioned": boolean;
+
+    /**
+     * ForwardTo hands every arriving message to another entity, and
+     * ForwardDeadLettersTo does the same for what this one gives up on. Empty
+     * removes the forwarding, which is the only way to.
+     */
+    "forwardTo": string;
+    "forwardDeadLettersTo": string;
+
+    /** Creates a new AzureServiceBusEntityInput instance. */
+    constructor($$source: Partial<AzureServiceBusEntityInput> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("kind" in $$source)) {
+            this["kind"] = "";
+        }
+        if (!("lockDurationSec" in $$source)) {
+            this["lockDurationSec"] = 0;
+        }
+        if (!("maxDeliveryCount" in $$source)) {
+            this["maxDeliveryCount"] = 0;
+        }
+        if (!("deadLetterOnExpiry" in $$source)) {
+            this["deadLetterOnExpiry"] = false;
+        }
+        if (!("ttlSec" in $$source)) {
+            this["ttlSec"] = 0;
+        }
+        if (!("autoDeleteOnIdleSec" in $$source)) {
+            this["autoDeleteOnIdleSec"] = 0;
+        }
+        if (!("maxSizeMb" in $$source)) {
+            this["maxSizeMb"] = 0;
+        }
+        if (!("requiresSession" in $$source)) {
+            this["requiresSession"] = false;
+        }
+        if (!("requiresDuplicateDetection" in $$source)) {
+            this["requiresDuplicateDetection"] = false;
+        }
+        if (!("partitioned" in $$source)) {
+            this["partitioned"] = false;
+        }
+        if (!("forwardTo" in $$source)) {
+            this["forwardTo"] = "";
+        }
+        if (!("forwardDeadLettersTo" in $$source)) {
+            this["forwardDeadLettersTo"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AzureServiceBusEntityInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AzureServiceBusEntityInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AzureServiceBusEntityInput($$parsedSource as Partial<AzureServiceBusEntityInput>);
+    }
+}
+
+/**
  * BindingInput describes one route.
  */
 export class BindingInput {

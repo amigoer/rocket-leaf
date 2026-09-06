@@ -103,6 +103,9 @@ func (c *Conn) live() error {
 func capabilities() []model.Capability {
 	return []model.Capability{
 		model.CapDestinationList,
+		model.CapDestinationCreate,
+		model.CapDestinationUpdate,
+		model.CapDestinationDelete,
 	}
 }
 
