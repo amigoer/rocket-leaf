@@ -1205,3 +1205,174 @@ func TestLiveDeadLetterQueuesWalkThePointers(t *testing.T) {
 // defaultDeadMsgQueue is the name every endpoint's deadMsgQueue starts at, and
 // no broker creates a queue by it.
 const defaultDeadMsgQueue = "#DEAD_MSG_QUEUE"
+
+/*
+ * The routing topology: topic endpoints as the exchanges, topic subscriptions
+ * as the bindings.
+ *
+ * The seed's events queue carries a wildcard subscription and holds what was
+ * published through it, so both halves of a binding row are checked against
+ * something real: the edge, and the queue depth it is filling.
+ */
+func TestLiveRoutingListsEndpointsAndSubscriptions(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	endpoints, err := conn.ListExchanges(ctx, "")
+	if err != nil {
+		t.Fatalf("list topic endpoints: %v", err)
+	}
+	var seeded *model.Destination
+	for _, endpoint := range endpoints {
+		if endpoint.Ref.Name == seedEndpoint {
+			seeded = endpoint
+		}
+	}
+	if seeded == nil {
+		e2e.Missing(t, "%s is not a topic endpoint; run: npm run e2e:solace:seed", seedEndpoint)
+	}
+	if got := seeded.Attributes[AttrEndpointTopic]; got != seedEndpoint {
+		t.Errorf("topic endpoint's topic = %q, want %q; its name is its subscription",
+			got, seedEndpoint)
+	}
+	if seeded.Depth < 0 {
+		t.Errorf("%s reports an unknown depth, and it is an endpoint that spools", seedEndpoint)
+	}
+
+	bindings, err := conn.ListBindings(ctx, "")
+	if err != nil {
+		t.Fatalf("list bindings: %v", err)
+	}
+	var edge *model.Binding
+	for _, binding := range bindings {
+		if binding.Destination == seedEventsQueue && binding.Source == seedSubscription {
+			edge = binding
+		}
+	}
+	if edge == nil {
+		e2e.Missing(t, "%s does not subscribe to %s; run: npm run e2e:solace:seed",
+			seedEventsQueue, seedSubscription)
+	}
+	if edge.PropertiesKey != seedSubscription {
+		t.Errorf("the binding's handle is %q; a subscription has no name and is deleted "+
+			"by its topic", edge.PropertiesKey)
+	}
+	if edge.Arguments[ArgWildcard] != "true" {
+		t.Errorf("%s is not marked as a wildcard, and it ends in >", seedSubscription)
+	}
+	// Read from the same listing rather than from a second call, so a broker
+	// moving messages between the two cannot make this disagree with itself.
+	if edge.Arguments[ArgQueueDepth] == "0" {
+		t.Errorf("%s reports a depth of 0 on the binding row; the seed publishes through "+
+			"this subscription", seedEventsQueue)
+	}
+}
+
+/*
+ * Adding and removing a subscription, which is what makes a queue receive
+ * anything at all here.
+ *
+ * The assertion that matters is the one after the subscription is added: a
+ * publish to a matching topic reaches a queue that was not named. Nothing else
+ * on this family proves the edge works, because a subscription that matches
+ * nothing looks identical to one that does from every listing.
+ */
+func TestLiveDeclareAndRemoveSubscription(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
+	queue := "mqstudio/test/routed-" + suffix
+	topic := "mqstudio/test/route/" + suffix + "/>"
+
+	if err := conn.CreateDestination(ctx, model.DestinationSpec{
+		Ref: model.DestinationRef{Name: queue},
+	}); err != nil {
+		t.Fatalf("create %s: %v", queue, err)
+	}
+	t.Cleanup(func() {
+		_ = conn.RemoveDestination(context.Background(), model.DestinationRef{Name: queue})
+	})
+
+	binding := model.Binding{Destination: queue, Source: topic, RoutingKey: topic}
+	if err := conn.DeclareBinding(ctx, binding); err != nil {
+		t.Fatalf("subscribe %s to %s: %v", queue, topic, err)
+	}
+
+	if _, err := conn.Publish(ctx, PublishRequest{
+		Target:      TargetTopic,
+		Destination: "mqstudio/test/route/" + suffix + "/created",
+		Body:        "routed",
+	}); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	if err := waitForDepth(t, conn, queue, 1); err != nil {
+		t.Fatalf("the subscription attracted nothing: %v", err)
+	}
+
+	// The same topic twice is refused by name rather than by envelope.
+	if err := conn.DeclareBinding(ctx, binding); err == nil {
+		t.Error("subscribed to the same topic twice")
+	}
+
+	if err := conn.RemoveBinding(ctx, binding); err != nil {
+		t.Fatalf("unsubscribe: %v", err)
+	}
+	if err := conn.RemoveBinding(ctx, binding); err == nil {
+		t.Error("unsubscribed from a topic the queue does not subscribe to")
+	}
+
+	bindings, err := conn.ListBindings(ctx, "")
+	if err != nil {
+		t.Fatalf("list bindings: %v", err)
+	}
+	for _, entry := range bindings {
+		if entry.Destination == queue && entry.Source == topic {
+			t.Errorf("%s still subscribes to %s after it was removed", queue, topic)
+		}
+	}
+}
+
+// Creating and deleting a topic endpoint, and the exchange type that has no
+// counterpart being refused rather than ignored.
+func TestLiveDeclareAndRemoveTopicEndpoint(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	name := "mqstudio/test/endpoint/" + strconv.FormatInt(time.Now().UnixNano(), 36)
+
+	if err := conn.DeclareExchange(ctx, model.ExchangeSpec{Name: name, Type: "topic"}); err == nil {
+		_ = conn.RemoveExchange(ctx, "", name)
+		t.Fatal("accepted an exchange type, and a topic endpoint has none")
+	}
+
+	if err := conn.DeclareExchange(ctx, model.ExchangeSpec{Name: name}); err != nil {
+		t.Fatalf("declare %s: %v", name, err)
+	}
+	removed := false
+	t.Cleanup(func() {
+		if !removed {
+			_ = conn.RemoveExchange(context.Background(), "", name)
+		}
+	})
+
+	endpoints, err := conn.ListExchanges(ctx, "")
+	if err != nil {
+		t.Fatalf("list topic endpoints: %v", err)
+	}
+	present := false
+	for _, endpoint := range endpoints {
+		if endpoint.Ref.Name == name {
+			present = true
+		}
+	}
+	if !present {
+		t.Fatalf("%s is not in the listing after being created", name)
+	}
+
+	if err := conn.RemoveExchange(ctx, "", name); err != nil {
+		t.Fatalf("remove %s: %v", name, err)
+	}
+	removed = true
+	if err := conn.RemoveExchange(ctx, "", name); err == nil {
+		t.Error("removed a topic endpoint that was already gone")
+	}
+}

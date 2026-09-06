@@ -28,6 +28,16 @@ export function CreateQueue(connID: number, input: $models.SolaceQueueInput): $C
 }
 
 /**
+ * CreateTopicEndpoint declares an endpoint whose name is its subscription.
+ * 
+ * No other field: a topic endpoint has no exchange type and nothing to decide
+ * beyond the topic it is called after.
+ */
+export function CreateTopicEndpoint(connID: number, name: string): $CancellablePromise<void> {
+    return $Call.ByID(3424093948, connID, name);
+}
+
+/**
  * DeadMsgQueues lists the queues something else dead-letters into.
  * 
  * Found by walking every endpoint's configuration backwards rather than by
@@ -68,6 +78,35 @@ export function Publish(connID: number, input: $models.SolacePublishInput): $Can
  */
 export function RemoveQueue(connID: number, name: string): $CancellablePromise<void> {
     return $Call.ByID(2355590309, connID, name);
+}
+
+/**
+ * RemoveTopicEndpoint deletes one, and whatever it was holding.
+ */
+export function RemoveTopicEndpoint(connID: number, name: string): $CancellablePromise<void> {
+    return $Call.ByID(2965833628, connID, name);
+}
+
+/**
+ * Subscribe adds a topic subscription to a queue.
+ * 
+ * Two arguments rather than a binding, because there is no exchange between a
+ * topic and a queue here: the source, the routing key and the handle are all
+ * the one topic string.
+ * 
+ * Nothing already spooled moves. A subscription added now attracts what is
+ * published from now on.
+ */
+export function Subscribe(connID: number, queue: string, topic: string): $CancellablePromise<void> {
+    return $Call.ByID(2879240922, connID, queue, topic);
+}
+
+/**
+ * Unsubscribe drops a topic subscription from a queue. What it already brought
+ * stays where it is.
+ */
+export function Unsubscribe(connID: number, queue: string, topic: string): $CancellablePromise<void> {
+    return $Call.ByID(2611046851, connID, queue, topic);
 }
 
 // Private type creation functions

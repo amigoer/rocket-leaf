@@ -169,3 +169,34 @@ func (s *SolaceService) Publish(connID int, input SolacePublishInput) (*SolacePu
 func (s *SolaceService) DeadMsgQueues(connID int) ([]*model.DeadLetterQueue, error) {
 	return s.service.DeadLetters(context.Background(), connID)
 }
+
+// Subscribe adds a topic subscription to a queue.
+//
+// Two arguments rather than a binding, because there is no exchange between a
+// topic and a queue here: the source, the routing key and the handle are all
+// the one topic string.
+//
+// Nothing already spooled moves. A subscription added now attracts what is
+// published from now on.
+func (s *SolaceService) Subscribe(connID int, queue, topic string) error {
+	return s.service.Subscribe(context.Background(), connID, queue, topic)
+}
+
+// Unsubscribe drops a topic subscription from a queue. What it already brought
+// stays where it is.
+func (s *SolaceService) Unsubscribe(connID int, queue, topic string) error {
+	return s.service.Unsubscribe(context.Background(), connID, queue, topic)
+}
+
+// CreateTopicEndpoint declares an endpoint whose name is its subscription.
+//
+// No other field: a topic endpoint has no exchange type and nothing to decide
+// beyond the topic it is called after.
+func (s *SolaceService) CreateTopicEndpoint(connID int, name string) error {
+	return s.service.CreateTopicEndpoint(context.Background(), connID, name)
+}
+
+// RemoveTopicEndpoint deletes one, and whatever it was holding.
+func (s *SolaceService) RemoveTopicEndpoint(connID int, name string) error {
+	return s.service.RemoveTopicEndpoint(context.Background(), connID, name)
+}

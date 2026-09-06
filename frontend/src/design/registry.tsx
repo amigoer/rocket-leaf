@@ -86,6 +86,7 @@ import { QueuesSolace } from "./boards/topics/QueuesSolace";
 import { QueuesIbmMq } from "./boards/topics/QueuesIbmMq";
 import { ShardsKinesis } from "./boards/shards/ShardsKinesis";
 import { ChannelsIbmMq } from "./boards/channels/ChannelsIbmMq";
+import { RoutingSolace } from "./boards/topics/RoutingSolace";
 import { RulesAzureServiceBus } from "./boards/topics/RulesAzureServiceBus";
 import { SubscriptionsGooglePubSub } from "./boards/consumers/SubscriptionsGooglePubSub";
 import { SubscriptionsAzureServiceBus } from "./boards/consumers/SubscriptionsAzureServiceBus";
@@ -202,6 +203,10 @@ const BOARDS: Partial<
     // messages reach one subscription, which is a routing topology rather
     // than a setting on the reader.
     "azure-servicebus": RulesAzureServiceBus,
+    // And again, with the strongest claim of the three: a Solace publisher
+    // never names a queue at all, so what has subscribed is the whole of what
+    // decides where a message lands.
+    solace: RoutingSolace,
   },
   vhosts: { rabbitmq: VhostsRabbitMQ, pulsar: NamespacesPulsar, nats: AccountsNats },
   policies: { rabbitmq: PoliciesRabbitMQ },

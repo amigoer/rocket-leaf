@@ -5896,6 +5896,42 @@
           "sources": "Pointed at by"
         },
         "note": "Nothing on this broker marks a queue as a dead message queue. Every row here is an ordinary queue that another endpoint names."
+      },
+      "routing": {
+        "count": "{{subscriptions}} subscriptions · {{endpoints}} topic endpoints",
+        "search": "Filter by topic or queue",
+        "subscribe": "Subscribe a queue",
+        "subscribeTitle": "Subscribe a queue to a topic",
+        "topic": "Topic",
+        "queue": "Queue",
+        "queueDepth": "Queue holds",
+        "wildcard": "wildcard",
+        "matches": "Matches",
+        "matchesOne": "one topic",
+        "matchesMany": "every topic the pattern covers",
+        "pickQueue": "Choose a queue",
+        "queueHint": "The queue that will receive whatever matches.",
+        "topicHint": "* is one level or the end of one; > is the rest of the topic and only ever last.",
+        "topicProblem": {
+          "empty": "A topic is required.",
+          "midLevelWildcard": "* stands for a whole level or the end of one. Inside a level it is a literal character and matches nothing.",
+          "trailingWildcardPlacement": "> stands for the rest of the topic and can only be the last character."
+        },
+        "addNote": "Only what is published from now on. Nothing already spooled moves.",
+        "added": "{{queue}} now subscribes to {{topic}}",
+        "removeTitle": "Remove {{topic}}?",
+        "removeDesc": "{{queue}} stops receiving what matches. What it already holds stays.",
+        "removeNote": "Removing a subscription stops new messages only. The queue keeps what it already has.",
+        "removed": "Removed {{topic}}",
+        "removeFailed": "Could not remove the subscription",
+        "endpointTopic": "Topic endpoint",
+        "spooled": "Spooled",
+        "accessType": "Access",
+        "noEndpoints": "This Message VPN has no topic endpoints.",
+        "section": {
+          "endpoints": "Topic endpoints"
+        },
+        "note": "A publisher names a topic, never a queue. A queue with no subscriptions receives only what is sent to it by name. A topic endpoint's name is its subscription."
       }
     }
   }

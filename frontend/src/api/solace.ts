@@ -72,3 +72,34 @@ export const publish = (
  */
 export const deadMsgQueues = async (connID: number): Promise<DeadLetterQueue[]> =>
   present(await SolaceService.DeadMsgQueues(connID));
+
+/**
+ * Add a topic subscription to a queue.
+ *
+ * Two arguments rather than a binding, because there is no exchange between a
+ * topic and a queue here: the source, the routing key and the handle are all
+ * the one topic string.
+ *
+ * Nothing already spooled moves. A subscription added now attracts what is
+ * published from now on, which is worth knowing before waiting for a backlog
+ * to appear.
+ */
+export const subscribe = (connID: number, queue: string, topic: string): Promise<void> =>
+  SolaceService.Subscribe(connID, queue, topic);
+
+/** Drop a topic subscription. What it already brought stays where it is. */
+export const unsubscribe = (connID: number, queue: string, topic: string): Promise<void> =>
+  SolaceService.Unsubscribe(connID, queue, topic);
+
+/**
+ * Declare a topic endpoint, whose name is its subscription.
+ *
+ * No other field: it has no exchange type and nothing to decide beyond the
+ * topic it is called after.
+ */
+export const createTopicEndpoint = (connID: number, name: string): Promise<void> =>
+  SolaceService.CreateTopicEndpoint(connID, name);
+
+/** Delete a topic endpoint, and whatever it was holding. */
+export const removeTopicEndpoint = (connID: number, name: string): Promise<void> =>
+  SolaceService.RemoveTopicEndpoint(connID, name);

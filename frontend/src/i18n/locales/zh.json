@@ -5896,6 +5896,42 @@
           "sources": "被指向"
         },
         "note": "该 Broker 不会把任何队列标记为死信队列。这里的每一行都只是被其他端点指向的普通队列。"
+      },
+      "routing": {
+        "count": "{{subscriptions}} 条订阅 · {{endpoints}} 个主题端点",
+        "search": "按主题或队列筛选",
+        "subscribe": "为队列添加订阅",
+        "subscribeTitle": "让队列订阅一个主题",
+        "topic": "主题",
+        "queue": "队列",
+        "queueDepth": "队列堆积",
+        "wildcard": "通配",
+        "matches": "匹配范围",
+        "matchesOne": "单个主题",
+        "matchesMany": "该模式覆盖的所有主题",
+        "pickQueue": "选择队列",
+        "queueHint": "匹配到的消息会进入这个队列。",
+        "topicHint": "* 表示一整层或一层的结尾；> 表示主题剩余部分，且只能放在最后。",
+        "topicProblem": {
+          "empty": "主题不能为空。",
+          "midLevelWildcard": "* 表示一整层或一层的结尾。写在层中间时它只是普通字符，什么也匹配不到。",
+          "trailingWildcardPlacement": "> 表示主题的剩余部分，只能作为最后一个字符。"
+        },
+        "addNote": "只对此后发布的消息生效，已经入队的消息不会移动。",
+        "added": "{{queue}} 已订阅 {{topic}}",
+        "removeTitle": "移除 {{topic}}？",
+        "removeDesc": "{{queue}} 将不再接收匹配的消息，已有的消息会保留。",
+        "removeNote": "移除订阅只影响后续消息，队列中已有的内容会保留。",
+        "removed": "已移除 {{topic}}",
+        "removeFailed": "移除订阅失败",
+        "endpointTopic": "主题端点",
+        "spooled": "堆积",
+        "accessType": "访问模式",
+        "noEndpoints": "该 Message VPN 没有主题端点。",
+        "section": {
+          "endpoints": "主题端点"
+        },
+        "note": "发布者只指定主题，从不指定队列。没有订阅的队列只能收到按名称直接发送的消息。主题端点的名称就是它的订阅。"
       }
     }
   }

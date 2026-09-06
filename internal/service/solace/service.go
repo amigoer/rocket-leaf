@@ -160,3 +160,56 @@ func (s *Service) DeadLetters(ctx context.Context, connID int) ([]*model.DeadLet
 	defer cancel()
 	return api.DeadLetterQueues(ctx, "")
 }
+
+/*
+ * Subscribe adds a topic subscription to a queue, and Unsubscribe removes one.
+ *
+ * Beside the canonical routing service because that one only reads. They are
+ * spelled in this family's vocabulary rather than RoutingMutator's: there is
+ * no exchange between a topic and a queue here, so a binding's source, routing
+ * key and handle are all the one string, and a form that collected three would
+ * be asking the same question three times.
+ */
+func (s *Service) Subscribe(ctx context.Context, connID int, queue, topic string) error {
+	api, err := s.solaceConn(connID, model.CapRoutingAdmin)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.DeclareBinding(ctx, model.Binding{Destination: queue, RoutingKey: topic})
+}
+
+// Unsubscribe drops a topic subscription from a queue. Nothing already spooled
+// moves: the queue keeps whatever the subscription already brought it.
+func (s *Service) Unsubscribe(ctx context.Context, connID int, queue, topic string) error {
+	api, err := s.solaceConn(connID, model.CapRoutingAdmin)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.RemoveBinding(ctx, model.Binding{Destination: queue, RoutingKey: topic})
+}
+
+// CreateTopicEndpoint declares an endpoint whose name is its subscription.
+func (s *Service) CreateTopicEndpoint(ctx context.Context, connID int, name string) error {
+	api, err := s.solaceConn(connID, model.CapRoutingAdmin)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.DeclareExchange(ctx, model.ExchangeSpec{Name: name})
+}
+
+// RemoveTopicEndpoint deletes one, and whatever it was holding.
+func (s *Service) RemoveTopicEndpoint(ctx context.Context, connID int, name string) error {
+	api, err := s.solaceConn(connID, model.CapRoutingAdmin)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.RemoveExchange(ctx, "", name)
+}
