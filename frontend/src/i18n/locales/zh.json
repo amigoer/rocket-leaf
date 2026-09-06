@@ -664,6 +664,9 @@
       },
       "degraded": {
         "lagInMonitoring": "订阅的积压量是 num_undelivered_messages，它属于 Cloud Monitoring 指标，而不是订阅对象上的字段——Pub/Sub API 里没有任何接口会返回它。请到 Cloud Monitoring 查看，或者给订阅配一个死信主题，让真正失败的那部分落到能数得清的地方。"
+      },
+      "caveat": {
+        "pullDelivers": "浏览走的是 Pull，也就是消费者用的那个调用：读到的消息在本应用放回去之前对其他消费者不可见，投递次数还会永久加一。如果订阅配了死信主题，这个次数会计入转入死信的判定。"
       }
     }
   },
@@ -4791,6 +4794,26 @@
           "identity": "标识",
           "labels": "标签",
           "snapshots": "还原点"
+        }
+      },
+      "messages": {
+        "title": "消息",
+        "subtitle": "从某个订阅拉取。主题本身没有可浏览的内容。",
+        "pickSubscription": "选择一个拉取型订阅",
+        "pull": "拉取",
+        "found": "已拉取 {{count}} 条",
+        "pullNote": "这是一次真实投递，而不是只看一眼。Pull 是 Pub/Sub 唯一的读取方式，也正是消费者用的那个调用：这里出现的消息在被放回去之前对线上消费者不可见，而且每条消息的投递次数都会永久加一。如果订阅配了死信主题，这个次数会计入转入死信的判定。",
+        "startHere": "选择一个订阅并拉取，看看它当前持有什么。",
+        "nothingHeld": "这个订阅当前没有持有消息，或者已经被消费者先取走了。",
+        "messageId": "消息 ID",
+        "published": "发布时间",
+        "deliveryAttempt": "投递次数",
+        "orderingKey": "排序键",
+        "subscription": "读取自",
+        "body": "消息体",
+        "noAttemptCount": "只有配置了死信主题的订阅，Pub/Sub 才会统计投递次数。这个订阅没有配置，所以没有次数可显示。",
+        "section": {
+          "attributes": "属性"
         }
       }
     }

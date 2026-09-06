@@ -82,6 +82,7 @@ import { QueuesSqs } from "./boards/topics/QueuesSqs";
 import { TopicsGooglePubSub } from "./boards/topics/TopicsGooglePubSub";
 import { SubscriptionsGooglePubSub } from "./boards/consumers/SubscriptionsGooglePubSub";
 import { MessagesSqs } from "./boards/messages/MessagesSqs";
+import { MessagesGooglePubSub } from "./boards/messages/MessagesGooglePubSub";
 import { ProducerSqs } from "./boards/producer/ProducerSqs";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
 import { OverviewSqs } from "./boards/overview/OverviewSqs";
@@ -190,6 +191,7 @@ const BOARDS: Partial<
     nats: MessagesNats,
     activemq: MessagesActiveMQ,
     sqs: MessagesSqs,
+    "google-pubsub": MessagesGooglePubSub,
   },
   dlq: {
     rocketmq: DlqRocketMQ,

@@ -307,3 +307,46 @@ func isTranslationKey(text string) bool {
 	const prefix = "mq.google-pubsub."
 	return strings.HasPrefix(text, prefix) && !strings.Contains(text, " ")
 }
+
+/*
+ * Browsing has to carry its caveat, because the read is the same call a
+ * consumer makes.
+ *
+ * Pull is the only read Pub/Sub has. What it returns is held away from every
+ * other reader for the subscription's ack deadline and its delivery attempt
+ * goes up, which counts towards the dead-letter policy - so a message browsed
+ * often enough is dead-lettered with nothing having failed. The driver hands
+ * every message straight back and still declares this: handing back is not
+ * instantaneous, and the delivery attempt does not come back down.
+ */
+func TestBrowsingCarriesTheCaveatThatItDelivers(t *testing.T) {
+	declared := (&Conn{closed: make(chan struct{})}).declare()
+
+	if !declared.Has(model.CapMessageQuery) {
+		t.Fatal("browsing is not declared at all")
+	}
+	caveat, warned := declared.Caveat(model.CapMessageQuery)
+	if !warned {
+		t.Fatal("browsing is offered with no caveat, and it is not a non-destructive read")
+	}
+	if caveat != pullDelivers {
+		t.Errorf("caveat = %q, want %q", caveat, pullDelivers)
+	}
+	if _, degraded := declared.DegradedReason(model.CapMessageQuery); degraded {
+		t.Error("browsing is both supported and degraded")
+	}
+	if !isTranslationKey(caveat) {
+		t.Errorf("%q is a sentence, not an i18n key", caveat)
+	}
+}
+
+// Reading one message by id is not offered, and the reason is the service's:
+// an id is assigned on publish and echoed on delivery, and no call takes one.
+func TestMessageByIDIsNotOffered(t *testing.T) {
+	if offlineConn().Capabilities().Has(model.CapMessageByID) {
+		t.Error("declares a lookup by message id, and nothing in Pub/Sub indexes one")
+	}
+	if _, err := offlineConn().MessageByID(t.Context(), "orders", "1"); err == nil {
+		t.Error("returned a message for an id nothing can look up")
+	}
+}

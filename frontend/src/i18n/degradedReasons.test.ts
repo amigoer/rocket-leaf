@@ -84,6 +84,10 @@ const CAVEATS: Record<string, string[]> = {
   // internal/driver/sqs/conn.go - the only read SQS has is the one a consumer
   // makes, so a browse hides what it read and raises its receive count.
   sqs: ["receiveHides"],
+  // internal/driver/googlepubsub/conn.go - Pull is the only read Pub/Sub has,
+  // so a browse holds what it read away from consumers and raises its delivery
+  // attempt, which counts towards being dead-lettered.
+  "google-pubsub": ["pullDelivers"],
 };
 
 type Bundle = Record<string, unknown>;

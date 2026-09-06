@@ -28,6 +28,15 @@ const (
 	lagInMonitoring = "mq.google-pubsub.degraded.lagInMonitoring"
 )
 
+// Caveats, as i18n keys for the same reason.
+//
+// A caveat is not a degraded reason: the capability works, and doing it has a
+// consequence worth saying out loud.
+const (
+	// pullDelivers is why browsing is not a free look: the read is a delivery.
+	pullDelivers = "mq.google-pubsub.caveat.pullDelivers"
+)
+
 // Conn is one live connection to one Google Cloud project's Pub/Sub.
 //
 // "One connection" is an authenticated API client rather than a socket:
@@ -111,6 +120,8 @@ func capabilities() []model.Capability {
 		model.CapSubscriptionDelete,
 		model.CapSubscriptionPosition,
 		model.CapOffsetReset,
+
+		model.CapMessageQuery,
 	}
 }
 
@@ -175,7 +186,11 @@ func (c *Conn) declare() model.Capabilities {
 		Degraded: map[model.Capability]string{
 			model.CapSubscriptionLag: lagInMonitoring,
 		},
-		Caveats: map[model.Capability]string{},
+		Caveats: map[model.Capability]string{
+			// Unconditional: Pull is the only read there is, and it is the
+			// same call a consumer makes.
+			model.CapMessageQuery: pullDelivers,
+		},
 	}
 }
 

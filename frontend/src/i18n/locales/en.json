@@ -664,6 +664,9 @@
       },
       "degraded": {
         "lagInMonitoring": "A subscription's backlog is num_undelivered_messages, which is a Cloud Monitoring metric rather than a field on the subscription — no call in the Pub/Sub API reports it. Read it in Cloud Monitoring, or give the subscription a dead-letter topic so what is failing is somewhere countable."
+      },
+      "caveat": {
+        "pullDelivers": "Browsing goes through Pull, which is the same call a consumer makes: what it reads is held away from other consumers until this app hands it back, and its delivery attempt goes up for good. On a subscription with a dead-letter topic, that counts towards being moved there."
       }
     }
   },
@@ -4791,6 +4794,26 @@
           "identity": "Identity",
           "labels": "Labels",
           "snapshots": "Restore points"
+        }
+      },
+      "messages": {
+        "title": "Messages",
+        "subtitle": "Pulled from one subscription. A topic holds nothing to browse.",
+        "pickSubscription": "Pick a pull subscription",
+        "pull": "Pull",
+        "found": "{{count}} pulled",
+        "pullNote": "This is a real delivery, not a look. Pull is the only read Pub/Sub has and it is the call a consumer makes: what appears here was held away from live consumers until it was handed back, and every message's delivery attempt has gone up for good. On a subscription with a dead-letter topic, that counts towards being moved there.",
+        "startHere": "Pick a subscription and pull to see what it is holding.",
+        "nothingHeld": "This subscription is holding nothing, or a consumer took it first.",
+        "messageId": "Message ID",
+        "published": "Published",
+        "deliveryAttempt": "Attempt",
+        "orderingKey": "Ordering key",
+        "subscription": "Read from",
+        "body": "Body",
+        "noAttemptCount": "Pub/Sub counts delivery attempts only on a subscription with a dead-letter topic. This one has none, so there is no count to show.",
+        "section": {
+          "attributes": "Attributes"
         }
       }
     }

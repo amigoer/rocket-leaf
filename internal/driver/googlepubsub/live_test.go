@@ -2,9 +2,13 @@ package googlepubsub
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	pubsub "cloud.google.com/go/pubsub/v2"
 
 	"github.com/amigoer/mq-studio/internal/e2e"
 	"github.com/amigoer/mq-studio/internal/model"
@@ -850,5 +854,185 @@ func TestLiveSnapshotCreateAndDelete(t *testing.T) {
 	}
 	if err := conn.RemoveSnapshot(liveContext(t), snapshot); err == nil {
 		t.Error("deleted a snapshot that was already gone")
+	}
+}
+
+/*
+ * Browsing reads a subscription, not a topic, and the difference is the whole
+ * of what this family's message page had to be rebuilt for.
+ *
+ * The topic holds nothing. Two subscriptions on one topic hold different
+ * messages, and there is no third place with all of them - so the page offers
+ * subscriptions and this call takes one.
+ */
+func TestLiveQueryMessagesReadsASubscription(t *testing.T) {
+	conn := liveConn(t)
+
+	items, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic:      seedAudit,
+		MaxResults: 20,
+	})
+	if err != nil {
+		e2e.Missing(t, "%s is not seeded; run `npm run e2e:google-pubsub:seed` (%v)", seedAudit, err)
+	}
+	if len(items) != 12 {
+		t.Fatalf("browsed %d messages, want the 12 the seed publishes", len(items))
+	}
+	for _, item := range items {
+		if item.Topic != seedAudit {
+			t.Errorf("message reports %q, want the subscription it was read from", item.Topic)
+		}
+		if item.Body == "" {
+			t.Errorf("message %s has an empty body", item.MessageID)
+		}
+		if item.StoreTimestamp <= 0 {
+			t.Errorf("message %s carries no publish time", item.MessageID)
+		}
+		if item.Properties[PropAttributePrefix+"kind"] != "order" {
+			t.Errorf("message %s lost the attribute the seed set: %v",
+				item.MessageID, item.Properties)
+		}
+	}
+	// Newest first, which is this app's ordering rather than the service's:
+	// Pull returns whatever its servers offered, in no order at all.
+	for index := 1; index < len(items); index++ {
+		if items[index-1].StoreTimestamp < items[index].StoreTimestamp {
+			t.Fatalf("messages are not newest first at %d", index)
+		}
+	}
+
+	// A browse names a topic by mistake often enough to be worth a message
+	// that says so rather than a NotFound naming a subscription path.
+	_, err = conn.QueryMessages(liveContext(t), model.MessageQueryParams{Topic: seedOrders})
+	if err == nil {
+		t.Error("browsed a topic name as though it were a subscription")
+	}
+}
+
+// publishForTest puts messages on a topic the test owns.
+//
+// It goes through the client rather than the driver's own send path on
+// purpose: this is arranging a fixture, and a test that browsed the seed's
+// messages instead would spend their delivery attempts - five of them, after
+// which the seed dead-letters itself and every later run sees a different
+// project.
+func publishForTest(t *testing.T, conn *Conn, topic string, count int) {
+	t.Helper()
+	publisher := conn.client.Publisher(conn.topicPath(topic))
+	defer publisher.Stop()
+	for index := 1; index <= count; index++ {
+		result := publisher.Publish(liveContext(t), &pubsub.Message{
+			Data:       []byte(fmt.Sprintf("browse-%d", index)),
+			Attributes: map[string]string{"kind": "browse"},
+		})
+		if _, err := result.Get(liveContext(t)); err != nil {
+			t.Fatalf("publish to %s: %v", topic, err)
+		}
+	}
+}
+
+/*
+ * The caveat, exercised rather than asserted.
+ *
+ * A browse is a delivery: the delivery attempt goes up and does not come back
+ * down, which is what counts towards the dead-letter policy. Browsing the same
+ * subscription twice has to show that - and it also has to show the release
+ * working, because a browse that did not hand its messages back would find
+ * nothing the second time.
+ *
+ * On a topic the test owns, because proving the caveat means spending
+ * delivery attempts and the seed only has five of them.
+ */
+func TestLiveBrowsingDeliversAndHandsBack(t *testing.T) {
+	conn := liveConn(t)
+	topic := "mqs-test-browse-topic"
+	dead := "mqs-test-browse-dead"
+	name := "mqs-test-browse-sub"
+	_ = conn.RemoveSubscription(liveContext(t), model.SubscriptionRef{Name: name})
+	_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: topic})
+	_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: dead})
+	createTopic(t, conn, TopicSpec{Name: topic})
+	createTopic(t, conn, TopicSpec{Name: dead})
+	createSubscription(t, conn, SubscriptionSpec{
+		Name: name, Topic: topic, AckDeadlineSec: 60,
+		DeadLetterTopic: dead, MaxAttempts: 50,
+	})
+	publishForTest(t, conn, topic, 3)
+
+	first, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic:      name,
+		MaxResults: 10,
+	})
+	if err != nil {
+		t.Fatalf("first browse: %v", err)
+	}
+	if len(first) != 3 {
+		t.Fatalf("browsed %d messages, want 3", len(first))
+	}
+
+	attempts := map[string]int{}
+	for _, item := range first {
+		attempt, err := strconv.Atoi(item.Properties[PropDeliveryAttempt])
+		if err != nil {
+			t.Fatalf("message %s reports no delivery attempt, and its subscription has a "+
+				"dead-letter policy: %v", item.MessageID, item.Properties)
+		}
+		attempts[item.MessageID] = attempt
+	}
+
+	// The release is what makes this possible at all: without handing the
+	// first batch back, the second browse would see nothing until the ack
+	// deadline expired a minute later.
+	second, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic:      name,
+		MaxResults: 10,
+	})
+	if err != nil {
+		t.Fatalf("second browse: %v", err)
+	}
+	if len(second) != 3 {
+		t.Fatalf("the second browse found %d messages; the first did not hand its own back",
+			len(second))
+	}
+
+	raised := 0
+	for _, item := range second {
+		attempt, err := strconv.Atoi(item.Properties[PropDeliveryAttempt])
+		if err != nil {
+			continue
+		}
+		if before, seen := attempts[item.MessageID]; seen && attempt > before {
+			raised++
+		}
+	}
+	if raised != len(second) {
+		t.Errorf("browsing twice raised %d of %d delivery attempts, and the caveat says it "+
+			"raises every one; if the service stopped counting a browse, the caveat should go too",
+			raised, len(second))
+	}
+}
+
+// An empty subscription answers empty rather than holding the request open,
+// which is what the per-call window is for: Pub/Sub keeps an unsatisfied pull
+// waiting, and the emulator waits until just short of the caller's deadline.
+func TestLiveBrowsingAnEmptySubscriptionReturnsPromptly(t *testing.T) {
+	conn := liveConn(t)
+
+	started := time.Now()
+	items, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic:      seedIdle,
+		MaxResults: 10,
+	})
+	if err != nil {
+		e2e.Missing(t, "%s is not seeded; run `npm run e2e:google-pubsub:seed` (%v)", seedIdle, err)
+	}
+	if len(items) != 0 {
+		t.Errorf("an idle subscription answered with %d messages", len(items))
+	}
+	// The window is two seconds and the caller's deadline is sixty. Anything
+	// close to the second number means the window stopped being applied.
+	if elapsed := time.Since(started); elapsed > 10*time.Second {
+		t.Errorf("browsing an empty subscription took %v; the per-call window is not being applied",
+			elapsed.Round(time.Second))
 	}
 }
