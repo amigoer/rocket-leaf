@@ -26,11 +26,17 @@ function Fld({
       className="flex min-w-0 flex-col gap-1.5 text-xs"
       style={span ? { gridColumn: "1/3" } : undefined}
     >
-      {/* The label grows and the input sits at the bottom, so two fields side
-          by side line up whatever their hints do. Without this a hint that
-          wraps pushes its own input down and leaves its neighbour's floating
-          half a field above it. */}
-      <span className="flex-1 font-medium">
+      {/*
+        * The free space goes above the label, not below it.
+        *
+        * Both fields in a row are as tall as the taller hint, which is what
+        * lines their inputs up. Growing the label instead put that space
+        * between a short label and its own input: "连接名称" sat four lines
+        * clear of the box it names, while the wrapped hint beside it ran right
+        * down to its own. Pushing the pair down keeps the inputs aligned and
+        * the label against the thing it labels.
+        */}
+      <span className="mt-auto font-medium">
         {label} {hint != null && <span className="font-normal text-(--c-muted-2)">{hint}</span>}
       </span>
       {children}
