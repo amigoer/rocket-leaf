@@ -49,6 +49,9 @@ import {
   OPTION_SQS_ENDPOINT_URL,
   OPTION_SQS_QUEUE_PREFIX,
   OPTION_SQS_REGION,
+  OPTION_PUBSUB_EMULATOR_HOST,
+  OPTION_PUBSUB_PROJECT_ID,
+  OPTION_PUBSUB_RESOURCE_PREFIX,
   OPTION_NATS_CREDS_FILE,
   OPTION_NATS_JS_DOMAIN,
   OPTION_NATS_MONITOR_URL,
@@ -77,6 +80,7 @@ import {
   emptyMqttDraft,
   emptyNsqDraft,
   emptySqsDraft,
+  emptyGooglePubSubDraft,
   emptyActiveMQDraft,
   emptyNatsDraft,
   emptyPulsarDraft,
@@ -92,6 +96,7 @@ import {
   type NatsDraft,
   type NsqDraft,
   type SqsDraft,
+  type GooglePubSubDraft,
   type ActiveMQDraft,
   type ActiveMQMechanism,
   type NatsMechanism,
@@ -119,7 +124,8 @@ export type ProtocolDraft =
   | { protocol: "nats"; value: NatsDraft }
   | { protocol: "activemq"; value: ActiveMQDraft }
   | { protocol: "nsq"; value: NsqDraft }
-  | { protocol: "sqs"; value: SqsDraft };
+  | { protocol: "sqs"; value: SqsDraft }
+  | { protocol: "google-pubsub"; value: GooglePubSubDraft };
 
 /** The protocols this file can build a submission for. */
 export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
@@ -133,6 +139,7 @@ export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
   "activemq",
   "nsq",
   "sqs",
+  "google-pubsub",
 ];
 
 export function isDraftable(protocol: ProtocolId): protocol is ProtocolDraft["protocol"] {
@@ -159,6 +166,8 @@ export function emptyDraft(protocol: ProtocolDraft["protocol"]): ProtocolDraft {
       return { protocol, value: emptyNsqDraft() };
     case "sqs":
       return { protocol, value: emptySqsDraft() };
+    case "google-pubsub":
+      return { protocol, value: emptyGooglePubSubDraft() };
     default:
       return { protocol, value: emptyRocketMQDraft() };
   }
@@ -184,6 +193,8 @@ export function toSubmission(draft: ProtocolDraft): Submission {
       return nsqSubmission(draft.value);
     case "sqs":
       return sqsSubmission(draft.value);
+    case "google-pubsub":
+      return googlePubSubSubmission(draft.value);
     default:
       return rocketMQSubmission(draft.value);
   }
@@ -210,6 +221,8 @@ export function toDraft(profile: ConnectionProfile): ProtocolDraft {
       return { protocol: "nsq", value: toNsqDraft(profile) };
     case MQKind.KindSQS:
       return { protocol: "sqs", value: toSqsDraft(profile) };
+    case MQKind.KindGooglePubSub:
+      return { protocol: "google-pubsub", value: toGooglePubSubDraft(profile) };
     default:
       return { protocol: "rocketmq", value: toRocketMQDraft(profile) };
   }
@@ -922,6 +935,74 @@ function toSqsDraft(profile: ConnectionProfile): SqsDraft {
     timeoutSec: profile.timeoutSec,
     // A profile signing with the machine's own identity has no credential to
     // keep, whatever is still sitting in the secret store.
+    credentialsStored:
+      profile.authMechanism === AuthMechanism.AuthPlain && profile.secretsConfigured.length > 0,
+    clearCredentials: false,
+  };
+}
+
+/*
+ * The second submission with nothing to put in `endpoints`, and the first
+ * whose credential is a whole document.
+ *
+ * The empty string is the point of the family: the project is an option, the
+ * client builds the endpoint from nothing at all, and the driver declares no
+ * endpoint field - which is what lets the connection service accept a profile
+ * whose address is blank rather than refusing it as unfinished.
+ *
+ * The key is optional. Absent, the driver uses Application Default Credentials
+ * - a gcloud login, GOOGLE_APPLICATION_CREDENTIALS, the metadata server on a
+ * workload inside Google Cloud - so an empty field is a real choice rather
+ * than a blank form, which is why the mechanism drops to none rather than
+ * staying plain and connecting with nothing to sign with.
+ */
+function googlePubSubSubmission(draft: GooglePubSubDraft): Submission {
+  const credentials = draft.credentialsJson.trim();
+  const keepStored = draft.credentialsStored && !draft.clearCredentials;
+
+  return {
+    draft: {
+      name: draft.name.trim(),
+      group: draft.group,
+      kind: MQKind.KindGooglePubSub,
+      // No address, because there is none. The project below is what says
+      // where the topics are.
+      endpoints: "",
+      timeoutSec: draft.timeoutSec,
+      authMechanism:
+        credentials !== "" || keepStored ? AuthMechanism.AuthPlain : AuthMechanism.AuthNone,
+      options: {
+        [OPTION_PUBSUB_PROJECT_ID]: draft.projectId.trim(),
+        [OPTION_PUBSUB_RESOURCE_PREFIX]: draft.resourcePrefix.trim(),
+        [OPTION_PUBSUB_EMULATOR_HOST]: draft.emulatorHost.trim(),
+      },
+      secrets: {
+        // Not accessKey and secretKey: those two names are reserved for
+        // RocketMQ's ACL and are cleared on save for any other family.
+        // The key is sent verbatim rather than trimmed of its newlines - it
+        // is JSON, and the private key inside it is line-sensitive.
+        googleCredentialsJson: credentials,
+      },
+      remark: draft.remark,
+    },
+    credentialsMode: draft.clearCredentials ? "clear" : keepStored ? "preserve" : "replace",
+  };
+}
+
+function toGooglePubSubDraft(profile: ConnectionProfile): GooglePubSubDraft {
+  return {
+    name: profile.name,
+    projectId: profile.options?.[OPTION_PUBSUB_PROJECT_ID] ?? "",
+    // Secrets never come back from the store. Blank with credentialsStored set
+    // is what tells the form to say "kept" rather than "empty".
+    credentialsJson: "",
+    resourcePrefix: profile.options?.[OPTION_PUBSUB_RESOURCE_PREFIX] ?? "",
+    emulatorHost: profile.options?.[OPTION_PUBSUB_EMULATOR_HOST] ?? "",
+    group: profile.group,
+    remark: profile.remark,
+    timeoutSec: profile.timeoutSec,
+    // A profile using the machine's own identity has no credential to keep,
+    // whatever is still sitting in the secret store.
     credentialsStored:
       profile.authMechanism === AuthMechanism.AuthPlain && profile.secretsConfigured.length > 0,
     clearCredentials: false,

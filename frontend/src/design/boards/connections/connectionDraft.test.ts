@@ -9,12 +9,14 @@ import {
   emptyRedisDraft,
   emptyRocketMQDraft,
   emptySqsDraft,
+  emptyGooglePubSubDraft,
   type KafkaDraft,
   type MqttDraft,
   type PulsarDraft,
   type RabbitMQDraft,
   type RedisDraft,
   type RocketMQDraft,
+  type GooglePubSubDraft,
 } from "./ConnectionForms";
 import { emptyDraft, isDraftable, toDraft, toSubmission, type ProtocolDraft } from "./connectionDraft";
 import { PROTOCOLS, type ProtocolId } from "@/design/data/protocols";
@@ -807,6 +809,7 @@ describe("the draft registry", () => {
       "activemq",
       "nsq",
       "sqs",
+      "google-pubsub",
     ] as const) {
       expect(isDraftable(protocol)).toBe(true);
       expect(emptyDraft(protocol).protocol).toBe(protocol);
@@ -818,13 +821,13 @@ describe("the draft registry", () => {
   // has a form now, so the list of exceptions is empty and a loop over it
   // would pass vacuously. What is pinned instead is that every tile has one,
   // and that the gate still refuses a name that is not a protocol here at all
-  // - google-pubsub is next on the roadmap and has no driver, which is what
+  // - azure-servicebus is next on the roadmap and has no driver, which is what
   // makes it the honest stand-in.
   it("has a form for every protocol the picker can draw", () => {
     for (const protocol of Object.values(PROTOCOLS)) {
       expect(isDraftable(protocol.id)).toBe(true);
     }
-    expect(isDraftable("google-pubsub" as unknown as ProtocolId)).toBe(false);
+    expect(isDraftable("azure-servicebus" as unknown as ProtocolId)).toBe(false);
   });
 });
 
@@ -1158,5 +1161,132 @@ describe("the picker and the draft registry", () => {
     for (const protocol of PROTOCOL_ORDER) {
       expect(isProtocolReady(protocol), protocol).toBe(isDraftable(protocol));
     }
+  });
+});
+
+/**
+ * Pub/Sub is the second family with no address, and the first whose credential
+ * is a document rather than a pair of strings.
+ *
+ * Two things have to survive the round trip that nothing else here tests. The
+ * empty `endpoints` has to stay empty rather than acquiring an invented value,
+ * and the key has to reach the store under a name of this driver's own -
+ * accessKey and secretKey are RocketMQ's ACL, and a family reusing them has
+ * its credential cleared on save.
+ */
+describe("the Google Pub/Sub connection draft", () => {
+  const filled = (): GooglePubSubDraft => ({
+    ...emptyGooglePubSubDraft(),
+    name: "  pubsub-orders  ",
+    projectId: "  orders-prod  ",
+    credentialsJson: '{"type":"service_account","project_id":"orders-prod"}',
+    resourcePrefix: "team-",
+    emulatorHost: "",
+    timeoutSec: 10,
+  });
+
+  it("submits no address at all, because the family has none", () => {
+    const { draft, credentialsMode } = toSubmission({ protocol: "google-pubsub", value: filled() });
+
+    expect(draft.kind).toBe(MQKind.KindGooglePubSub);
+    expect(draft.name).toBe("pubsub-orders");
+    expect(draft.endpoints).toBe("");
+    expect(draft.options?.projectId).toBe("orders-prod");
+    expect(draft.options?.resourcePrefix).toBe("team-");
+    expect(credentialsMode).toBe("replace");
+  });
+
+  it("stores the key under its own name rather than RocketMQ's ACL pair", () => {
+    const { draft } = toSubmission({ protocol: "google-pubsub", value: filled() });
+
+    expect(draft.secrets?.googleCredentialsJson).toBe(
+      '{"type":"service_account","project_id":"orders-prod"}',
+    );
+    expect(draft.secrets?.accessKey).toBeUndefined();
+    expect(draft.secrets?.secretKey).toBeUndefined();
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthPlain);
+  });
+
+  // No key is Application Default Credentials, which is a deliberate choice on
+  // a workload already inside Google Cloud rather than an unfinished form.
+  it("drops the mechanism to none when no key is given", () => {
+    const { draft, credentialsMode } = toSubmission({
+      protocol: "google-pubsub",
+      value: { ...emptyGooglePubSubDraft(), name: "pubsub-adc", projectId: "orders-prod" },
+    });
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthNone);
+    expect(credentialsMode).toBe("replace");
+  });
+
+  it("keeps a stored key when the form is saved with the field blank", () => {
+    const { credentialsMode } = toSubmission({
+      protocol: "google-pubsub",
+      value: {
+        ...emptyGooglePubSubDraft(),
+        name: "pubsub-orders",
+        projectId: "orders-prod",
+        credentialsStored: true,
+      },
+    });
+    expect(credentialsMode).toBe("preserve");
+  });
+
+  it("clears a stored key when the clear control was used", () => {
+    const { credentialsMode } = toSubmission({
+      protocol: "google-pubsub",
+      value: {
+        ...emptyGooglePubSubDraft(),
+        name: "pubsub-orders",
+        projectId: "orders-prod",
+        credentialsStored: true,
+        clearCredentials: true,
+      },
+    });
+    expect(credentialsMode).toBe("clear");
+  });
+
+  it("reads a stored profile back into the form", () => {
+    const profile = {
+      id: 11,
+      name: "pubsub-orders",
+      group: "",
+      kind: MQKind.KindGooglePubSub,
+      endpoints: "",
+      timeoutSec: 10,
+      authMechanism: AuthMechanism.AuthPlain,
+      options: { projectId: "orders-prod", resourcePrefix: "team-", emulatorHost: "" },
+      secretsConfigured: ["googleCredentialsJson"],
+      remark: "",
+    } as unknown as ConnectionProfile;
+
+    const draft = toDraft(profile);
+    if (draft.protocol !== "google-pubsub") throw new Error("expected a google-pubsub draft");
+    expect(draft.value.projectId).toBe("orders-prod");
+    expect(draft.value.resourcePrefix).toBe("team-");
+    expect(draft.value.credentialsStored).toBe(true);
+    // Secrets never come back from the store; blank plus credentialsStored is
+    // what tells the form to say "kept" rather than "empty".
+    expect(draft.value.credentialsJson).toBe("");
+  });
+
+  // A profile using the machine's own identity has no credential to keep,
+  // whatever an earlier edit left in the secret store.
+  it("does not offer to keep a key an ADC profile will not send", () => {
+    const profile = {
+      id: 12,
+      name: "pubsub-adc",
+      group: "",
+      kind: MQKind.KindGooglePubSub,
+      endpoints: "",
+      timeoutSec: 10,
+      authMechanism: AuthMechanism.AuthNone,
+      options: { projectId: "orders-prod" },
+      secretsConfigured: ["googleCredentialsJson"],
+      remark: "",
+    } as unknown as ConnectionProfile;
+
+    const draft = toDraft(profile);
+    if (draft.protocol !== "google-pubsub") throw new Error("expected a google-pubsub draft");
+    expect(draft.value.credentialsStored).toBe(false);
   });
 });

@@ -646,6 +646,22 @@
       "caveat": {
         "receiveHides": "浏览走的是 ReceiveMessage，也就是消费者用的那个调用：读到的消息在本应用放回去之前对其他消费者不可见，接收次数还会永久加一。如果队列配了重驱策略，这个次数会计入进入死信队列的判定。"
       }
+    },
+    "google-pubsub": {
+      "name": "Google Pub/Sub",
+      "terms": {
+        "destination": "主题",
+        "destinationPlural": "主题",
+        "subscription": "订阅",
+        "subscriptionPlural": "订阅",
+        "backlog": "积压"
+      },
+      "form": {
+        "projectId": "Google Cloud 项目",
+        "credentialsJson": "服务账号密钥",
+        "resourcePrefix": "名称前缀",
+        "emulatorHost": "模拟器地址"
+      }
     }
   },
   "shell": {
@@ -830,6 +846,15 @@
         "messages": "消息",
         "dlq": "死信",
         "producer": "发送",
+        "alerts": "告警"
+      },
+      "google-pubsub": {
+        "overview": "概览",
+        "topics": "主题",
+        "consumers": "订阅",
+        "messages": "消息",
+        "dlq": "死信",
+        "producer": "发布",
         "alerts": "告警"
       }
     }
@@ -1146,6 +1171,20 @@
           "regionRequired": "请填写 AWS 区域——它决定了队列在哪里，请求也用它签名。",
           "credentialPairRequired": "AWS 凭据要两项一起填。两项都留空则改用本机自己的身份。",
           "endpointScheme": "自定义 Endpoint 要填完整 URL——请以 https:// 或 http:// 开头。"
+        },
+        "google-pubsub": {
+          "projectId": "Google Cloud 项目",
+          "projectIdHint": "主题所在的位置。这里没有地址可填：所有项目都通过 pubsub.googleapis.com 访问，而这一项决定了里面资源的名字。",
+          "credentialsJson": "服务账号密钥（可选）",
+          "credentialsJsonHint": "把整个密钥文件粘贴进来，包含首尾花括号——填路径会让密钥以明文留在下载它的地方。留空则使用本机自己的 Google 身份：gcloud 登录、GOOGLE_APPLICATION_CREDENTIALS，或 Google Cloud 内的元数据服务。",
+          "resourcePrefix": "名称前缀（可选）",
+          "resourcePrefixHint": "把所有列表收窄到以此开头的主题和订阅。一个项目下的资源属于所有使用它的人，而这个 API 没有自己的筛选方式。",
+          "emulatorHost": "模拟器地址（可选）",
+          "emulatorHostHint": "Pub/Sub 模拟器的 host:port，也就是 PUBSUB_EMULATOR_HOST 里的那个值。不要带协议头——它是被直接连接的，不是被请求的。填了这一项的连接不带任何凭据，并会如实报告模拟器做不到的事。",
+          "note": "一个项目加一份凭据——这里没有 Broker 地址可填",
+          "projectRequired": "请填写 Google Cloud 项目——每个主题和订阅的名字都由它拼成。",
+          "credentialsNotJson": "请粘贴服务账号密钥本身，而不是它的路径——密钥以花括号开头。想改用本机自己的 Google 身份，把这一项留空即可。",
+          "emulatorHostNoScheme": "模拟器地址只要主机和端口，前面不要加 https://——例如 127.0.0.1:8085。"
         }
       },
       "deleteTitle": "删除连接",

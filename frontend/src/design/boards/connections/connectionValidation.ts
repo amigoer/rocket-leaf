@@ -212,6 +212,29 @@ export function draftInvalidReason(draft: ProtocolDraft, t: Translate): string |
     }
     return null;
   }
+  if (draft.protocol === "google-pubsub") {
+    // The project is this form's address. It is not decoration: every resource
+    // name is built from it, and there is no default to fall back on.
+    if (draft.value.projectId.trim() === "") {
+      return t("page.connections.form.google-pubsub.projectRequired");
+    }
+    // The credential is genuinely optional - blank means the machine's own
+    // Google identity - so what is worth catching is a key that is not the key.
+    // The commonest mistake is pasting the path the file was downloaded to,
+    // which the client library reports as having no credentials at all.
+    const stored = draft.value.credentialsStored && !draft.value.clearCredentials;
+    const credentials = draft.value.credentialsJson.trim();
+    if (!stored && credentials !== "" && !credentials.startsWith("{")) {
+      return t("page.connections.form.google-pubsub.credentialsNotJson");
+    }
+    // A host:port, not a URL: the client dials it with gRPC and a scheme in
+    // front would be part of the hostname.
+    const emulator = draft.value.emulatorHost.trim();
+    if (emulator !== "" && /^[a-z][a-z0-9+.-]*:\/\//i.test(emulator)) {
+      return t("page.connections.form.google-pubsub.emulatorHostNoScheme");
+    }
+    return null;
+  }
   if (draft.protocol === "rocketmq") {
     if (draft.value.endpoints.trim() === "") return t("page.connections.endpointsRequired");
     if (draft.value.version === "5.x" && draft.value.access === "proxy") {

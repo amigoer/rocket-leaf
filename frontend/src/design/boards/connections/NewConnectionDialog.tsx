@@ -29,6 +29,7 @@ import {
   RedisForm,
   RocketMQForm,
   SqsForm,
+  GooglePubSubForm,
 } from "./ConnectionForms";
 import {
   emptyDraft,
@@ -55,6 +56,9 @@ const TILE: Record<ProtocolId, { name: string; versions: string }> = {
   // No version to print: SQS is a managed service with one, whichever AWS
   // is running. What varies is the region, and that is a form field.
   sqs: { name: "Amazon SQS", versions: "managed" },
+  // Managed for the same reason SQS is, and what varies is the project rather
+  // than a region: one address serves every project there is.
+  "google-pubsub": { name: "Google Pub/Sub", versions: "managed" },
 };
 
 /** What the probe last reported, drawn in the footer beside the test button. */
@@ -242,6 +246,11 @@ export function NewConnectionDialog({
         <SqsForm
           value={draft.value}
           onChange={(next) => setDraft({ protocol: "sqs", value: next })}
+        />
+      ) : draft.protocol === "google-pubsub" ? (
+        <GooglePubSubForm
+          value={draft.value}
+          onChange={(next) => setDraft({ protocol: "google-pubsub", value: next })}
         />
       ) : (
         <RocketMQForm

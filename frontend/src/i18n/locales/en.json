@@ -646,6 +646,22 @@
       "caveat": {
         "receiveHides": "Browsing goes through ReceiveMessage, which is the same call a consumer makes: what it reads is hidden from other consumers until this app hands it back, and its receive count goes up for good. On a queue with a redrive policy, that counts towards being dead-lettered."
       }
+    },
+    "google-pubsub": {
+      "name": "Google Pub/Sub",
+      "terms": {
+        "destination": "Topic",
+        "destinationPlural": "Topics",
+        "subscription": "Subscription",
+        "subscriptionPlural": "Subscriptions",
+        "backlog": "Backlog"
+      },
+      "form": {
+        "projectId": "Google Cloud project",
+        "credentialsJson": "Service account key",
+        "resourcePrefix": "Name prefix",
+        "emulatorHost": "Emulator host"
+      }
     }
   },
   "shell": {
@@ -830,6 +846,15 @@
         "messages": "Messages",
         "dlq": "Dead letters",
         "producer": "Send",
+        "alerts": "Alerts"
+      },
+      "google-pubsub": {
+        "overview": "Overview",
+        "topics": "Topics",
+        "consumers": "Subscriptions",
+        "messages": "Messages",
+        "dlq": "Dead letters",
+        "producer": "Publish",
         "alerts": "Alerts"
       }
     }
@@ -1146,6 +1171,20 @@
           "regionRequired": "Name an AWS region — it is what says where the queues are, and the request is signed with it.",
           "credentialPairRequired": "An AWS credential needs both halves. Leave both blank to use this machine's own identity instead.",
           "endpointScheme": "The endpoint override is a full URL — start it with https:// or http://."
+        },
+        "google-pubsub": {
+          "projectId": "Google Cloud project",
+          "projectIdHint": "Where the topics are. There is no address to type: every project is reached at pubsub.googleapis.com, and this is what names the resources inside it.",
+          "credentialsJson": "Service account key (optional)",
+          "credentialsJsonHint": "Paste the whole key file, braces included — a path would leave the key in plain text where it was downloaded. Leave it blank to use this machine's own Google identity: a gcloud login, GOOGLE_APPLICATION_CREDENTIALS, or the metadata server inside Google Cloud.",
+          "resourcePrefix": "Name prefix (optional)",
+          "resourcePrefixHint": "Narrows every listing to topics and subscriptions whose name starts with this. A project's resources belong to everyone using it, and the API offers no filter of its own.",
+          "emulatorHost": "Emulator host (optional)",
+          "emulatorHostHint": "host:port of a Pub/Sub emulator, the same value PUBSUB_EMULATOR_HOST carries. No scheme — it is dialled, not fetched. A connection that names one authenticates with nothing, and reports what the emulator cannot do.",
+          "note": "A project and a credential — there is no broker to address",
+          "projectRequired": "Name a Google Cloud project — it is what every topic and subscription name is built from.",
+          "credentialsNotJson": "Paste the service account key itself, not the path to it — it starts with a brace. Leave the field blank to use this machine's own Google identity instead.",
+          "emulatorHostNoScheme": "The emulator host is a host and a port, with no https:// in front — 127.0.0.1:8085."
         }
       },
       "deleteTitle": "Delete connection",

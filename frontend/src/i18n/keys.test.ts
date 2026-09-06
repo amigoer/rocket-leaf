@@ -23,7 +23,9 @@ const sources = import.meta.glob("../**/*.{ts,tsx}", {
   eager: true,
 }) as Record<string, string>;
 
-const LITERAL_KEY = /\bt\(\s*"([a-zA-Z][\w.]*)"/g;
+// A segment may carry a hyphen - google-pubsub is one family, not two -
+// and a pattern without it silently matched nothing rather than failing.
+const LITERAL_KEY = /\bt\(\s*"([a-zA-Z][\w.-]*)"/g;
 
 function resolves(bundle: unknown, key: string): boolean {
   let node: unknown = bundle;

@@ -50,6 +50,7 @@ const PROTOCOL_BY_KIND: Partial<Record<MQKind, ProtocolId>> = {
   [MQKind.KindActiveMQ]: "activemq",
   [MQKind.KindNSQ]: "nsq",
   [MQKind.KindSQS]: "sqs",
+  [MQKind.KindGooglePubSub]: "google-pubsub",
 };
 
 export function protocolOfKind(kind: MQKind): ProtocolId | null {
@@ -59,15 +60,19 @@ export function protocolOfKind(kind: MQKind): ProtocolId | null {
 /**
  * What the address column shows, which is not always an address.
  *
- * Every family here but one is reached by dialling something, so the profile's
- * endpoints field is what identifies it. SQS is reached by naming a region and
- * signing a request, and its endpoints field is deliberately empty - so a row
- * that printed it would leave the column blank on a perfectly good connection.
- * The region is what says where those queues are, and it is what a reader
- * needs to tell two SQS connections apart.
+ * Most families here are reached by dialling something, so the profile's
+ * endpoints field is what identifies it. The two hosted ones are not: SQS is
+ * reached by naming a region and signing a request, Pub/Sub by naming a
+ * project and authenticating, and both leave endpoints deliberately empty - so
+ * a row that printed it would leave the column blank on a perfectly good
+ * connection, and two of them would look identical.
+ *
+ * What goes there instead is whichever field says where the objects are, which
+ * is the same field each form makes required.
  */
 function addressOf(profile: ConnectionProfile): string {
   if (profile.kind === MQKind.KindSQS) return profile.options?.region ?? "";
+  if (profile.kind === MQKind.KindGooglePubSub) return profile.options?.projectId ?? "";
   return profile.endpoints;
 }
 
