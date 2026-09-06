@@ -8,6 +8,7 @@ import (
 	"github.com/amigoer/mq-studio/internal/crypto"
 	"github.com/amigoer/mq-studio/internal/driver"
 	"github.com/amigoer/mq-studio/internal/driver/activemq"
+	azureservicebusdriver "github.com/amigoer/mq-studio/internal/driver/azureservicebus"
 	googlepubsubdriver "github.com/amigoer/mq-studio/internal/driver/googlepubsub"
 	"github.com/amigoer/mq-studio/internal/driver/kafka"
 	"github.com/amigoer/mq-studio/internal/driver/mqtt"
@@ -20,6 +21,7 @@ import (
 	sqsdriver "github.com/amigoer/mq-studio/internal/driver/sqs"
 	"github.com/amigoer/mq-studio/internal/service/access"
 	activemqservice "github.com/amigoer/mq-studio/internal/service/activemq"
+	azureservicebusservice "github.com/amigoer/mq-studio/internal/service/azureservicebus"
 	"github.com/amigoer/mq-studio/internal/service/cluster"
 	"github.com/amigoer/mq-studio/internal/service/collector"
 	"github.com/amigoer/mq-studio/internal/service/configuration"
@@ -63,6 +65,7 @@ type Services struct {
 	NSQ          *nsqservice.Service
 	SQS          *sqsservice.Service
 	GooglePubSub *googlepubsubservice.Service
+	ServiceBus   *azureservicebusservice.Service
 
 	// Conns resolves a profile id to a live connection. The bridge needs it to
 	// answer capability questions without going through a domain service.
@@ -98,6 +101,7 @@ func New() (*Services, error) {
 	driver.Register(nsqdriver.New())
 	driver.Register(sqsdriver.New())
 	driver.Register(googlepubsubdriver.New())
+	driver.Register(azureservicebusdriver.New())
 
 	registry := driver.NewRegistry()
 	settingsService := settings.New(paths.SettingsFile)
@@ -126,6 +130,7 @@ func New() (*Services, error) {
 		NSQ:          nsqservice.New(conns, settingsService),
 		SQS:          sqsservice.New(conns, settingsService),
 		GooglePubSub: googlepubsubservice.New(conns, settingsService),
+		ServiceBus:   azureservicebusservice.New(conns, settingsService),
 		Conns:        conns,
 		Collector:    collector.New(sampleActiveConnection(clusterService, registry), registry.HasActive),
 		registry:     registry,

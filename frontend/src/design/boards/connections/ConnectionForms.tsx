@@ -2993,3 +2993,239 @@ export function GooglePubSubForm({
     </>
   );
 }
+
+/** Option keys the Azure Service Bus driver reads back off a stored profile. */
+export const OPTION_SB_KEY_NAME = "sharedAccessKeyName";
+export const OPTION_SB_EMULATOR_MANAGEMENT = "emulatorManagementHost";
+export const OPTION_SB_ENTITY_PREFIX = "entityPrefix";
+
+/** The shared access key name every namespace is created with. */
+const SB_DEFAULT_KEY_NAME = "RootManageSharedAccessKey";
+
+/**
+ * The third hosted form, and the first of them with an address row.
+ *
+ * SQS and Pub/Sub have none because a region and a project are not addresses.
+ * A Service Bus namespace is one: myns.servicebus.windows.net resolves, and
+ * the driver opens an AMQP connection to it and sends HTTPS requests to it. So
+ * it takes the endpoint row every dialled family has, and the connection list
+ * prints it in the address column like any other.
+ *
+ * There are two ways to fill this in and both are on the form, because both
+ * are what people actually have. The Azure portal offers a whole connection
+ * string, so there is a field for one; a least-privilege deployment hands out
+ * a policy name and a key instead, so there are fields for those. A pasted
+ * string wins, because it carries an endpoint of its own and a merge would
+ * have to decide which of two disagreeing namespaces was meant.
+ *
+ * The emulator management host is a second port rather than an endpoint
+ * override, and that is the emulator rather than a choice here: it serves AMQP
+ * and its Atom management API on two ports, where a real namespace serves both
+ * on the one host it is named after. A connection that has to be told a second
+ * address is by definition not talking to one, and the driver reads exactly
+ * that to report what the emulator cannot do.
+ */
+export interface AzureServiceBusDraft {
+  name: string;
+  /** The fully qualified namespace. Required: both clients dial it. */
+  endpoints: string;
+  /** Which shared access policy the key below belongs to. */
+  keyName: string;
+  /** The shared access key. Blank is fine only if a string is pasted. */
+  sharedAccessKey: string;
+  /** The whole connection string, for whoever copied one out of the portal. */
+  connectionString: string;
+  /** Narrows every listing. A namespace's entities are not one team's. */
+  entityPrefix: string;
+  /** host:port of a Service Bus emulator's management port. */
+  emulatorManagement: string;
+  group: string;
+  remark: string;
+  timeoutSec: number;
+  credentialsStored: boolean;
+  clearCredentials: boolean;
+}
+
+export function emptyAzureServiceBusDraft(): AzureServiceBusDraft {
+  return {
+    name: "",
+    endpoints: "",
+    keyName: SB_DEFAULT_KEY_NAME,
+    sharedAccessKey: "",
+    connectionString: "",
+    entityPrefix: "",
+    emulatorManagement: "",
+    group: "",
+    remark: "",
+    timeoutSec: DEFAULT_TIMEOUT_SEC,
+    credentialsStored: false,
+    clearCredentials: false,
+  };
+}
+
+/** Azure Service Bus, addressed by a namespace and signed with a shared key. */
+export function AzureServiceBusForm({
+  value,
+  onChange,
+}: {
+  value: AzureServiceBusDraft;
+  onChange: (next: AzureServiceBusDraft) => void;
+}) {
+  const { t } = useTranslation();
+  const set = <K extends keyof AzureServiceBusDraft>(key: K, next: AzureServiceBusDraft[K]) =>
+    onChange({ ...value, [key]: next });
+  const [advancedOpen, setAdvancedOpen] = useState(
+    value.timeoutSec !== DEFAULT_TIMEOUT_SEC ||
+      value.remark !== "" ||
+      value.entityPrefix !== "" ||
+      value.emulatorManagement !== "" ||
+      value.connectionString !== "",
+  );
+  const stored = value.credentialsStored && !value.clearCredentials;
+
+  return (
+    <>
+      <div style={GRID}>
+        <Fld label={t("page.connections.form.name")}>
+          <Input
+            value={value.name}
+            placeholder="servicebus-prod"
+            onChange={(event) => set("name", event.target.value)}
+          />
+        </Fld>
+        <Fld
+          label={t("page.connections.form.azure-servicebus.namespace")}
+          hint={t("page.connections.form.azure-servicebus.namespaceHint")}
+        >
+          <Input
+            className="mono3"
+            style={MONO}
+            value={value.endpoints}
+            placeholder="my-namespace.servicebus.windows.net"
+            onChange={(event) => set("endpoints", event.target.value)}
+          />
+        </Fld>
+        <Fld
+          label={t("page.connections.form.azure-servicebus.keyName")}
+          hint={t("page.connections.form.azure-servicebus.keyNameHint")}
+        >
+          <Input
+            className="mono3"
+            style={MONO}
+            value={value.keyName}
+            placeholder={SB_DEFAULT_KEY_NAME}
+            onChange={(event) => set("keyName", event.target.value)}
+          />
+        </Fld>
+        <Fld
+          label={t("page.connections.form.azure-servicebus.sharedAccessKey")}
+          hint={
+            stored ? (
+              <button
+                type="button"
+                className="mqs-linkbtn"
+                onClick={() => set("clearCredentials", true)}
+              >
+                {t("page.connections.form.clearCredentials")}
+              </button>
+            ) : (
+              t("page.connections.form.azure-servicebus.sharedAccessKeyHint")
+            )
+          }
+        >
+          <Input
+            type="password"
+            value={value.sharedAccessKey}
+            placeholder={stored ? t("page.connections.form.secretStored") : ""}
+            onChange={(event) => set("sharedAccessKey", event.target.value)}
+          />
+        </Fld>
+      </div>
+
+      <FormNote
+        advanced={
+          <button
+            type="button"
+            className="mqs-disclosure"
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((open) => !open)}
+          >
+            <ChevronRight size={12} aria-hidden />
+            {t("page.connections.form.rocketmq.advanced")}
+          </button>
+        }
+        note={t("page.connections.form.azure-servicebus.note")}
+      />
+      {advancedOpen && (
+        <div style={GRID}>
+          <Fld
+            span
+            label={t("page.connections.form.azure-servicebus.connectionString")}
+            hint={t("page.connections.form.azure-servicebus.connectionStringHint")}
+          >
+            {/* A textarea rather than a password input: the string runs past
+                a hundred characters, and a form that showed four of them
+                could not be checked by the person pasting it. */}
+            <textarea
+              className="mono3 min-h-14 rounded-md border border-(--c-line) bg-(--c-surface) px-2.5 py-2 outline-none focus-visible:border-(--c-accent)"
+              style={MONO}
+              spellCheck={false}
+              value={value.connectionString}
+              placeholder={
+                stored
+                  ? t("page.connections.form.secretStored")
+                  : "Endpoint=sb://...;SharedAccessKeyName=...;SharedAccessKey=..."
+              }
+              onChange={(event) => set("connectionString", event.target.value)}
+            />
+          </Fld>
+          <Fld
+            label={t("page.connections.form.azure-servicebus.entityPrefix")}
+            hint={t("page.connections.form.azure-servicebus.entityPrefixHint")}
+          >
+            <Input
+              className="mono3"
+              style={MONO}
+              value={value.entityPrefix}
+              placeholder="team-orders-"
+              onChange={(event) => set("entityPrefix", event.target.value)}
+            />
+          </Fld>
+          <Fld
+            label={t("page.connections.form.rocketmq.timeout")}
+            hint={t("page.connections.form.rocketmq.timeoutHint")}
+          >
+            <Input
+              type="number"
+              value={value.timeoutSec > 0 ? String(value.timeoutSec) : ""}
+              onChange={(event) => {
+                const seconds = Number.parseInt(event.target.value, 10);
+                set("timeoutSec", Number.isNaN(seconds) ? 0 : seconds);
+              }}
+            />
+          </Fld>
+          <Fld
+            span
+            label={t("page.connections.form.azure-servicebus.emulatorManagement")}
+            hint={t("page.connections.form.azure-servicebus.emulatorManagementHint")}
+          >
+            <Input
+              className="mono3"
+              style={MONO}
+              value={value.emulatorManagement}
+              placeholder="127.0.0.1:5300"
+              onChange={(event) => set("emulatorManagement", event.target.value)}
+            />
+          </Fld>
+          <Fld
+            span
+            label={t("page.connections.form.remark")}
+            hint={t("page.connections.form.remarkHint")}
+          >
+            <Input value={value.remark} onChange={(event) => set("remark", event.target.value)} />
+          </Fld>
+        </div>
+      )}
+    </>
+  );
+}

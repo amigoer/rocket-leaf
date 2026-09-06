@@ -71,7 +71,25 @@ export type AlertRuleKey =
    * alert is about.
    */
   | "topicUnsubscribed"
-  | "subscriptionOrphaned";
+  | "subscriptionOrphaned"
+  /*
+   * Service Bus's two, and no other family here can raise either.
+   *
+   * A subscription with no rules receives nothing. It is not
+   * subscriptionOrphaned - its topic is perfectly alive - and it is not
+   * queueNoConsumer, whose sentence reads "N waiting, no consumer attached":
+   * there is no N, because nothing can arrive to wait. The state is reached by
+   * deleting the $Default rule and not replacing it, and every figure about
+   * the subscription goes on looking healthy afterwards.
+   *
+   * An entity that is disabled, or has sends or receives switched off, is the
+   * quietest fault this app can show. A send to a SendDisabled queue is
+   * refused at the client and leaves no mark on any board; a ReceiveDisabled
+   * one fills up while reporting nothing unusual. Only Service Bus has a
+   * per-entity status this can read.
+   */
+  | "subscriptionUnroutable"
+  | "entityDisabled";
 
 export type AlertRulePrefs = Record<AlertRuleKey, boolean>;
 
@@ -82,6 +100,8 @@ export const ALERT_RULE_KEYS: readonly AlertRuleKey[] = [
   "deliveryPaused",
   "topicUnsubscribed",
   "subscriptionOrphaned",
+  "subscriptionUnroutable",
+  "entityDisabled",
   "subscriptionBlocked",
   "resourceAlarm",
   "nodePartition",
@@ -257,6 +277,33 @@ const RULES_BY_KIND: Partial<Record<MQKind, readonly AlertRuleKey[]>> = {
    * subscription listing already says whose topic has been deleted.
    */
   [MQKind.KindGooglePubSub]: ["topicUnsubscribed", "subscriptionOrphaned"],
+  /*
+   * Four, and the absences are the service rather than the driver.
+   *
+   * There is no node, so brokerOffline cannot fire, and no storage figure
+   * anywhere, so diskUsage has nothing to read. Nothing registers as a
+   * consumer - a queue is read by whoever opens a receiver on it - so
+   * groupOffline and queueNoConsumer would assert something the service
+   * cannot support.
+   *
+   * The backlog rules are absent for a different reason and it is worth
+   * separating: Service Bus does report an active message count, and a real
+   * namespace answers it. What it cannot do is tell a rule apart from an
+   * endpoint that reports no counts at all, which the emulator is - so a
+   * backlog alert would fire on the emulator rather than on a backlog. The
+   * depths stay on the boards, which draw a dash for the difference.
+   *
+   * What is left costs nothing the sweep was not already paying for: the
+   * entity listing carries every topic's subscription count, every entity's
+   * status and its dead-letter count, and the subscription listing carries
+   * the rules that decide whether anything can reach one.
+   */
+  [MQKind.KindAzureServiceBus]: [
+    "topicUnsubscribed",
+    "subscriptionUnroutable",
+    "entityDisabled",
+    "dlqGrowth",
+  ],
 };
 
 const ROCKETMQ_RULES: readonly AlertRuleKey[] = [
@@ -290,6 +337,7 @@ const STORAGE_KEY = "mq-studio:alert-rules";
 export const DESTINATION_RULES: readonly AlertRuleKey[] = [
   "deliveryPaused",
   "topicUnsubscribed",
+  "entityDisabled",
   "queueNoConsumer",
   "queueBacklog",
   "dlqGrowth",
@@ -320,6 +368,7 @@ export const KINDS_NEEDING_DESTINATIONS: readonly MQKind[] = [
   MQKind.KindNSQ,
   MQKind.KindSQS,
   MQKind.KindGooglePubSub,
+  MQKind.KindAzureServiceBus,
 ];
 
 export const DEFAULT_ALERT_RULES: AlertRulePrefs = {
@@ -344,6 +393,8 @@ export const DEFAULT_ALERT_RULES: AlertRulePrefs = {
   deliveryPaused: true,
   topicUnsubscribed: true,
   subscriptionOrphaned: true,
+  subscriptionUnroutable: true,
+  entityDisabled: true,
 };
 
 function read(): AlertRulePrefs {

@@ -3,6 +3,7 @@
 
 import * as ACLService from "./aclservice.js";
 import * as ActiveMQService from "./activemqservice.js";
+import * as AzureServiceBusService from "./azureservicebusservice.js";
 import * as ClusterService from "./clusterservice.js";
 import * as ConnectionService from "./connectionservice.js";
 import * as ConsumerService from "./consumerservice.js";
@@ -27,6 +28,7 @@ import * as WindowService from "./windowservice.js";
 export {
     ACLService,
     ActiveMQService,
+    AzureServiceBusService,
     ClusterService,
     ConnectionService,
     ConsumerService,
@@ -61,6 +63,11 @@ export {
     ActiveMQSubscribeInput,
     ActiveMQSubscriptionInput,
     AutoClaimInput,
+    AzureServiceBusEntityInput,
+    AzureServiceBusRuleInput,
+    AzureServiceBusSendInput,
+    AzureServiceBusSendResult,
+    AzureServiceBusSubscriptionInput,
     BindingInput,
     ClaimInput,
     ClusterView,

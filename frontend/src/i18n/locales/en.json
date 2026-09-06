@@ -208,7 +208,9 @@
       "deliveryPaused": "Delivery paused",
       "slowConsumer": "Clients dropped for falling behind",
       "topicUnsubscribed": "Topic with no subscription",
-      "subscriptionOrphaned": "Subscription whose topic is gone"
+      "subscriptionOrphaned": "Subscription whose topic is gone",
+      "subscriptionUnroutable": "Subscription with no rule",
+      "entityDisabled": "Entity switched off"
     },
     "tabs": {
       "active": "Active",
@@ -264,7 +266,9 @@
       "deliveryPaused": "{{target}} · {{lag}} waiting; publishing carries on and nothing is delivered while it is paused",
       "slowConsumer": "{{broker}} · {{count}} client(s) disconnected since the server started; what they missed is gone",
       "topicUnsubscribed": "{{topic}} · nothing subscribes; every message published here is accepted and discarded",
-      "subscriptionOrphaned": "{{subscription}} · its topic has been deleted; it will never receive another message and still holds what it has"
+      "subscriptionOrphaned": "{{subscription}} · its topic has been deleted; it will never receive another message and still holds what it has",
+      "subscriptionUnroutable": "{{subscription}} · no rules, so nothing can reach it; it stays Active with an empty backlog because nothing arrives",
+      "entityDisabled": "{{entity}} · status {{status}}; work is refused at the client and leaves no mark on any board"
     },
     "duration": {
       "minutes": "for {{count}} min",
@@ -672,6 +676,27 @@
       "caveat": {
         "pullDelivers": "Browsing goes through Pull, which is the same call a consumer makes: what it reads is held away from other consumers until this app hands it back, and its delivery attempt goes up for good. On a subscription with a dead-letter topic, that counts towards being moved there."
       }
+    },
+    "azure-servicebus": {
+      "name": "Azure Service Bus",
+      "terms": {
+        "destination": "Entity",
+        "destinationPlural": "Queues & topics",
+        "subscription": "Subscription",
+        "subscriptionPlural": "Subscriptions",
+        "backlog": "Active"
+      },
+      "form": {
+        "namespace": "Namespace",
+        "keyName": "Shared access policy",
+        "sharedAccessKey": "Shared access key",
+        "connectionString": "Connection string",
+        "entityPrefix": "Name prefix",
+        "emulatorManagement": "Emulator management host"
+      },
+      "degraded": {
+        "countsNotInEmulator": "The Service Bus emulator reports no message counts: a queue's and a topic's description carry no CountDetails element at all, and a subscription's carries one the SDK cannot read. Depths and backlogs are blank here and only here — a real namespace reports both."
+      }
     }
   },
   "shell": {
@@ -865,6 +890,16 @@
         "messages": "Messages",
         "dlq": "Dead letters",
         "producer": "Publish",
+        "alerts": "Alerts"
+      },
+      "azure-servicebus": {
+        "overview": "Overview",
+        "topics": "Queues & topics",
+        "consumers": "Subscriptions",
+        "exchanges": "Rules",
+        "messages": "Messages",
+        "dlq": "Dead letters",
+        "producer": "Send",
         "alerts": "Alerts"
       }
     }
@@ -1195,6 +1230,25 @@
           "projectRequired": "Name a Google Cloud project — it is what every topic and subscription name is built from.",
           "credentialsNotJson": "Paste the service account key itself, not the path to it — it starts with a brace. Leave the field blank to use this machine's own Google identity instead.",
           "emulatorHostNoScheme": "The emulator host is a host and a port, with no https:// in front — 127.0.0.1:8085."
+        },
+        "azure-servicebus": {
+          "namespace": "Namespace",
+          "namespaceHint": "The fully qualified namespace, as the portal spells it. Unlike a region or a project this is a real address: messages go to it over AMQP and the topology is read from it over HTTPS.",
+          "keyName": "Shared access policy",
+          "keyNameHint": "Which authorization rule the key belongs to. RootManageSharedAccessKey is the one every namespace is created with; a least-privilege deployment has others.",
+          "sharedAccessKey": "Shared access key",
+          "sharedAccessKeyHint": "The key's primary or secondary value. Leave it blank only if you paste a whole connection string instead — Service Bus has no ambient credential to fall back on.",
+          "connectionString": "Connection string (optional)",
+          "connectionStringHint": "The whole string from the portal, if that is what you have. It wins over the policy and key above, because it carries an endpoint of its own.",
+          "entityPrefix": "Name prefix (optional)",
+          "entityPrefixHint": "Narrows every listing to queues, topics and subscriptions whose name starts with this. A namespace's entities belong to everyone using it, and the API offers no filter of its own.",
+          "emulatorManagement": "Emulator management host (optional)",
+          "emulatorManagementHint": "host:port of a Service Bus emulator's management port, which is a second port beside the AMQP one above. No scheme. A connection that names one is talking to an emulator, and reports what the emulator cannot do.",
+          "note": "A namespace and a shared access key — or the connection string that holds both",
+          "namespaceRequired": "Name the namespace — my-namespace.servicebus.windows.net. Both halves of this driver dial it.",
+          "credentialRequired": "Give a shared access key, or paste a connection string. Service Bus signs every call and has no ambient credential to fall back on.",
+          "connectionStringMalformed": "That is not a connection string — a Service Bus one starts with Endpoint=sb:// and carries SharedAccessKeyName and SharedAccessKey.",
+          "emulatorManagementNoScheme": "The emulator management host is a host and a port, with no http:// in front — 127.0.0.1:5300."
         }
       },
       "deleteTitle": "Delete connection",
@@ -1402,7 +1456,7 @@
         "aheadOfRelease": "Local v{{current}} is newer than published v{{latest}}",
         "upToDate": "You are on the latest version v{{version}}",
         "updateCheckFailed": "Could not check for updates",
-        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, and Google Pub/Sub without deploying a separate console."
+        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, and Azure Service Bus without deploying a separate console."
       }
     }
   },
@@ -4873,6 +4927,261 @@
         "withDeadLettersHint": "Subscriptions that give up into another topic after a set number of attempts.",
         "busiest": "Most-read topics",
         "note": "No backlog and no throughput here: both are Cloud Monitoring metrics, under a different API and a different credential."
+      }
+    },
+    "azure-servicebus": {
+      "entities": {
+        "count": "{{queues}} queue(s), {{topics}} topic(s)",
+        "search": "Filter by name",
+        "name": "Name",
+        "kind": "Kind",
+        "kindQueue": "queue",
+        "kindTopic": "topic",
+        "depth": "Active",
+        "deadLetters": "Dead letters",
+        "scheduled": "Scheduled",
+        "subscribers": "Subscriptions",
+        "subscriptionNames": "Names",
+        "status": "Status",
+        "lockDuration": "Lock duration",
+        "maxDelivery": "Delivery limit",
+        "ttl": "Time to live",
+        "autoDelete": "Auto-delete on idle",
+        "maxSize": "Maximum size",
+        "sessions": "Sessions",
+        "duplicateDetection": "Duplicate detection",
+        "partitioned": "Partitioned",
+        "forwardTo": "Forward to",
+        "forwardDeadLettersTo": "Forward dead letters to",
+        "noSubscriberBadge": "no subscription",
+        "noSubscriberNote": "Nothing subscribes to this topic, so every message sent to it is accepted and discarded on arrival. It leaves no backlog anywhere.",
+        "section": {
+          "holding": "Holding",
+          "delivery": "Delivery",
+          "shape": "Shape"
+        },
+        "note": "A queue holds its messages; a topic holds none and copies each into every subscription whose rules let it through. Counts come from the entity's runtime properties, which the Service Bus emulator does not report.",
+        "create": "New entity",
+        "created": "Created {{name}}",
+        "updated": "Saved {{name}}",
+        "deleted": "Deleted {{name}}",
+        "deleteFailed": "Could not delete it",
+        "createTitle": "New queue or topic",
+        "editTitle": "Edit {{name}}",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteQueueDesc": "Everything it holds goes with it, its dead letters included — a $DeadLetterQueue belongs to its queue rather than being one of its own.",
+        "deleteTopicDesc": "This also deletes its {{count}} subscription(s) and whatever they had not delivered. A subscription does not outlive its topic here.",
+        "nameHint": "Letters, digits and - . _ ~, with / between path segments. It cannot be changed afterwards: there is no rename call.",
+        "kindHint": "Chosen once. A queue and a topic are different objects at the same path, so changing it would mean deleting one and losing what it holds.",
+        "lockHint": "How long a receiver holds a message before Service Bus offers it to somebody else. Leave it at 0 for the service's own minute.",
+        "lockRange": "The lock is between 5 and 300 seconds.",
+        "maxDeliveryHint": "Deliveries before a message is moved to the dead-letter queue. Leave it at 0 for the service's own ten.",
+        "maxDeliveryRange": "The delivery limit is between 1 and 2000.",
+        "ttlHint": "How long a message lives whether or not anything reads it. Leave it at 0 to keep what is set, which for a new entity is fourteen days.",
+        "deadLetterOnExpiry": "Dead-letter expired messages",
+        "forwardDeadLettersToHint": "Another entity to hand this one's dead letters to, which is how several queues' failures are collected in one place. Empty removes it.",
+        "fixedAtCreationHint": "Both are fixed once the entity exists — the service refuses to change either.",
+        "nameProblem": {
+          "empty": "Give it a name.",
+          "tooLong": "A queue or topic name is at most 260 characters.",
+          "charset": "Letters, digits and - . _ ~ only, with / between path segments.",
+          "reserved": "A name starting with $ addresses a sub-entity such as $DeadLetterQueue, which has a page of its own.",
+          "separator": "A / separates path segments, so a name cannot start or end with one."
+        }
+      },
+      "subscriptions": {
+        "count": "{{count}} subscription(s)",
+        "search": "Filter by name or topic",
+        "create": "New subscription",
+        "created": "Created {{name}}",
+        "updated": "Saved {{name}}",
+        "deleted": "Deleted {{name}}",
+        "deleteFailed": "Could not delete it",
+        "createTitle": "New subscription",
+        "editTitle": "Edit {{name}}",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "Whatever it has not delivered goes with it. A copy that reached this subscription was never {{topic}}'s again, so nothing is handed back.",
+        "name": "Name",
+        "nameHint": "Letters, digits and - . _ ~, at most 50 characters. It cannot be changed afterwards.",
+        "topic": "Topic",
+        "topicHint": "The one topic it reads, chosen once. Moving a subscription would mean a different object with a different backlog.",
+        "backlog": "Backlog",
+        "deadLetters": "Dead letters",
+        "rules": "Rules",
+        "status": "Status",
+        "lockDuration": "Lock duration",
+        "maxDelivery": "Delivery limit",
+        "ttl": "Time to live",
+        "autoDelete": "Auto-delete on idle",
+        "forwardTo": "Forward to",
+        "forwardDeadLettersTo": "Forward dead letters to",
+        "deadLetterOnRuleError": "Dead-letter on a rule error",
+        "deadLetterOnRuleErrorHint": "A rule whose expression fails to evaluate discards what it was looking at unless this is on.",
+        "sessionsHint": "Fixed once the subscription exists — the service refuses to change it.",
+        "noRuleBadge": "no rule",
+        "noRuleNote": "This subscription has no rules, so nothing can reach it. A new one is created with $Default, which matches everything; deleting that without adding another leaves an object that looks healthy and receives nothing.",
+        "section": {
+          "holding": "Holding",
+          "delivery": "Delivery"
+        },
+        "nameProblem": {
+          "empty": "Give it a name.",
+          "tooLong": "A subscription name is at most 50 characters.",
+          "charset": "Letters, digits and - . _ ~ only, and no / — a subscription cannot be nested.",
+          "reserved": "A name starting with $ addresses a sub-entity such as $DeadLetterQueue, which has a page of its own.",
+          "separator": "A subscription name cannot start or end with a separator."
+        },
+        "note": "A subscription is where a topic's messages actually are: each send is copied into every subscription whose rules let it through. Nothing registers as a consumer, so there is no reader count to show."
+      },
+      "messages": {
+        "title": "Messages",
+        "subtitle": "Peeked, not received — nothing here is taken or locked, and no consumer misses it",
+        "pickEntity": "Pick a queue or a subscription",
+        "peek": "Peek",
+        "more": "More",
+        "found": "{{count}} message(s)",
+        "foundFrom": "{{count}} message(s) from sequence {{from}}",
+        "nothingHeld": "Nothing here.",
+        "startHere": "Pick a queue or a subscription and peek. A peek takes nothing: the messages stay where they are, their delivery counts do not move, and a running consumer misses none of them.",
+        "sequence": "Seq",
+        "enqueued": "Enqueued",
+        "state": "State",
+        "stateActive": "active",
+        "stateScheduled": "scheduled",
+        "stateDeferred": "deferred",
+        "deliveries": "Deliveries",
+        "body": "Body",
+        "messageId": "Message id",
+        "subject": "Subject",
+        "groupingKey": "Session / partition key",
+        "correlationId": "Correlation id",
+        "contentType": "Content type",
+        "expires": "Expires",
+        "scheduledNote": "Held back until {{at}}. No consumer is offered a scheduled message, so nothing but a peek would show it.",
+        "deferredNote": "Set aside by a consumer and reachable only by its sequence number. It will not be offered to anyone until something asks for it by that number.",
+        "section": {
+          "properties": "Sender properties"
+        }
+      },
+      "producer": {
+        "title": "Send a message",
+        "subtitle": "A queue keeps what it is sent; a topic keeps none of it and copies each message into the subscriptions whose rules let it through",
+        "entity": "Queue or topic",
+        "entityHint": "Where the message goes. A subscription cannot be sent to — it receives what its topic copies into it.",
+        "body": "Body",
+        "bodyHint": "Sent as it stands. A Service Bus message may be empty, which is how a rule that matches on properties alone is exercised.",
+        "count": "Copies",
+        "countHint": "Send the same message this many times, up to {{max}}.",
+        "subject": "Subject",
+        "subjectHint": "Also called the label. A correlation filter matches on it by that name, so this is what reaches a filtered subscription.",
+        "correlationId": "Correlation id",
+        "correlationIdHint": "Another field a correlation filter matches by equality.",
+        "sessionId": "Session id",
+        "sessionIdHint": "Orders delivery within a session, and is required on an entity created with sessions on. Carried and ignored anywhere else.",
+        "delay": "Delay (seconds)",
+        "delayHint": "Schedules the message instead of sending it now. It sits in the entity until its time comes — no consumer is offered it, and the messages page is where it can be seen waiting.",
+        "properties": "Properties",
+        "propertiesHint": "The sender's own, and what a SQL rule selects on. A subscription filtering on colour = 'red' receives nothing that does not set it.",
+        "propertyName": "name",
+        "propertyValue": "value",
+        "addProperty": "Add a property",
+        "send": "Send",
+        "sent": "Sent {{count}}",
+        "sentCount": "Sent {{count}}. Service Bus assigns a sequence number on arrival and does not report it to the sender — the messages page is where they can be read.",
+        "scheduledAs": "Scheduled {{count}}, holding sequence {{sequences}} until their time comes.",
+        "failed": "Could not send",
+        "entityRequired": "Choose a queue or a topic.",
+        "countRange": "Send between 1 and {{max}} copies.",
+        "propertyNameRequired": "A property with a value needs a name.",
+        "delayNegative": "A delay cannot be negative.",
+        "noSubscriberWarning": "Nothing subscribes to this topic, so the message will be accepted and discarded on arrival. It will leave no backlog anywhere."
+      },
+      "dlq": {
+        "subtitle": "Every queue and every subscription has a dead-letter store of its own, built in and named by the broker",
+        "stores": "Queues & subscriptions",
+        "entity": "Entity",
+        "held": "Dead letters",
+        "pickOne": "Pick a queue or a subscription",
+        "noEntities": "This namespace holds no queues or subscriptions.",
+        "startHere": "Pick one on the left. Reading its dead letters is a peek: nothing is taken and nothing is locked.",
+        "nothingGivenUp": "Nothing has been given up on here.",
+        "sequence": "Seq",
+        "reason": "Reason",
+        "description": "Description",
+        "deliveries": "Deliveries",
+        "enqueued": "Enqueued",
+        "subject": "Subject",
+        "body": "Body",
+        "forwardedFrom": "Forwarded here from {{source}}, which is where it actually failed.",
+        "resend": "Put it back",
+        "resent": "Sequence {{sequence}} is back on the queue",
+        "resendFailed": "Could not put it back",
+        "resendTitle": "Put sequence {{sequence}} back?",
+        "resendDesc": "It is received from the dead letters, sent to {{entity}} as a new message, and only then removed here. Dead letters are offered in order, so the ones in front of it are read and released — their delivery counts go up, which nothing on a dead-letter store acts on.",
+        "section": {
+          "whyItStopped": "Why it stopped",
+          "properties": "Sender properties"
+        },
+        "note": "A $DeadLetterQueue is part of its entity rather than an object of its own: it cannot be listed, sent to, renamed or shared, and it goes when the entity goes. Reading one takes nothing; putting a message back sends a copy and removes the original."
+      },
+      "rules": {
+        "count": "{{rules}} rule(s) across {{topics}} topic(s)",
+        "search": "Filter by topic, subscription or name",
+        "create": "New rule",
+        "created": "Created {{name}}",
+        "deleted": "Deleted {{name}}",
+        "deleteFailed": "Could not delete it",
+        "createTitle": "New rule",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "{{subscription}} keeps its other rules, so it goes on receiving whatever those let through.",
+        "deleteLastDesc": "This is {{subscription}}'s only rule. Without one it receives nothing at all — it stays Active and its backlog stays empty, because nothing can arrive.",
+        "topic": "Topic",
+        "subscription": "Subscription",
+        "name": "Rule",
+        "nameHint": "What deletes it: one subscription may have several rules, and nothing else tells them apart.",
+        "kind": "Kind",
+        "kindSql": "SQL",
+        "kindCorrelation": "Correlation",
+        "kindTrue": "Everything",
+        "kindHint": "A SQL rule is an expression; a correlation rule compares fields by equality and is cheaper; everything is what $Default is.",
+        "filter": "Filter",
+        "expression": "Expression",
+        "expressionHint": "Over the message's own fields and the sender's properties, such as colour = 'red' or sys.Label = 'order'.",
+        "subject": "Subject",
+        "subjectHint": "The message's subject, also called the label. A correlation filter compares it by equality — no patterns, no operators.",
+        "action": "Action",
+        "actionHint": "Optional. A SQL statement run on a matching message before the copy is placed in the subscription, such as SET routed = 'yes'.",
+        "actionNote": "This rule changes the message on the way in as well as selecting it.",
+        "defaultBadge": "default",
+        "everythingNote": "This rule matches every message on the topic, so the subscription receives all of it whatever else is set beside this.",
+        "nothingNote": "This rule can never match. It is legal and it is almost never what was meant.",
+        "nameProblem": {
+          "tooLong": "A rule name is at most 50 characters.",
+          "charset": "Letters, digits and - . _ ~ only, and no /."
+        },
+        "section": {
+          "edge": "Where it routes",
+          "filter": "What it matches",
+          "action": "What it changes"
+        },
+        "note": "A rule is an object rather than a setting: it has a name, several may sit on one subscription, and each is a filter plus an optional action. A subscription with no rules receives nothing while still reporting itself Active."
+      },
+      "overview": {
+        "subtitle": "{{namespace}} · {{entities}} queue(s) and topic(s)",
+        "queues": "Queues",
+        "queuesHint": "Each holds what is sent to it whether or not anything is reading.",
+        "topics": "Topics",
+        "topicsHint": "Each holds nothing: a send is copied into the subscriptions whose rules let it through.",
+        "subscriptions": "Subscriptions",
+        "subscriptionsHint": "Where a topic's messages actually are, and what has a backlog.",
+        "unsubscribed": "Topics with no subscription",
+        "unsubscribedHint": "Every message sent to one is accepted and discarded on arrival, leaving no backlog anywhere.",
+        "unroutable": "Subscriptions with no rule",
+        "unroutableHint": "Nothing can reach them. They stay Active with an empty backlog, which is what makes this the only place it shows.",
+        "disabled": "Switched off",
+        "disabledHint": "Entities whose status is not Active: sends or receives are refused at the client and leave no mark on any board.",
+        "busiest": "Topics by subscription",
+        "note": "There is no cluster panel and no throughput here: Microsoft runs the service, and the rates live in Azure Monitor under a different credential. What the tiles count instead is where routing is broken, because those are the faults with no other symptom."
       }
     }
   }

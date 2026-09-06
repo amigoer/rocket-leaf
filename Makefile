@@ -23,6 +23,7 @@ ARCH ?=
 	e2e-nsq-up e2e-nsq-seed e2e-nsq-down \
 	e2e-sqs-up e2e-sqs-seed e2e-sqs-down \
 	e2e-google-pubsub-up e2e-google-pubsub-seed e2e-google-pubsub-down \
+	e2e-azure-servicebus-up e2e-azure-servicebus-seed e2e-azure-servicebus-down \
 	check ci clean \
 	website-dev website-build
 
@@ -199,6 +200,15 @@ e2e-google-pubsub-seed: ## Fill the Pub/Sub project with topics and subscription
 
 e2e-google-pubsub-down: ## Stop the Pub/Sub environment and remove its volumes
 	npm run e2e:google-pubsub:down
+
+e2e-azure-servicebus-up: ## Start the Azure Service Bus emulator the live tests use
+	npm run e2e:azure-servicebus:up
+
+e2e-azure-servicebus-seed: ## Fill the Service Bus namespace with entities for the cross-check
+	npm run e2e:azure-servicebus:seed
+
+e2e-azure-servicebus-down: ## Stop the Service Bus environment and remove its volumes
+	npm run e2e:azure-servicebus:down
 
 e2e: ## Run the live tests against a running, seeded RocketMQ E2E environment
 	npm run test:e2e

@@ -545,6 +545,419 @@ export class AutoClaimInput {
 }
 
 /**
+ * AzureServiceBusEntityInput is a queue or a topic as its form collects it.
+ * 
+ * Deliberately not TopicService.Create's shape. That one takes a broker
+ * address, two queue counts and a permission string - RocketMQ's vocabulary,
+ * of which a Service Bus entity has none. What it has instead is a delivery
+ * contract: how long a receiver holds a message, how many times it may be
+ * tried, how long it lives, and where it goes when it is given up on.
+ * 
+ * Every duration is zero when the form left it alone, which on an edit means
+ * "keep what is stored".
+ */
+export class AzureServiceBusEntityInput {
+    "name": string;
+
+    /**
+     * Kind is "queue" or "topic" and is fixed once the entity exists: the two
+     * are different objects, so changing it would mean deleting one and
+     * losing whatever it held. The driver refuses rather than doing that.
+     */
+    "kind": string;
+
+    /**
+     * The delivery half, which belongs to a queue. A topic carries none of it:
+     * its subscriptions do, because that is where the messages end up.
+     */
+    "lockDurationSec": number;
+    "maxDeliveryCount": number;
+    "deadLetterOnExpiry": boolean;
+    "ttlSec": number;
+    "autoDeleteOnIdleSec": number;
+    "maxSizeMb": number;
+
+    /**
+     * Fixed at creation: the service refuses all three in an update.
+     */
+    "requiresSession": boolean;
+    "requiresDuplicateDetection": boolean;
+    "partitioned": boolean;
+
+    /**
+     * ForwardTo hands every arriving message to another entity, and
+     * ForwardDeadLettersTo does the same for what this one gives up on. Empty
+     * removes the forwarding, which is the only way to.
+     */
+    "forwardTo": string;
+    "forwardDeadLettersTo": string;
+
+    /** Creates a new AzureServiceBusEntityInput instance. */
+    constructor($$source: Partial<AzureServiceBusEntityInput> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("kind" in $$source)) {
+            this["kind"] = "";
+        }
+        if (!("lockDurationSec" in $$source)) {
+            this["lockDurationSec"] = 0;
+        }
+        if (!("maxDeliveryCount" in $$source)) {
+            this["maxDeliveryCount"] = 0;
+        }
+        if (!("deadLetterOnExpiry" in $$source)) {
+            this["deadLetterOnExpiry"] = false;
+        }
+        if (!("ttlSec" in $$source)) {
+            this["ttlSec"] = 0;
+        }
+        if (!("autoDeleteOnIdleSec" in $$source)) {
+            this["autoDeleteOnIdleSec"] = 0;
+        }
+        if (!("maxSizeMb" in $$source)) {
+            this["maxSizeMb"] = 0;
+        }
+        if (!("requiresSession" in $$source)) {
+            this["requiresSession"] = false;
+        }
+        if (!("requiresDuplicateDetection" in $$source)) {
+            this["requiresDuplicateDetection"] = false;
+        }
+        if (!("partitioned" in $$source)) {
+            this["partitioned"] = false;
+        }
+        if (!("forwardTo" in $$source)) {
+            this["forwardTo"] = "";
+        }
+        if (!("forwardDeadLettersTo" in $$source)) {
+            this["forwardDeadLettersTo"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AzureServiceBusEntityInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AzureServiceBusEntityInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AzureServiceBusEntityInput($$parsedSource as Partial<AzureServiceBusEntityInput>);
+    }
+}
+
+/**
+ * AzureServiceBusRuleInput is a rule as the routing form collects it.
+ * 
+ * A rule is what decides which of a topic's messages reach one subscription,
+ * and it is an object rather than a field: it has a name, several may sit on
+ * one subscription, and each is a filter of one of three kinds plus an
+ * optional action that rewrites the message on the way in.
+ */
+export class AzureServiceBusRuleInput {
+    "topic": string;
+    "subscription": string;
+
+    /**
+     * Name is what deletes it: one subscription may have several rules, and
+     * nothing else tells them apart.
+     */
+    "name": string;
+
+    /**
+     * Kind is "sql", "correlation", "true" or "false". Empty means true,
+     * which is what the service's own $Default rule is.
+     */
+    "kind": string;
+
+    /**
+     * Expression is the SQL filter's text, on a sql rule.
+     */
+    "expression": string;
+
+    /**
+     * Correlation is the message fields a correlation rule compares by
+     * equality. A field left out matches anything.
+     */
+    "correlation": { [_ in string]?: string };
+
+    /**
+     * Action is a SQL statement run on a matching message before it is copied
+     * in - the half of a rule that changes the message rather than selecting
+     * it. Optional on every kind.
+     */
+    "action": string;
+
+    /** Creates a new AzureServiceBusRuleInput instance. */
+    constructor($$source: Partial<AzureServiceBusRuleInput> = {}) {
+        if (!("topic" in $$source)) {
+            this["topic"] = "";
+        }
+        if (!("subscription" in $$source)) {
+            this["subscription"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("kind" in $$source)) {
+            this["kind"] = "";
+        }
+        if (!("expression" in $$source)) {
+            this["expression"] = "";
+        }
+        if (!("correlation" in $$source)) {
+            this["correlation"] = {};
+        }
+        if (!("action" in $$source)) {
+            this["action"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AzureServiceBusRuleInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AzureServiceBusRuleInput {
+        const $$createField5_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("correlation" in $$parsedSource) {
+            $$parsedSource["correlation"] = $$createField5_0($$parsedSource["correlation"]);
+        }
+        return new AzureServiceBusRuleInput($$parsedSource as Partial<AzureServiceBusRuleInput>);
+    }
+}
+
+/**
+ * AzureServiceBusSendInput is a send as the Service Bus console collects it.
+ * 
+ * Deliberately not MessageService.Send's shape. That one takes a topic, tags,
+ * keys and a delay level - RocketMQ's vocabulary - and a Service Bus message
+ * carries rather more: a subject, a correlation id, a session or partition
+ * key, a content type, and a table of named properties.
+ * 
+ * Those last two are not decoration here. A subscription's rules select on
+ * them: a SQL filter reads the properties by name and a correlation filter
+ * matches the subject and correlation id by equality, so a console that could
+ * not set them would make the routing page untestable from the app.
+ */
+export class AzureServiceBusSendInput {
+    /**
+     * Entity is a queue or a topic. A subscription cannot be sent to: it
+     * receives what its topic copies into it.
+     */
+    "entity": string;
+    "body": string;
+
+    /**
+     * Count sends the same message more than once. One when left at zero.
+     */
+    "count": number;
+    "subject": string;
+    "correlationId": string;
+    "contentType": string;
+    "sessionId": string;
+    "partitionKey": string;
+    "properties": { [_ in string]?: string };
+
+    /**
+     * DelaySec schedules the message for later instead of sending it now. It
+     * becomes a real scheduled message: it sits in the entity until its time
+     * comes, which the messages page shows and no consumer is offered.
+     */
+    "delaySec": number;
+
+    /**
+     * TTLSec overrides the entity's own time to live for these messages only.
+     */
+    "ttlSec": number;
+
+    /** Creates a new AzureServiceBusSendInput instance. */
+    constructor($$source: Partial<AzureServiceBusSendInput> = {}) {
+        if (!("entity" in $$source)) {
+            this["entity"] = "";
+        }
+        if (!("body" in $$source)) {
+            this["body"] = "";
+        }
+        if (!("count" in $$source)) {
+            this["count"] = 0;
+        }
+        if (!("subject" in $$source)) {
+            this["subject"] = "";
+        }
+        if (!("correlationId" in $$source)) {
+            this["correlationId"] = "";
+        }
+        if (!("contentType" in $$source)) {
+            this["contentType"] = "";
+        }
+        if (!("sessionId" in $$source)) {
+            this["sessionId"] = "";
+        }
+        if (!("partitionKey" in $$source)) {
+            this["partitionKey"] = "";
+        }
+        if (!("properties" in $$source)) {
+            this["properties"] = {};
+        }
+        if (!("delaySec" in $$source)) {
+            this["delaySec"] = 0;
+        }
+        if (!("ttlSec" in $$source)) {
+            this["ttlSec"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AzureServiceBusSendInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AzureServiceBusSendInput {
+        const $$createField8_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("properties" in $$parsedSource) {
+            $$parsedSource["properties"] = $$createField8_0($$parsedSource["properties"]);
+        }
+        return new AzureServiceBusSendInput($$parsedSource as Partial<AzureServiceBusSendInput>);
+    }
+}
+
+/**
+ * AzureServiceBusSendResult is what the send did.
+ * 
+ * No message id, and its absence is the family: Service Bus's MessageId is the
+ * sender's own field, nothing assigns one and nothing indexes it. What
+ * addresses a message is its sequence number, and the service reports one only
+ * for a scheduled send - an immediate message is given its sequence on arrival
+ * and the sender is never told.
+ */
+export class AzureServiceBusSendResult {
+    "sent": number;
+
+    /**
+     * SequenceNumbers are the scheduled messages' handles, which do address
+     * something: cancelling a scheduled message takes one. Empty on an
+     * immediate send.
+     */
+    "sequenceNumbers": number[];
+
+    /** Creates a new AzureServiceBusSendResult instance. */
+    constructor($$source: Partial<AzureServiceBusSendResult> = {}) {
+        if (!("sent" in $$source)) {
+            this["sent"] = 0;
+        }
+        if (!("sequenceNumbers" in $$source)) {
+            this["sequenceNumbers"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AzureServiceBusSendResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AzureServiceBusSendResult {
+        const $$createField1_0 = $$createType10;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("sequenceNumbers" in $$parsedSource) {
+            $$parsedSource["sequenceNumbers"] = $$createField1_0($$parsedSource["sequenceNumbers"]);
+        }
+        return new AzureServiceBusSendResult($$parsedSource as Partial<AzureServiceBusSendResult>);
+    }
+}
+
+/**
+ * AzureServiceBusSubscriptionInput is a subscription as its form collects it.
+ * 
+ * Deliberately not ConsumerService.Create's shape. That one takes a cluster, a
+ * broker address, a consume mode and a retry count - RocketMQ's vocabulary, of
+ * which a Service Bus subscription has none. What it has is the same delivery
+ * contract a queue has, because on this family a subscription is where the
+ * messages actually are.
+ * 
+ * What is not here is what reaches it: a new subscription comes with a
+ * $Default rule matching everything, and narrowing that is the routing page's
+ * job. A rule is an object with a name, so putting one in this form would hide
+ * a second write inside the first.
+ */
+export class AzureServiceBusSubscriptionInput {
+    /**
+     * Topic is required on a create and fixed afterwards: a subscription reads
+     * exactly one topic, chosen when it is made.
+     */
+    "topic": string;
+    "name": string;
+    "lockDurationSec": number;
+    "maxDeliveryCount": number;
+    "ttlSec": number;
+    "autoDeleteOnIdleSec": number;
+    "deadLetterOnExpiry": boolean;
+
+    /**
+     * DeadLetterOnRuleError moves a message aside when a rule's expression
+     * fails to evaluate. Without it such a message is discarded silently.
+     */
+    "deadLetterOnRuleError": boolean;
+
+    /**
+     * RequiresSession is fixed at creation: the service refuses it in an
+     * update, so the form only offers it on a create.
+     */
+    "requiresSession": boolean;
+    "forwardTo": string;
+    "forwardDeadLettersTo": string;
+
+    /** Creates a new AzureServiceBusSubscriptionInput instance. */
+    constructor($$source: Partial<AzureServiceBusSubscriptionInput> = {}) {
+        if (!("topic" in $$source)) {
+            this["topic"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("lockDurationSec" in $$source)) {
+            this["lockDurationSec"] = 0;
+        }
+        if (!("maxDeliveryCount" in $$source)) {
+            this["maxDeliveryCount"] = 0;
+        }
+        if (!("ttlSec" in $$source)) {
+            this["ttlSec"] = 0;
+        }
+        if (!("autoDeleteOnIdleSec" in $$source)) {
+            this["autoDeleteOnIdleSec"] = 0;
+        }
+        if (!("deadLetterOnExpiry" in $$source)) {
+            this["deadLetterOnExpiry"] = false;
+        }
+        if (!("deadLetterOnRuleError" in $$source)) {
+            this["deadLetterOnRuleError"] = false;
+        }
+        if (!("requiresSession" in $$source)) {
+            this["requiresSession"] = false;
+        }
+        if (!("forwardTo" in $$source)) {
+            this["forwardTo"] = "";
+        }
+        if (!("forwardDeadLettersTo" in $$source)) {
+            this["forwardDeadLettersTo"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AzureServiceBusSubscriptionInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AzureServiceBusSubscriptionInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AzureServiceBusSubscriptionInput($$parsedSource as Partial<AzureServiceBusSubscriptionInput>);
+    }
+}
+
+/**
  * BindingInput describes one route.
  */
 export class BindingInput {
@@ -689,9 +1102,9 @@ export class ClusterView {
      * Creates a new ClusterView instance from a string or object.
      */
     static createFrom($$source: any = {}): ClusterView {
-        const $$createField0_0 = $$createType10;
-        const $$createField1_0 = $$createType13;
-        const $$createField2_0 = $$createType13;
+        const $$createField0_0 = $$createType11;
+        const $$createField1_0 = $$createType14;
+        const $$createField2_0 = $$createType14;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("overview" in $$parsedSource) {
             $$parsedSource["overview"] = $$createField0_0($$parsedSource["overview"]);
@@ -933,7 +1346,7 @@ export class DefinitionsPreview {
      * Creates a new DefinitionsPreview instance from a string or object.
      */
     static createFrom($$source: any = {}): DefinitionsPreview {
-        const $$createField2_0 = $$createType14;
+        const $$createField2_0 = $$createType15;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("counts" in $$parsedSource) {
             $$parsedSource["counts"] = $$createField2_0($$parsedSource["counts"]);
@@ -1015,7 +1428,7 @@ export class EntryInput {
      * Creates a new EntryInput instance from a string or object.
      */
     static createFrom($$source: any = {}): EntryInput {
-        const $$createField1_0 = $$createType16;
+        const $$createField1_0 = $$createType17;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("fields" in $$parsedSource) {
             $$parsedSource["fields"] = $$createField1_0($$parsedSource["fields"]);
@@ -1566,8 +1979,8 @@ export class LogDirView {
      * Creates a new LogDirView instance from a string or object.
      */
     static createFrom($$source: any = {}): LogDirView {
-        const $$createField0_0 = $$createType19;
-        const $$createField1_0 = $$createType22;
+        const $$createField0_0 = $$createType20;
+        const $$createField1_0 = $$createType23;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("dirs" in $$parsedSource) {
             $$parsedSource["dirs"] = $$createField0_0($$parsedSource["dirs"]);
@@ -1730,7 +2143,7 @@ export class MQTTSubscribeInput {
      * Creates a new MQTTSubscribeInput instance from a string or object.
      */
     static createFrom($$source: any = {}): MQTTSubscribeInput {
-        const $$createField0_0 = $$createType24;
+        const $$createField0_0 = $$createType25;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("filters" in $$parsedSource) {
             $$parsedSource["filters"] = $$createField0_0($$parsedSource["filters"]);
@@ -2342,7 +2755,7 @@ export class OffsetResetInput {
      * Creates a new OffsetResetInput instance from a string or object.
      */
     static createFrom($$source: any = {}): OffsetResetInput {
-        const $$createField2_0 = $$createType25;
+        const $$createField2_0 = $$createType26;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("partitions" in $$parsedSource) {
             $$parsedSource["partitions"] = $$createField2_0($$parsedSource["partitions"]);
@@ -3159,7 +3572,7 @@ export class QuotaView {
      * Creates a new QuotaView instance from a string or object.
      */
     static createFrom($$source: any = {}): QuotaView {
-        const $$createField0_0 = $$createType28;
+        const $$createField0_0 = $$createType29;
         const $$createField1_0 = $$createType0;
         const $$createField2_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
@@ -4265,7 +4678,7 @@ export class TransactionView {
      * Creates a new TransactionView instance from a string or object.
      */
     static createFrom($$source: any = {}): TransactionView {
-        const $$createField0_0 = $$createType31;
+        const $$createField0_0 = $$createType32;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("transactions" in $$parsedSource) {
             $$parsedSource["transactions"] = $$createField0_0($$parsedSource["transactions"]);
@@ -4344,25 +4757,26 @@ const $$createType6 = model$0.AccessPrincipal.createFrom;
 const $$createType7 = $Create.Nullable($$createType6);
 const $$createType8 = $Create.Array($$createType7);
 const $$createType9 = $Create.Map($Create.Any, $Create.Any);
-const $$createType10 = model$0.ClusterOverview.createFrom;
-const $$createType11 = model$0.Node.createFrom;
-const $$createType12 = $Create.Nullable($$createType11);
-const $$createType13 = $Create.Array($$createType12);
-const $$createType14 = $Create.Map($Create.Any, $Create.Any);
-const $$createType15 = model$0.StreamField.createFrom;
-const $$createType16 = $Create.Array($$createType15);
-const $$createType17 = model$0.LogDirSummary.createFrom;
-const $$createType18 = $Create.Nullable($$createType17);
-const $$createType19 = $Create.Array($$createType18);
-const $$createType20 = model$0.LogDirPartition.createFrom;
-const $$createType21 = $Create.Nullable($$createType20);
-const $$createType22 = $Create.Array($$createType21);
-const $$createType23 = MQTTFilterInput.createFrom;
-const $$createType24 = $Create.Array($$createType23);
-const $$createType25 = $Create.Array($Create.Any);
-const $$createType26 = model$0.ClientQuota.createFrom;
-const $$createType27 = $Create.Nullable($$createType26);
-const $$createType28 = $Create.Array($$createType27);
-const $$createType29 = model$0.Transaction.createFrom;
-const $$createType30 = $Create.Nullable($$createType29);
-const $$createType31 = $Create.Array($$createType30);
+const $$createType10 = $Create.Array($Create.Any);
+const $$createType11 = model$0.ClusterOverview.createFrom;
+const $$createType12 = model$0.Node.createFrom;
+const $$createType13 = $Create.Nullable($$createType12);
+const $$createType14 = $Create.Array($$createType13);
+const $$createType15 = $Create.Map($Create.Any, $Create.Any);
+const $$createType16 = model$0.StreamField.createFrom;
+const $$createType17 = $Create.Array($$createType16);
+const $$createType18 = model$0.LogDirSummary.createFrom;
+const $$createType19 = $Create.Nullable($$createType18);
+const $$createType20 = $Create.Array($$createType19);
+const $$createType21 = model$0.LogDirPartition.createFrom;
+const $$createType22 = $Create.Nullable($$createType21);
+const $$createType23 = $Create.Array($$createType22);
+const $$createType24 = MQTTFilterInput.createFrom;
+const $$createType25 = $Create.Array($$createType24);
+const $$createType26 = $Create.Array($Create.Any);
+const $$createType27 = model$0.ClientQuota.createFrom;
+const $$createType28 = $Create.Nullable($$createType27);
+const $$createType29 = $Create.Array($$createType28);
+const $$createType30 = model$0.Transaction.createFrom;
+const $$createType31 = $Create.Nullable($$createType30);
+const $$createType32 = $Create.Array($$createType31);

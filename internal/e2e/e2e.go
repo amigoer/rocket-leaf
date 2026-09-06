@@ -62,6 +62,9 @@ const (
 	// the pattern rather than the product, and two other families here are
 	// publish/subscribe too.
 	GooglePubSub Family = "google-pubsub"
+	// AzureServiceBus is spelled with the vendor for the same reason: a
+	// service bus is a pattern, and this is one vendor's product.
+	AzureServiceBus Family = "azure-servicebus"
 )
 
 // AllFamilies is the list every other place derives from - the CI shard matrix
@@ -69,7 +72,7 @@ const (
 // twice is how the lists drift apart.
 var AllFamilies = []Family{
 	RocketMQ, RabbitMQ, Kafka, Pulsar, Redis, MQTT, NATS, ActiveMQ, NSQ, SQS,
-	GooglePubSub,
+	GooglePubSub, AzureServiceBus,
 }
 
 // Env is one broker environment a live test needs.

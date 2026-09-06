@@ -223,6 +223,13 @@ capability，画出来的页面看着不像「诚实」，而像「坏了」。
   JSON key 绑在一起。Pub/Sub 的积压量就是例子：这个数字存在，但在 Cloud Monitoring 里，
   而从 Pub/Sub API 造出它的唯一办法是把积压拉下来数一遍——那会把数到的每一条都真的投递出去。
 
+- 死信页面现在有三种作答方式，一个家族属于哪一种是一个真实的判断，而不是风格问题。
+  `CapDLQ` 指的是代理自己命名并填充、属于每个实体的存储——RocketMQ 给每个消费组的
+  `%DLQ%` 主题，Service Bus 给每个队列和订阅的 `$DeadLetterQueue`。
+  `CapDeadLetterTopology` 指的是被别的对象指向的普通对象，需要反向遍历配置才能找到——
+  RabbitMQ 的死信交换器、SQS 的 redrive 策略、Pub/Sub 的死信主题。照抄之前先问清楚
+  家族属于哪一种：两种形态不能互换，页面读起来也完全不同。
+
 不要靠眼睛数家族。哪些驱动能答哪个页面，由 capability 声明说了算：
 
 ```bash

@@ -208,7 +208,9 @@
       "deliveryPaused": "投递已暂停",
       "slowConsumer": "有客户端因为跟不上被踢掉",
       "topicUnsubscribed": "主题没有任何订阅",
-      "subscriptionOrphaned": "订阅的主题已被删除"
+      "subscriptionOrphaned": "订阅的主题已被删除",
+      "subscriptionUnroutable": "订阅没有任何规则",
+      "entityDisabled": "实体已停用"
     },
     "tabs": {
       "active": "活跃告警",
@@ -264,7 +266,9 @@
       "deliveryPaused": "{{target}} · {{lag}} 条在等待；暂停期间发送照常，但一条也不会投递",
       "slowConsumer": "{{broker}} · 服务器启动以来断开了 {{count}} 个客户端；它们错过的消息没有了",
       "topicUnsubscribed": "{{topic}} · 没有任何订阅；发布到这里的消息会被接受然后丢弃",
-      "subscriptionOrphaned": "{{subscription}} · 它的主题已被删除；再也收不到任何消息，而已有的内容仍然留在那里"
+      "subscriptionOrphaned": "{{subscription}} · 它的主题已被删除；再也收不到任何消息，而已有的内容仍然留在那里",
+      "subscriptionUnroutable": "{{subscription}} · 没有规则，什么都进不来；因为没有消息到达，它的状态仍是 Active、积压仍是 0",
+      "entityDisabled": "{{entity}} · 状态为 {{status}}；请求会在客户端被拒绝，任何面板上都看不出来"
     },
     "duration": {
       "minutes": "持续 {{count}} 分钟",
@@ -672,6 +676,27 @@
       "caveat": {
         "pullDelivers": "浏览走的是 Pull，也就是消费者用的那个调用：读到的消息在本应用放回去之前对其他消费者不可见，投递次数还会永久加一。如果订阅配了死信主题，这个次数会计入转入死信的判定。"
       }
+    },
+    "azure-servicebus": {
+      "name": "Azure Service Bus",
+      "terms": {
+        "destination": "实体",
+        "destinationPlural": "队列与主题",
+        "subscription": "订阅",
+        "subscriptionPlural": "订阅",
+        "backlog": "待处理"
+      },
+      "form": {
+        "namespace": "命名空间",
+        "keyName": "共享访问策略",
+        "sharedAccessKey": "共享访问密钥",
+        "connectionString": "连接字符串",
+        "entityPrefix": "名称前缀",
+        "emulatorManagement": "模拟器管理地址"
+      },
+      "degraded": {
+        "countsNotInEmulator": "Service Bus 模拟器不报告消息数量：队列和主题的描述里根本没有 CountDetails 元素，订阅的那个 SDK 也读不了。因此这里——也只有这里——深度和积压是空的；真实命名空间两者都会报告。"
+      }
     }
   },
   "shell": {
@@ -865,6 +890,16 @@
         "messages": "消息",
         "dlq": "死信",
         "producer": "发布",
+        "alerts": "告警"
+      },
+      "azure-servicebus": {
+        "overview": "概览",
+        "topics": "队列与主题",
+        "consumers": "订阅",
+        "exchanges": "规则",
+        "messages": "消息",
+        "dlq": "死信",
+        "producer": "发送",
         "alerts": "告警"
       }
     }
@@ -1195,6 +1230,25 @@
           "projectRequired": "请填写 Google Cloud 项目——每个主题和订阅的名字都由它拼成。",
           "credentialsNotJson": "请粘贴服务账号密钥本身，而不是它的路径——密钥以花括号开头。想改用本机自己的 Google 身份，把这一项留空即可。",
           "emulatorHostNoScheme": "模拟器地址只要主机和端口，前面不要加 https://——例如 127.0.0.1:8085。"
+        },
+        "azure-servicebus": {
+          "namespace": "命名空间",
+          "namespaceHint": "门户里写的完全限定命名空间。它和区域、项目不同，是一个真实地址：消息经 AMQP 发到它，拓扑经 HTTPS 从它读取。",
+          "keyName": "共享访问策略",
+          "keyNameHint": "密钥所属的授权规则。每个命名空间创建时都带 RootManageSharedAccessKey；按最小权限部署的会另建。",
+          "sharedAccessKey": "共享访问密钥",
+          "sharedAccessKeyHint": "该策略的主密钥或辅助密钥。只有改为粘贴完整连接字符串时才能留空——Service Bus 没有可回退的环境凭据。",
+          "connectionString": "连接字符串（可选）",
+          "connectionStringHint": "如果你手里是门户给的整串，就贴这里。它优先于上面的策略与密钥，因为它自带 Endpoint。",
+          "entityPrefix": "名称前缀（可选）",
+          "entityPrefixHint": "把所有列表收窄到名称以此开头的队列、主题和订阅。命名空间里的实体属于所有使用者，而 API 本身没有过滤条件。",
+          "emulatorManagement": "模拟器管理地址（可选）",
+          "emulatorManagementHint": "Service Bus 模拟器管理端口的 host:port，它是上面 AMQP 端口之外的第二个端口。不带协议头。填了它就表示连的是模拟器，驱动会据此说明模拟器做不到什么。",
+          "note": "一个命名空间加一把共享访问密钥——或者一串包含两者的连接字符串",
+          "namespaceRequired": "请填写命名空间，例如 my-namespace.servicebus.windows.net。这个驱动的两个客户端都要连它。",
+          "credentialRequired": "请填写共享访问密钥，或粘贴连接字符串。Service Bus 每次调用都要签名，没有可回退的环境凭据。",
+          "connectionStringMalformed": "这不是连接字符串——Service Bus 的连接字符串以 Endpoint=sb:// 开头，并带有 SharedAccessKeyName 和 SharedAccessKey。",
+          "emulatorManagementNoScheme": "模拟器管理地址是 host 加端口，前面不要写 http://，例如 127.0.0.1:5300。"
         }
       },
       "deleteTitle": "删除连接",
@@ -1402,7 +1456,7 @@
         "aheadOfRelease": "当前 v{{current}} 新于线上 v{{latest}}",
         "upToDate": "已是最新版本 v{{version}}",
         "updateCheckFailed": "无法检查更新",
-        "blurb": "本地优先的消息队列桌面客户端，无需额外部署控制台，即可管理 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS 与 Google Pub/Sub 的集群、主题、消费者与消息。"
+        "blurb": "本地优先的消息队列桌面客户端，无需额外部署控制台，即可管理 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub 与 Azure Service Bus 的集群、主题、消费者与消息。"
       }
     }
   },
@@ -4873,6 +4927,261 @@
         "withDeadLettersHint": "达到指定投递次数后把消息转入另一个主题的订阅。",
         "busiest": "被读取最多的主题",
         "note": "这里没有积压和吞吐：两者都是 Cloud Monitoring 指标，属于另一套 API 和另一份凭据。"
+      }
+    },
+    "azure-servicebus": {
+      "entities": {
+        "count": "{{queues}} 个队列，{{topics}} 个主题",
+        "search": "按名称筛选",
+        "name": "名称",
+        "kind": "类型",
+        "kindQueue": "队列",
+        "kindTopic": "主题",
+        "depth": "待处理",
+        "deadLetters": "死信",
+        "scheduled": "已排程",
+        "subscribers": "订阅数",
+        "subscriptionNames": "订阅名称",
+        "status": "状态",
+        "lockDuration": "锁定时长",
+        "maxDelivery": "投递上限",
+        "ttl": "存活时间",
+        "autoDelete": "空闲自动删除",
+        "maxSize": "最大容量",
+        "sessions": "会话",
+        "duplicateDetection": "重复检测",
+        "partitioned": "分区",
+        "forwardTo": "转发到",
+        "forwardDeadLettersTo": "死信转发到",
+        "noSubscriberBadge": "无订阅",
+        "noSubscriberNote": "没有任何订阅读取这个主题，因此发到它的每条消息都会被接收后立刻丢弃，任何地方都不会留下积压。",
+        "section": {
+          "holding": "持有",
+          "delivery": "投递",
+          "shape": "形态"
+        },
+        "note": "队列自己保存消息；主题不保存，而是把每条消息复制进规则放行的每个订阅。数量来自实体的运行时属性，而 Service Bus 模拟器不报告它们。",
+        "create": "新建实体",
+        "created": "已创建 {{name}}",
+        "updated": "已保存 {{name}}",
+        "deleted": "已删除 {{name}}",
+        "deleteFailed": "删除失败",
+        "createTitle": "新建队列或主题",
+        "editTitle": "编辑 {{name}}",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteQueueDesc": "它保存的全部内容都会一并删除，死信也在内——$DeadLetterQueue 属于所在队列，本身并不是一个独立队列。",
+        "deleteTopicDesc": "这同时会删除它的 {{count}} 个订阅，以及它们尚未投递的消息。这里的订阅不会比主题活得更久。",
+        "nameHint": "可用字母、数字和 - . _ ~，路径分段之间用 /。创建后不能改名：服务没有重命名接口。",
+        "kindHint": "只在创建时选择。队列和主题是同一路径下的两种不同对象，改动就意味着删掉一个，其中的内容也一并丢失。",
+        "lockHint": "接收方拿到消息后可以独占多久，超时后 Service Bus 会把它交给别人。填 0 表示沿用服务默认的一分钟。",
+        "lockRange": "锁定时长必须在 5 到 300 秒之间。",
+        "maxDeliveryHint": "消息被移入死信队列前可以投递几次。填 0 表示沿用服务默认的 10 次。",
+        "maxDeliveryRange": "投递上限必须在 1 到 2000 之间。",
+        "ttlHint": "无论有没有人读取，消息能存活多久。填 0 表示保持现状；新建实体的默认值是 14 天。",
+        "deadLetterOnExpiry": "过期消息转入死信",
+        "forwardDeadLettersToHint": "把这个实体的死信交给另一个实体，用来把多个队列的失败消息集中到一处。留空即取消。",
+        "fixedAtCreationHint": "两项都在创建时固定，服务不接受后续修改。",
+        "nameProblem": {
+          "empty": "请填写名称。",
+          "tooLong": "队列或主题名称最多 260 个字符。",
+          "charset": "只能使用字母、数字和 - . _ ~，路径分段之间用 /。",
+          "reserved": "以 $ 开头的名称指向 $DeadLetterQueue 这类子实体，它有自己的页面。",
+          "separator": "/ 用来分隔路径分段，名称不能以它开头或结尾。"
+        }
+      },
+      "subscriptions": {
+        "count": "{{count}} 个订阅",
+        "search": "按名称或主题筛选",
+        "create": "新建订阅",
+        "created": "已创建 {{name}}",
+        "updated": "已保存 {{name}}",
+        "deleted": "已删除 {{name}}",
+        "deleteFailed": "删除失败",
+        "createTitle": "新建订阅",
+        "editTitle": "编辑 {{name}}",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "它尚未投递的消息会一并删除。进入这个订阅的副本已不再属于 {{topic}}，因此不会退回任何地方。",
+        "name": "名称",
+        "nameHint": "可用字母、数字和 - . _ ~，最多 50 个字符。创建后不能修改。",
+        "topic": "主题",
+        "topicHint": "它读取的唯一主题，只在创建时选择。换一个主题就意味着换成另一个对象，积压也随之不同。",
+        "backlog": "积压",
+        "deadLetters": "死信",
+        "rules": "规则",
+        "status": "状态",
+        "lockDuration": "锁定时长",
+        "maxDelivery": "投递上限",
+        "ttl": "存活时间",
+        "autoDelete": "空闲自动删除",
+        "forwardTo": "转发到",
+        "forwardDeadLettersTo": "死信转发到",
+        "deadLetterOnRuleError": "规则出错时转入死信",
+        "deadLetterOnRuleErrorHint": "如果不开启，规则表达式求值失败时会直接丢弃正在判断的那条消息。",
+        "sessionsHint": "订阅创建后即固定，服务不接受修改。",
+        "noRuleBadge": "无规则",
+        "noRuleNote": "这个订阅没有任何规则，因此没有消息能进来。新建订阅自带匹配一切的 $Default 规则；删掉它又不补上新的，就会留下一个看起来正常、却永远收不到消息的对象。",
+        "section": {
+          "holding": "持有",
+          "delivery": "投递"
+        },
+        "nameProblem": {
+          "empty": "请填写名称。",
+          "tooLong": "订阅名称最多 50 个字符。",
+          "charset": "只能使用字母、数字和 - . _ ~，且不能含 /——订阅不能再嵌套。",
+          "reserved": "以 $ 开头的名称指向 $DeadLetterQueue 这类子实体，它有自己的页面。",
+          "separator": "订阅名称不能以分隔符开头或结尾。"
+        },
+        "note": "订阅才是主题消息真正所在的地方：每次发送都会复制进规则放行的每个订阅。这里没有任何东西登记为消费者，所以也没有读取方数量可显示。"
+      },
+      "messages": {
+        "title": "消息",
+        "subtitle": "只窥视，不接收——这里的消息不会被取走或锁定，消费者也不会漏掉任何一条",
+        "pickEntity": "选择队列或订阅",
+        "peek": "窥视",
+        "more": "继续",
+        "found": "{{count}} 条消息",
+        "foundFrom": "从序号 {{from}} 起的 {{count}} 条消息",
+        "nothingHeld": "这里没有消息。",
+        "startHere": "选一个队列或订阅，然后窥视。窥视不会取走任何东西：消息留在原处，投递计数不变，正在运行的消费者一条也不会漏掉。",
+        "sequence": "序号",
+        "enqueued": "入队时间",
+        "state": "状态",
+        "stateActive": "活跃",
+        "stateScheduled": "已排程",
+        "stateDeferred": "已延期",
+        "deliveries": "投递次数",
+        "body": "消息体",
+        "messageId": "消息 ID",
+        "subject": "主题标签",
+        "groupingKey": "会话 / 分区键",
+        "correlationId": "关联 ID",
+        "contentType": "内容类型",
+        "expires": "过期时间",
+        "scheduledNote": "被保留到 {{at}}。已排程的消息不会交给任何消费者，因此只有窥视才看得到它。",
+        "deferredNote": "被消费者搁置，只能凭序号取回。在有人按序号索取之前，它不会再交给任何人。",
+        "section": {
+          "properties": "发送方属性"
+        }
+      },
+      "producer": {
+        "title": "发送消息",
+        "subtitle": "队列会保存收到的消息；主题一条也不保存，而是把每条消息复制进规则放行的订阅",
+        "entity": "队列或主题",
+        "entityHint": "消息发往哪里。不能直接发给订阅——订阅收到的是主题复制进去的副本。",
+        "body": "消息体",
+        "bodyHint": "原样发送。Service Bus 允许空消息体，这正是用来验证只按属性匹配的规则。",
+        "count": "份数",
+        "countHint": "把同一条消息发送这么多次，最多 {{max}} 条。",
+        "subject": "主题标签",
+        "subjectHint": "也叫 label。关联过滤器就是按这个名字匹配它，所以它决定消息能否进入带过滤的订阅。",
+        "correlationId": "关联 ID",
+        "correlationIdHint": "关联过滤器按相等匹配的另一个字段。",
+        "sessionId": "会话 ID",
+        "sessionIdHint": "在同一会话内保证投递顺序；开启了会话的实体必须填。其他情况下会被携带但忽略。",
+        "delay": "延迟（秒）",
+        "delayHint": "改为排程而不是立即发送。消息会留在实体里直到时间到达——期间不会交给任何消费者，可以在消息页面看到它在等待。",
+        "properties": "属性",
+        "propertiesHint": "发送方自己的属性，也是 SQL 规则的判断依据。按 colour = 'red' 过滤的订阅，收不到任何没设这个属性的消息。",
+        "propertyName": "名称",
+        "propertyValue": "值",
+        "addProperty": "添加属性",
+        "send": "发送",
+        "sent": "已发送 {{count}} 条",
+        "sentCount": "已发送 {{count}} 条。Service Bus 在消息到达时才分配序号，并不会告知发送方——可以到消息页面查看。",
+        "scheduledAs": "已排程 {{count}} 条，序号 {{sequences}}，到时间前一直保留。",
+        "failed": "发送失败",
+        "entityRequired": "请选择队列或主题。",
+        "countRange": "份数需在 1 到 {{max}} 之间。",
+        "propertyNameRequired": "填了值的属性必须有名称。",
+        "delayNegative": "延迟不能为负数。",
+        "noSubscriberWarning": "没有任何订阅读取这个主题，消息会被接收后立刻丢弃，任何地方都不会留下积压。"
+      },
+      "dlq": {
+        "subtitle": "每个队列、每个订阅都自带一个死信存储，由代理自动命名",
+        "stores": "队列与订阅",
+        "entity": "实体",
+        "held": "死信数",
+        "pickOne": "选择队列或订阅",
+        "noEntities": "这个命名空间里没有队列或订阅。",
+        "startHere": "在左侧选一个。读取它的死信只是窥视：不会取走，也不会锁定。",
+        "nothingGivenUp": "这里没有被放弃的消息。",
+        "sequence": "序号",
+        "reason": "原因",
+        "description": "说明",
+        "deliveries": "投递次数",
+        "enqueued": "入队时间",
+        "subject": "主题标签",
+        "body": "消息体",
+        "forwardedFrom": "由 {{source}} 转发而来，真正出问题的是那里。",
+        "resend": "放回去",
+        "resent": "序号 {{sequence}} 已回到队列",
+        "resendFailed": "放回失败",
+        "resendTitle": "把序号 {{sequence}} 放回去？",
+        "resendDesc": "会先从死信里接收它，作为新消息发到 {{entity}}，成功之后才从这里删除。死信是按顺序取出的，排在它前面的会被读取后放回——那些消息的投递次数会加一，而死信存储不会因此做任何事。",
+        "section": {
+          "whyItStopped": "为什么停在这里",
+          "properties": "发送方属性"
+        },
+        "note": "$DeadLetterQueue 属于所在实体，本身不是独立对象：它不会出现在任何列表里，不能被发送、改名或共享，实体删掉它也随之消失。读取它不取走任何东西；放回消息则是发送一份副本并删除原件。"
+      },
+      "rules": {
+        "count": "{{topics}} 个主题上共 {{rules}} 条规则",
+        "search": "按主题、订阅或名称筛选",
+        "create": "新建规则",
+        "created": "已创建 {{name}}",
+        "deleted": "已删除 {{name}}",
+        "deleteFailed": "删除失败",
+        "createTitle": "新建规则",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "{{subscription}} 的其他规则还在，仍会继续接收它们放行的消息。",
+        "deleteLastDesc": "这是 {{subscription}} 唯一的规则。删掉之后它什么都收不到——状态仍是 Active，积压也仍是 0，因为根本没有消息能进来。",
+        "topic": "主题",
+        "subscription": "订阅",
+        "name": "规则",
+        "nameHint": "删除时就是按它定位：一个订阅可以有多条规则，除了名称没有别的区分方式。",
+        "kind": "类型",
+        "kindSql": "SQL",
+        "kindCorrelation": "关联",
+        "kindTrue": "全部",
+        "kindHint": "SQL 规则是一个表达式；关联规则按相等比较字段，开销更小；“全部”就是 $Default 的行为。",
+        "filter": "过滤条件",
+        "expression": "表达式",
+        "expressionHint": "可引用消息自身字段和发送方属性，例如 colour = 'red' 或 sys.Label = 'order'。",
+        "subject": "主题标签",
+        "subjectHint": "消息的 subject，也叫 label。关联过滤器按相等比较——没有通配，也没有运算符。",
+        "action": "动作",
+        "actionHint": "可选。命中的消息在放进订阅之前会先执行这条 SQL 语句，例如 SET routed = 'yes'。",
+        "actionNote": "这条规则不只是筛选，还会在消息进入时修改它。",
+        "defaultBadge": "默认",
+        "everythingNote": "这条规则匹配主题上的每一条消息，所以无论旁边还设了什么，这个订阅都会全收。",
+        "nothingNote": "这条规则永远不会命中。它是合法的，但几乎从来不是本意。",
+        "nameProblem": {
+          "tooLong": "规则名称最多 50 个字符。",
+          "charset": "只能使用字母、数字和 - . _ ~，且不能含 /。"
+        },
+        "section": {
+          "edge": "路由到哪里",
+          "filter": "匹配什么",
+          "action": "改动什么"
+        },
+        "note": "规则是对象而不是设置项：它有名称，一个订阅可以挂多条，每条是一个过滤条件加一个可选动作。没有规则的订阅什么都收不到，状态却依然显示为 Active。"
+      },
+      "overview": {
+        "subtitle": "{{namespace}} · {{entities}} 个队列与主题",
+        "queues": "队列",
+        "queuesHint": "无论有没有人读取，队列都会保存发给它的消息。",
+        "topics": "主题",
+        "topicsHint": "主题自己不保存：消息会被复制进规则放行的那些订阅。",
+        "subscriptions": "订阅",
+        "subscriptionsHint": "主题的消息真正所在的地方，也是产生积压的地方。",
+        "unsubscribed": "无订阅的主题",
+        "unsubscribedHint": "发到这类主题的消息会被接收后立刻丢弃，任何地方都不会留下积压。",
+        "unroutable": "无规则的订阅",
+        "unroutableHint": "没有消息能进来。它们状态仍是 Active、积压仍是 0，所以只有这里看得出来。",
+        "disabled": "已停用",
+        "disabledHint": "状态不是 Active 的实体：发送或接收会在客户端被拒绝，任何面板上都看不出来。",
+        "busiest": "按订阅数排列的主题",
+        "note": "这里没有集群面板，也没有吞吐曲线：服务由微软运行，速率数据在 Azure Monitor 里，需要另一套凭据。这些卡片统计的是路由在哪里断了，因为那些故障没有别的表现。"
       }
     }
   }

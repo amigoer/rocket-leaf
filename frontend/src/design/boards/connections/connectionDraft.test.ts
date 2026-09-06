@@ -10,6 +10,7 @@ import {
   emptyRocketMQDraft,
   emptySqsDraft,
   emptyGooglePubSubDraft,
+  emptyAzureServiceBusDraft,
   type KafkaDraft,
   type MqttDraft,
   type PulsarDraft,
@@ -17,6 +18,7 @@ import {
   type RedisDraft,
   type RocketMQDraft,
   type GooglePubSubDraft,
+  type AzureServiceBusDraft,
 } from "./ConnectionForms";
 import { emptyDraft, isDraftable, toDraft, toSubmission, type ProtocolDraft } from "./connectionDraft";
 import { PROTOCOLS, type ProtocolId } from "@/design/data/protocols";
@@ -810,6 +812,7 @@ describe("the draft registry", () => {
       "nsq",
       "sqs",
       "google-pubsub",
+      "azure-servicebus",
     ] as const) {
       expect(isDraftable(protocol)).toBe(true);
       expect(emptyDraft(protocol).protocol).toBe(protocol);
@@ -821,13 +824,13 @@ describe("the draft registry", () => {
   // has a form now, so the list of exceptions is empty and a loop over it
   // would pass vacuously. What is pinned instead is that every tile has one,
   // and that the gate still refuses a name that is not a protocol here at all
-  // - azure-servicebus is next on the roadmap and has no driver, which is what
-  // makes it the honest stand-in.
+  // - kinesis is next on the roadmap and has no driver, which is what makes it
+  // the honest stand-in.
   it("has a form for every protocol the picker can draw", () => {
     for (const protocol of Object.values(PROTOCOLS)) {
       expect(isDraftable(protocol.id)).toBe(true);
     }
-    expect(isDraftable("azure-servicebus" as unknown as ProtocolId)).toBe(false);
+    expect(isDraftable("kinesis" as unknown as ProtocolId)).toBe(false);
   });
 });
 
@@ -1288,5 +1291,162 @@ describe("the Google Pub/Sub connection draft", () => {
     const draft = toDraft(profile);
     if (draft.protocol !== "google-pubsub") throw new Error("expected a google-pubsub draft");
     expect(draft.value.credentialsStored).toBe(false);
+  });
+});
+
+/**
+ * Service Bus is the hosted family that does have an address, and the only one
+ * whose credential can arrive two ways.
+ *
+ * Three things have to survive the round trip. The namespace has to stay in
+ * `endpoints` rather than being tucked into an option the way a region and a
+ * project are; both credentials have to reach the store under names of this
+ * driver's own, because accessKey and secretKey are RocketMQ's ACL and a
+ * family reusing them has its credential cleared on save; and a profile whose
+ * key is only in the store has to come back saying "kept" rather than blank.
+ */
+describe("the Azure Service Bus connection draft", () => {
+  const filled = (): AzureServiceBusDraft => ({
+    ...emptyAzureServiceBusDraft(),
+    name: "  servicebus-orders  ",
+    endpoints: "  orders.servicebus.windows.net  ",
+    keyName: "  Reader  ",
+    sharedAccessKey: "  c2VjcmV0  ",
+    entityPrefix: "  team-  ",
+    timeoutSec: 20,
+  });
+
+  it("keeps the namespace in the address field", () => {
+    const { draft, credentialsMode } = toSubmission({
+      protocol: "azure-servicebus",
+      value: filled(),
+    });
+
+    expect(draft.kind).toBe(MQKind.KindAzureServiceBus);
+    expect(draft.name).toBe("servicebus-orders");
+    // The whole difference from SQS and Pub/Sub: this one is an address.
+    expect(draft.endpoints).toBe("orders.servicebus.windows.net");
+    expect(draft.options?.sharedAccessKeyName).toBe("Reader");
+    expect(draft.options?.entityPrefix).toBe("team-");
+    expect(credentialsMode).toBe("replace");
+  });
+
+  it("stores both credentials under their own names rather than RocketMQ's ACL pair", () => {
+    const { draft } = toSubmission({ protocol: "azure-servicebus", value: filled() });
+
+    expect(draft.secrets?.azureSharedAccessKey).toBe("c2VjcmV0");
+    expect(draft.secrets?.accessKey).toBeUndefined();
+    expect(draft.secrets?.secretKey).toBeUndefined();
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthPlain);
+  });
+
+  // The other way to fill the form. It carries the key inside it, so it is a
+  // secret rather than an option and it satisfies the credential on its own.
+  it("takes a pasted connection string as the credential", () => {
+    const { draft } = toSubmission({
+      protocol: "azure-servicebus",
+      value: {
+        ...emptyAzureServiceBusDraft(),
+        name: "servicebus-pasted",
+        endpoints: "orders.servicebus.windows.net",
+        connectionString:
+          "  Endpoint=sb://orders.servicebus.windows.net;SharedAccessKeyName=Reader;SharedAccessKey=c2VjcmV0  ",
+      },
+    });
+
+    expect(draft.secrets?.azureConnectionString).toBe(
+      "Endpoint=sb://orders.servicebus.windows.net;SharedAccessKeyName=Reader;SharedAccessKey=c2VjcmV0",
+    );
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthPlain);
+  });
+
+  // Unlike the two hosted families before it there is no ambient credential to
+  // fall back on, so a profile with nothing signed says so rather than
+  // claiming a mechanism it cannot honour.
+  it("drops the mechanism to none when no credential is given", () => {
+    const { draft } = toSubmission({
+      protocol: "azure-servicebus",
+      value: {
+        ...emptyAzureServiceBusDraft(),
+        name: "servicebus-empty",
+        endpoints: "orders.servicebus.windows.net",
+      },
+    });
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthNone);
+  });
+
+  it("keeps a stored credential when the form is saved with the fields blank", () => {
+    const { credentialsMode } = toSubmission({
+      protocol: "azure-servicebus",
+      value: {
+        ...emptyAzureServiceBusDraft(),
+        name: "servicebus-orders",
+        endpoints: "orders.servicebus.windows.net",
+        credentialsStored: true,
+      },
+    });
+    expect(credentialsMode).toBe("preserve");
+  });
+
+  it("clears a stored credential when the clear control was used", () => {
+    const { credentialsMode } = toSubmission({
+      protocol: "azure-servicebus",
+      value: {
+        ...emptyAzureServiceBusDraft(),
+        name: "servicebus-orders",
+        endpoints: "orders.servicebus.windows.net",
+        credentialsStored: true,
+        clearCredentials: true,
+      },
+    });
+    expect(credentialsMode).toBe("clear");
+  });
+
+  it("reads a stored profile back into the form", () => {
+    const profile = {
+      id: 13,
+      name: "servicebus-orders",
+      group: "",
+      kind: MQKind.KindAzureServiceBus,
+      endpoints: "orders.servicebus.windows.net",
+      timeoutSec: 10,
+      authMechanism: AuthMechanism.AuthPlain,
+      options: { sharedAccessKeyName: "Reader", entityPrefix: "team-", emulatorManagementHost: "" },
+      secretsConfigured: ["azureSharedAccessKey"],
+      remark: "",
+    } as unknown as ConnectionProfile;
+
+    const draft = toDraft(profile);
+    if (draft.protocol !== "azure-servicebus") throw new Error("expected an azure-servicebus draft");
+    expect(draft.value.endpoints).toBe("orders.servicebus.windows.net");
+    expect(draft.value.keyName).toBe("Reader");
+    expect(draft.value.entityPrefix).toBe("team-");
+    expect(draft.value.credentialsStored).toBe(true);
+    // Secrets never come back from the store; blank plus credentialsStored is
+    // what tells the form to say "kept" rather than "empty".
+    expect(draft.value.sharedAccessKey).toBe("");
+    expect(draft.value.connectionString).toBe("");
+  });
+
+  // A profile saved before the policy field existed was using the default one,
+  // so an edit of it has to say so rather than offering an empty policy that
+  // would be sent as one.
+  it("falls back to the policy every namespace is created with", () => {
+    const profile = {
+      id: 14,
+      name: "servicebus-old",
+      group: "",
+      kind: MQKind.KindAzureServiceBus,
+      endpoints: "orders.servicebus.windows.net",
+      timeoutSec: 10,
+      authMechanism: AuthMechanism.AuthPlain,
+      options: {},
+      secretsConfigured: ["azureSharedAccessKey"],
+      remark: "",
+    } as unknown as ConnectionProfile;
+
+    const draft = toDraft(profile);
+    if (draft.protocol !== "azure-servicebus") throw new Error("expected an azure-servicebus draft");
+    expect(draft.value.keyName).toBe("RootManageSharedAccessKey");
   });
 });

@@ -45,12 +45,18 @@ describe("the kind-to-protocol map", () => {
 });
 
 /**
- * What the address column shows for the two families that have no address.
+ * What the address column shows for the three hosted families, which do not
+ * agree with each other.
  *
  * Every other protocol's row prints the profile's endpoints, and an SQS or
  * Pub/Sub profile's is deliberately empty - there is nothing to dial. Printed
  * as-is that leaves the column blank on a perfectly good connection, and two
  * connections to different regions, or different projects, look identical.
+ *
+ * Service Bus is the hosted family that does dial something, so its row prints
+ * endpoints like any other - normalised, because the field takes three
+ * spellings of one namespace and the row should show the host the driver
+ * reaches rather than whichever was typed.
  */
 describe("the address a connection row shows", () => {
   const profileOf = (extra: Partial<ConnectionProfile>) =>
@@ -82,6 +88,29 @@ describe("the address a connection row shows", () => {
     );
     expect(row.address).toBe("orders-prod");
     expect(row.protocol).toBe("google-pubsub");
+  });
+
+  it("shows the namespace for Service Bus, which is the hosted family with an address", () => {
+    const row = toShellConnection(
+      profileOf({
+        kind: MQKind.KindAzureServiceBus,
+        endpoints: "orders.servicebus.windows.net",
+      }),
+    );
+    expect(row.address).toBe("orders.servicebus.windows.net");
+    expect(row.protocol).toBe("azure-servicebus");
+  });
+
+  // The three spellings a user actually pastes, all naming one namespace. The
+  // Go half is internal/driver/azureservicebus's TestNamespaceOfReadsWhateverWasPasted.
+  it("normalises whatever was pasted into the Service Bus address field", () => {
+    const address = (endpoints: string) =>
+      toShellConnection(profileOf({ kind: MQKind.KindAzureServiceBus, endpoints })).address;
+
+    expect(address("sb://orders.servicebus.windows.net/")).toBe("orders.servicebus.windows.net");
+    expect(address("  orders.servicebus.windows.net  ")).toBe("orders.servicebus.windows.net");
+    // The emulator's port is part of its address and has to survive.
+    expect(address("localhost:5672")).toBe("localhost:5672");
   });
 
   it("still shows the endpoints for a family that dials one", () => {

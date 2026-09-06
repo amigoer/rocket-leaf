@@ -352,6 +352,19 @@ jobs:
             up: |
               npm run e2e:google-pubsub:up
               npm run e2e:google-pubsub:seed
+          - family: azure-servicebus
+            packages: ./internal/app/... ./internal/driver/azureservicebus/...
+            # Microsoft's own emulator rather than a broker, because there is
+            # no broker to run: Service Bus is an Azure API, so the only
+            # environments are a real namespace and this. It is two containers
+            # rather than one - the emulator keeps its entities in SQL Server
+            # and refuses to start without it - and its topology is declared
+            # in a config file it reads at startup. The seed is required: the
+            # cross-check compares what the app computes against the raw API,
+            # and comparing zero against zero proves nothing.
+            up: |
+              npm run e2e:azure-servicebus:up
+              npm run e2e:azure-servicebus:seed
     steps:
       - uses: actions/checkout@v7
 

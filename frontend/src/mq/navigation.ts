@@ -32,8 +32,9 @@ const requires: Record<string, Capability | Capability[]> = {
   // that promises history. MQTT, NATS and ActiveMQ draw it - and the last of
   // those only when its AMQP acceptor is reachable, because JMX cannot push.
   subscribe: Capability.CapLiveStream,
-  // Three means for seven families, because none can answer the page
-  // another's way. RocketMQ reads a dead-letter topic per consumer group;
+  // Three means for eight families, because none can answer the page
+  // another's way. RocketMQ reads a dead-letter topic per consumer group and
+  // Service Bus reads the $DeadLetterQueue the broker gives every entity;
   // RabbitMQ, Pulsar, ActiveMQ, SQS and Pub/Sub all go looking for what
   // something else dead-letters into - through the topology, by the naming
   // convention the client libraries use, by the dead-letter address a queue
@@ -81,10 +82,10 @@ const requires: Record<string, Capability | Capability[]> = {
    * Alerts needs no particular capability, only a connection with figures to
    * compare - which the connected check below already covers. What the two
    * entries settle is where those figures come from: most families report
-   * cluster metrics, and a hosted one has no cluster at all. Everything SQS
-   * and Pub/Sub report belongs to a queue or a topic, so their rules read the
-   * destination listing, and gating on a metric neither can ever declare
-   * would hide a page that works.
+   * cluster metrics, and a hosted one has no cluster at all. Everything SQS,
+   * Pub/Sub and Service Bus report belongs to a queue or a topic, so their
+   * rules read the destination listing, and gating on a metric none of them
+   * can ever declare would hide a page that works.
    */
   alerts: [Capability.CapClusterMetrics, Capability.CapDestinationList],
 };

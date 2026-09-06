@@ -22,6 +22,73 @@ was open now redials instead of going on with the old one in silence.
 
 ### Added
 
+- Azure Service Bus is the twelfth driver, the third hosted one, and the first
+  of those three that is reached by dialling something. A region and a project
+  are not addresses; a namespace is, and both halves of this driver dial it —
+  AMQP 1.0 for the messages, Atom over HTTPS for the topology. So the
+  connection form has an address row where SQS has a region and Pub/Sub a
+  project, and the connection list prints the namespace like any other address.
+  The credential arrives either way people have one: a shared access policy
+  name with its key, or the whole connection string pasted out of the portal.
+
+  Queues and topics share one board, because they are the same thing to create,
+  configure and delete and share one name space between them. What separates
+  them is where a message ends up, and the columns say so: a queue holds what
+  is sent to it whether or not anything is reading, and a topic holds nothing
+  at all — each send is copied into every subscription whose rules let it
+  through, and discarded on the spot if none do. A topic with no subscription
+  is marked on the board, warned about in the send console, and raised on the
+  alerts page, because it is a failure with no other symptom.
+
+  Browsing takes nothing, and that is the one thing this family does that
+  neither hosted family before it could. RabbitMQ's browse alters queue state,
+  SQS's hides what it read for a visibility timeout, and Pub/Sub's raises a
+  delivery attempt that counts towards being dead-lettered — all three carry a
+  caveat saying so. A peek takes no lock, moves nothing, changes no delivery
+  count, and a consumer running at the same moment misses nothing, so the
+  messages page here carries no caveat at all. It also shows more than a
+  consumer would ever be offered: a message scheduled for later and one a
+  consumer set aside by sequence number both appear, each with a state saying
+  which.
+
+  Subscriptions are objects in their own right and carry the whole delivery
+  contract — the lock duration, the delivery limit, the time to live, whether
+  an expired message is dead-lettered and where failures are forwarded. What
+  decides which messages reach one is not a field on it but a set of rules,
+  which is why they have a page rather than a row: a rule has a name, several
+  may sit on one subscription, and each is a SQL filter or a correlation filter
+  plus an optional action that rewrites the message on the way in. That is a
+  routing topology, so it lands on the page RabbitMQ used to have to itself. A
+  subscription whose rules have all been deleted receives nothing while
+  reporting itself Active with an empty backlog, and that state is marked, on
+  the board and on the alerts page both.
+
+  Dead letters are a place rather than a topology. Every queue and every
+  subscription is created with a `$DeadLetterQueue` the broker names and fills,
+  reached by suffixing the entity's own path — it cannot be listed, sent to,
+  renamed or shared, and it goes when the entity goes. So the dead-letter page
+  lists every entity in the namespace rather than the few something points at,
+  and it can only be empty when the namespace is. Reading one is a peek; a
+  message can be put back one at a time, which sends a copy to the parent
+  entity and removes the original.
+
+  Sending carries what a rule selects on, because a console that could not
+  would produce nothing a filtered subscription would ever receive: a subject,
+  a correlation id, a session key, named properties, and a real delay that
+  schedules the message rather than holding the app.
+
+  There is no cluster page and no access page, and neither is an omission.
+  Microsoft runs the service, so there is no node, no session and no disk
+  figure, and the throughput figures are Azure Monitor's; access is a shared
+  access policy on the namespace, which is what the connection authenticated
+  with rather than something it can enumerate. Nothing registers as a consumer
+  either, so no page claims to say who is reading what.
+
+  Against the Service Bus emulator the message counts are reported as
+  unavailable rather than as zero. The emulator serves no readable count for
+  any entity, so a depth and a backlog are blank there and only there — a real
+  namespace answers both.
+
 - Google Cloud Pub/Sub is the eleventh driver, the second with no broker
   address, and the first whose objects come in two kinds. A connection is a
   Google Cloud project and a credential; the connection row shows the project

@@ -64,6 +64,11 @@ const REASONS: Record<string, string[]> = {
   // a page that said nothing would leave a reader looking for a column that is
   // never coming.
   "google-pubsub": ["lagInMonitoring"],
+  // internal/driver/azureservicebus/conn.go - the emulator serves no usable
+  // CountDetails, so a backlog is unavailable against it and a real figure
+  // everywhere else. Degraded only on that endpoint, which is what declare()
+  // narrowing is for.
+  "azure-servicebus": ["countsNotInEmulator"],
 };
 
 /**

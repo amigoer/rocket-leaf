@@ -5,11 +5,11 @@ export const zh: Content = {
   meta: {
     title: 'MQ Studio — 一套界面，连接所有消息队列',
     description:
-      'MQ Studio 是本地优先的消息队列桌面客户端，RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS 与 Google Pub/Sub 共用同一套界面和操作，无需部署和值守 Web 控制台。支持 macOS、Windows、Linux，Apache-2.0 开源。',
+      'MQ Studio 是本地优先的消息队列桌面客户端，RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub 与 Azure Service Bus 共用同一套界面和操作，无需部署和值守 Web 控制台。支持 macOS、Windows、Linux，Apache-2.0 开源。',
     ogAlt: 'MQ Studio 集群概览界面',
   },
   banner: {
-    text: 'Google Pub/Sub 驱动已支持\u00a0—— 订阅是独立的对象，没有订阅的主题会被直接标出来',
+    text: 'Azure Service Bus 驱动已支持\u00a0—— 这里唯一一个什么都不取走的消息页面，规则进入路由页',
     linkLabel: '更新日志',
     dismiss: '关闭公告',
   },
@@ -33,7 +33,7 @@ export const zh: Content = {
     badgeSuffix: '现已发布 · Apache-2.0 开源',
     title: '一套界面，连接所有消息队列',
     subtitle:
-      'MQ Studio 是本地优先的消息队列桌面客户端\u00a0—— RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS 与 Google Pub/Sub 同一套界面、同一套操作，无需部署和值守 Web 控制台。',
+      'MQ Studio 是本地优先的消息队列桌面客户端\u00a0—— RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub 与 Azure Service Bus 同一套界面、同一套操作，无需部署和值守 Web 控制台。',
     downloadFallback: '下载 MQ Studio',
     downloadFor: (platform: string) => `下载 ${platform} 版`,
     installGuide: '安装说明',
@@ -56,8 +56,9 @@ export const zh: Content = {
       'NSQ 1.x',
       'Amazon SQS',
       'Google Pub/Sub',
+      'Azure Service Bus',
     ],
-    planned: '计划中：Azure Service Bus · Amazon Kinesis · IBM MQ 等',
+    planned: '计划中：Amazon Kinesis · IBM MQ · Solace PubSub+ 等',
   },
   features: {
     title: '为什么用 MQ Studio',
@@ -151,6 +152,7 @@ export const zh: Content = {
       { label: 'NSQ', done: true },
       { label: 'Amazon SQS', done: true },
       { label: 'Google Pub/Sub', done: true },
+      { label: 'Azure Service Bus', done: true },
       { label: '更多驱动', done: false },
       { label: 'Agent', done: false },
     ],

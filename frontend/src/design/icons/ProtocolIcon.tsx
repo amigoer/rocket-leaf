@@ -22,11 +22,11 @@ import type { ProtocolId } from "@/design/data/protocols";
  * they go through a token that carries the brand's own dark-mode value. The
  * other five read on both.
  *
- * NSQ and SQS are drawn here instead. Simple Icons carries neither: NSQ's own
- * mark is a wordmark rather than a symbol, and Amazon's were withdrawn from the
- * set over trademark policy. So rather than borrowing a neighbour's, each has a
- * mark of its own, tinted through a token because a colour invented here has no
- * brand value to be faithful to.
+ * NSQ, SQS and Service Bus are drawn here instead. Simple Icons carries none of
+ * them: NSQ's own mark is a wordmark rather than a symbol, and Amazon's and
+ * Microsoft's were withdrawn from the set over trademark policy. So rather than
+ * borrowing a neighbour's, each has a mark of its own, tinted through a token
+ * because a colour invented here has no brand value to be faithful to.
  */
 /**
  * One topic fanning out into three channels, which is the whole of what NSQ
@@ -82,6 +82,31 @@ function SqsGlyph({ size = 14, color = "currentColor", ...rest }: IconBaseProps)
   );
 }
 
+/**
+ * A funnel with one message through it. It is what separates Service Bus from
+ * every other family here: a subscription's rules are objects that decide
+ * which of a topic's messages reach it, where everywhere else a filter is a
+ * field on the reader or does not exist at all.
+ */
+function ServiceBusGlyph({ size = 14, color = "currentColor", ...rest }: IconBaseProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...rest}
+    >
+      <path d="M3 4h18l-7 8v5.5l-4 2V12z" />
+      <circle cx="12" cy="22" r="1.6" fill={color} stroke="none" />
+    </svg>
+  );
+}
+
 const GLYPH: Record<ProtocolId, { icon: IconType; color: string }> = {
   rocketmq: { icon: SiApacherocketmq, color: "#D77310" },
   kafka: { icon: SiApachekafka, color: "var(--c-brand-kafka)" },
@@ -99,6 +124,7 @@ const GLYPH: Record<ProtocolId, { icon: IconType; color: string }> = {
   // Simple Icons does carry this one, in a pale blue meant for a dark
   // ground, so the token is what keeps it legible on a light one.
   "google-pubsub": { icon: SiGooglepubsub, color: "var(--c-brand-google-pubsub)" },
+  "azure-servicebus": { icon: ServiceBusGlyph, color: "var(--c-brand-azure-servicebus)" },
 };
 
 export function ProtocolIcon({

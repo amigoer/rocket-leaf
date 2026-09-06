@@ -22,6 +22,7 @@ import {
   emptyRocketMQDraft,
   emptySqsDraft,
   emptyGooglePubSubDraft,
+  emptyAzureServiceBusDraft,
 } from "./ConnectionForms";
 import { emptyDraft, toSubmission, type ProtocolDraft } from "./connectionDraft";
 import { countAddresses, draftInvalidReason } from "./connectionValidation";
@@ -149,6 +150,24 @@ const RULES: Record<ProtocolDraft["protocol"], Rules> = {
     },
     bare: { protocol: "google-pubsub", value: { ...emptyGooglePubSubDraft(), name: NAME } },
     firstAsk: "page.connections.form.google-pubsub.projectRequired",
+  },
+  /*
+   * The one hosted draft with an address, and the only family here whose
+   * credential is not optional: there is no ambient Azure identity the way
+   * there is an AWS credential chain and Application Default Credentials.
+   */
+  "azure-servicebus": {
+    saveable: {
+      protocol: "azure-servicebus",
+      value: {
+        ...emptyAzureServiceBusDraft(),
+        name: NAME,
+        endpoints: "orders.servicebus.windows.net",
+        sharedAccessKey: "c2VjcmV0",
+      },
+    },
+    bare: { protocol: "azure-servicebus", value: { ...emptyAzureServiceBusDraft(), name: NAME } },
+    firstAsk: "page.connections.form.azure-servicebus.namespaceRequired",
   },
 };
 
@@ -319,6 +338,101 @@ describe("the connection draft's validity", () => {
     expect(
       draftInvalidReason(
         { protocol: "google-pubsub", value: { ...base, emulatorHost: "127.0.0.1:8085" } },
+        key,
+      ),
+    ).toBeNull();
+  });
+
+  /*
+   * The hosted family that does carry an address, which is the whole of what
+   * separates its form from the two above it. Its Go half is
+   * internal/driver/azureservicebus's TestDescriptorAsksForAnAddress, and a
+   * namespace stashed in an option would have passed every other test here.
+   */
+  it("keeps the Service Bus namespace in the address field", () => {
+    const draft: ProtocolDraft = {
+      protocol: "azure-servicebus",
+      value: {
+        ...emptyAzureServiceBusDraft(),
+        name: NAME,
+        endpoints: "orders.servicebus.windows.net",
+        sharedAccessKey: "c2VjcmV0",
+      },
+    };
+    expect(draftInvalidReason(draft, key)).toBeNull();
+    expect(toSubmission(draft).draft.endpoints).toBe("orders.servicebus.windows.net");
+  });
+
+  /*
+   * Blank is not a choice here. SQS falls back to the AWS credential chain and
+   * Pub/Sub to Application Default Credentials; Service Bus signs every call
+   * with a shared access key and has nothing to fall back on, so an empty
+   * credential fails at the first call with a signature error naming nothing.
+   */
+  it("asks a Service Bus draft for a credential of some kind", () => {
+    const base = {
+      ...emptyAzureServiceBusDraft(),
+      name: NAME,
+      endpoints: "orders.servicebus.windows.net",
+    };
+    expect(draftInvalidReason({ protocol: "azure-servicebus", value: base }, key)).toBe(
+      "page.connections.form.azure-servicebus.credentialRequired",
+    );
+    expect(
+      draftInvalidReason(
+        { protocol: "azure-servicebus", value: { ...base, sharedAccessKey: "c2VjcmV0" } },
+        key,
+      ),
+    ).toBeNull();
+    // The pasted string is the other way to fill the form, so it satisfies
+    // the same requirement on its own.
+    expect(
+      draftInvalidReason(
+        {
+          protocol: "azure-servicebus",
+          value: {
+            ...base,
+            connectionString:
+              "Endpoint=sb://orders.servicebus.windows.net;SharedAccessKeyName=r;SharedAccessKey=k",
+          },
+        },
+        key,
+      ),
+    ).toBeNull();
+    // And the commonest mistake in that field is the namespace rather than
+    // the string, which the SDK reports as a missing Endpoint key.
+    expect(
+      draftInvalidReason(
+        {
+          protocol: "azure-servicebus",
+          value: { ...base, connectionString: "orders.servicebus.windows.net" },
+        },
+        key,
+      ),
+    ).toBe("page.connections.form.azure-servicebus.connectionStringMalformed");
+  });
+
+  // The admin client is pointed straight at this host, so a scheme in front
+  // becomes part of the hostname and the failure names neither field nor why.
+  it("holds the Service Bus emulator management host to a host and a port", () => {
+    const base = {
+      ...emptyAzureServiceBusDraft(),
+      name: NAME,
+      endpoints: "localhost:5672",
+      sharedAccessKey: "c2VjcmV0",
+    };
+    expect(
+      draftInvalidReason(
+        {
+          protocol: "azure-servicebus",
+          value: { ...base, emulatorManagement: "http://127.0.0.1:5300" },
+        },
+        key,
+      ),
+    ).toBe("page.connections.form.azure-servicebus.emulatorManagementNoScheme");
+    expect(
+      draftInvalidReason(
+        { protocol: "azure-servicebus", value: { ...base, emulatorManagement: "127.0.0.1:5300" } },
         key,
       ),
     ).toBeNull();

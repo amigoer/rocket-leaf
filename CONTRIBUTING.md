@@ -263,6 +263,16 @@ After adding a family, update all of these:
   Monitoring, and the only way to produce one from the Pub/Sub API would be to
   pull the backlog and count it, which would deliver every message counted.
 
+- The dead-letter page is answered three ways now, and which one a family
+  gets is a real decision rather than a style. `CapDLQ` is a per-entity store
+  the broker names and fills — a RocketMQ `%DLQ%` topic per consumer group, a
+  Service Bus `$DeadLetterQueue` on every queue and subscription.
+  `CapDeadLetterTopology` is an ordinary object something else points at, found
+  by walking every object's configuration backwards — a RabbitMQ dead-letter
+  exchange, an SQS redrive policy, a Pub/Sub dead-letter topic. Ask which of
+  the two a family has before copying either: the shapes are not
+  interchangeable, and the page reads very differently.
+
 Do not count the families by eye. The capability declarations settle which
 drivers answer which page:
 

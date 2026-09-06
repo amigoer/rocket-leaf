@@ -118,6 +118,9 @@
   /* Simple Icons gives Pub/Sub #AECBFA, a pale blue meant for a dark ground
      that vanishes on a light one, so each ground carries its own. */
   --c-brand-google-pubsub: #1a73e8;
+  /* Microsoft's marks were withdrawn from Simple Icons, so the glyph is drawn
+     here and tinted with Azure's own documented blue. */
+  --c-brand-azure-servicebus: #0078d4;
 
   /* the scrim a modal lays over the window */
   --c-scrim: rgba(23, 23, 23, 0.32);
@@ -203,6 +206,7 @@
   --c-brand-nsq: #67e8f9;
   --c-brand-sqs: #f9a8d4;
   --c-brand-google-pubsub: #aecbfa;
+  --c-brand-azure-servicebus: #6cb8f0;
 
   /* Black rather than the ink: over a dark window, a lighter scrim lifts. */
   --c-scrim: rgba(0, 0, 0, 0.55);
@@ -610,6 +614,7 @@
 .pNSQ { background: #cffafe; color: #0e7490; }
 .pSQS { background: #fce7f3; color: #be185d; }
 .pGPS { background: #e3edfd; color: #1a56b8; }
+.pASB { background: #dbeafe; color: #0058a0; }
 :root.dark .pRMQ { background: #3a1f0c; color: #fdba74; }
 :root.dark .pKFK { background: #26262a; color: #e4e4e7; }
 :root.dark .pAMQ { background: #3a2a08; color: #fcd34d; }
