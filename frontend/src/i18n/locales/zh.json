@@ -212,7 +212,8 @@
       "subscriptionUnroutable": "订阅没有任何规则",
       "entityDisabled": "实体已停用",
       "streamNotActive": "流仍在变更中",
-      "consumerNotActive": "消费者注册仍在变更中"
+      "consumerNotActive": "消费者注册仍在变更中",
+      "transmissionBacklog": "传输队列未被清空"
     },
     "tabs": {
       "active": "活跃告警",
@@ -245,7 +246,8 @@
       "queueBacklog": "{{queue}} 堆积超阈值",
       "queueNoConsumer": "{{queue}} 无人消费",
       "flowControl": "{{count}} 个连接被限流",
-      "subscriptionBlocked": "订阅已阻塞"
+      "subscriptionBlocked": "订阅已阻塞",
+      "transmissionBacklog": "{{queue}} 上积压着通道尚未发出的消息"
     },
     "detail": {
       "brokerOffline": "{{broker}}（{{address}}）",
@@ -272,7 +274,8 @@
       "subscriptionUnroutable": "{{subscription}} · 没有规则，什么都进不来；因为没有消息到达，它的状态仍是 Active、积压仍是 0",
       "entityDisabled": "{{entity}} · 状态为 {{status}}；请求会在客户端被拒绝，任何面板上都看不出来",
       "streamNotActive": "{{stream}} · 状态 {{status}}；在它变为 ACTIVE 之前，任何指向该流的其他调用都会以「资源占用中」被拒绝",
-      "consumerNotActive": "{{consumer}}（在 {{stream}} 上）· 状态 {{status}}；此时指向它的应用会收到关于消费者（而不是流）的错误"
+      "consumerNotActive": "{{consumer}}（在 {{stream}} 上）· 状态 {{status}}；此时指向它的应用会收到关于消费者（而不是流）的错误",
+      "transmissionBacklog": "{{queue}} · {{count}} 条等待中；传输队列只由一个通道清空，因此队列上有消息就说明该通道已停止、正在重试，或者从未启动"
     },
     "duration": {
       "minutes": "持续 {{count}} 分钟",
@@ -5650,6 +5653,29 @@
         },
         "unread": "发布的消息正堆积在 {{queue}}，但没有任何程序在读取。无人读取的订阅会一直填满目标队列，队列满了之后队列管理器就会开始产生死信。",
         "note": "两个数字含义不同：累计接收是该订阅历史上收到过多少条发布，待处理是其中还留在目标队列上的数量。“订阅者已连接”通常为否，而且通常没问题——管理员定义的订阅本来就不需要连接订阅者，读取目标队列的那个应用才是真正的消费者。"
+      },
+      "overview": {
+        "subtitle": "{{qmgr}} · {{queues}} 个队列",
+        "discovered": "该服务器上唯一的队列管理器",
+        "queues": "队列",
+        "queuesHint": "包括本地、别名、远程和模型队列，只有本地队列真正存储消息。",
+        "depth": "消息总数",
+        "depthHint": "队列管理器上所有队列的合计，含死信队列。",
+        "topics": "主题",
+        "topicsHint": "主题对象数量。发布者使用的是主题字符串，它未必对应任何对象。",
+        "runningChannels": "运行中的通道",
+        "runningChannelsHint": "至少有一个活动实例的通道定义。服务器连接通道每接入一个应用就有一个实例。",
+        "troubledChannels": "异常通道",
+        "troubledChannelsHint": "已启动但没有正常工作：重试中、已停止、已暂停或存疑。从未启动过的通道不计入——全新队列管理器上的大多数通道本来就不会启动。",
+        "inhibited": "被禁止的队列",
+        "inhibitedHint": "禁止写入或禁止读取。这是队列管理器悄悄产生死信最常见的原因，而且不会留下其他痕迹。",
+        "deepest": "积压最多的队列",
+        "state": "状态",
+        "stateDeadLetter": "队列管理器的死信队列",
+        "stateInhibited": "已禁止",
+        "stateTransmission": "传输队列——由通道负责清空",
+        "stateOrdinary": "普通队列",
+        "note": "没有速率，也没有存储用量：MQ 报告队列持有多少消息、最近何时被读写，而流速是按定时器发布到系统队列的统计消息，不是页面能直接读到的数字。也没有集群面板——这个连接对应一个队列管理器，而 MQ 集群是多个队列管理器的集合，不是它的节点。"
       }
     }
   }

@@ -71,6 +71,11 @@ const RULE_SEVERITY: Record<AlertRuleKey, AlertSeverity> = {
   // states in which every other call to the object is being refused.
   streamNotActive: "warn",
   consumerNotActive: "warn",
+  // IBM MQ's own, and a warning rather than critical for the reason the
+  // others are: one message on a transmission queue may be a channel that is
+  // half a second from connecting, and a snapshot cannot tell that from a
+  // channel that has been retrying for an hour.
+  transmissionBacklog: "warn",
   slowConsumer: "warn",
 };
 

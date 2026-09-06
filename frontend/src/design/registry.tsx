@@ -107,6 +107,7 @@ import { OverviewSqs } from "./boards/overview/OverviewSqs";
 import { OverviewGooglePubSub } from "./boards/overview/OverviewGooglePubSub";
 import { OverviewAzureServiceBus } from "./boards/overview/OverviewAzureServiceBus";
 import { OverviewKinesis } from "./boards/overview/OverviewKinesis";
+import { OverviewIbmMq } from "./boards/overview/OverviewIbmMq";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
 import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
@@ -168,6 +169,7 @@ const BOARDS: Partial<
     "google-pubsub": OverviewGooglePubSub,
     "azure-servicebus": OverviewAzureServiceBus,
     kinesis: OverviewKinesis,
+    ibmmq: OverviewIbmMq,
   },
   topics: {
     rocketmq: TopicsRocketMQ,

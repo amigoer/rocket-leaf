@@ -110,7 +110,21 @@ export type AlertRuleKey =
    * healthy stream, because the ordinary way to read one registers nothing.
    */
   | "streamNotActive"
-  | "consumerNotActive";
+  | "consumerNotActive"
+  /*
+   * IBM MQ's own, and no other family here has a shape for it.
+   *
+   * A transmission queue exists to be drained by exactly one channel.
+   * Anything sitting on it is a message that has not left this queue manager
+   * - the channel is stopped, retrying, or was never started - and no other
+   * rule sees it: the queue's consumer count is zero on a healthy one too,
+   * because a channel is not an application holding it open.
+   *
+   * It needs no threshold, which is why it is not queueBacklog. One message
+   * on a transmission queue is already the fault; ten thousand is the same
+   * fault, older.
+   */
+  | "transmissionBacklog";
 
 export type AlertRulePrefs = Record<AlertRuleKey, boolean>;
 
@@ -125,6 +139,7 @@ export const ALERT_RULE_KEYS: readonly AlertRuleKey[] = [
   "entityDisabled",
   "streamNotActive",
   "consumerNotActive",
+  "transmissionBacklog",
   "subscriptionBlocked",
   "resourceAlarm",
   "nodePartition",
@@ -351,6 +366,35 @@ const RULES_BY_KIND: Partial<Record<MQKind, readonly AlertRuleKey[]>> = {
    * every registration's.
    */
   [MQKind.KindKinesis]: ["streamNotActive", "consumerNotActive"],
+  /*
+   * Five, and four of them are keys another family already asks - which is
+   * the honest answer for a family whose faults are ordinary. A queue nobody
+   * is draining, a backlog past a threshold, a dead-letter queue growing and
+   * an object switched off are all things somebody else says too.
+   *
+   * transmissionBacklog is the one that is this family's own, and it is the
+   * one worth having: a transmission queue holding anything means a channel
+   * is not moving messages off this queue manager, and nothing else on any
+   * page reports it.
+   *
+   * entityDisabled is here for a queue with put or get inhibited, which is
+   * the commonest reason a message ends up on the dead-letter queue and
+   * leaves no other mark. It fires whatever the depth: a put-inhibited queue
+   * is empty precisely because nothing can reach it.
+   *
+   * The rest are absent because there is nothing to read. brokerOffline needs
+   * a cluster and there is one queue manager; diskUsage and memoryUsage need
+   * a storage figure the REST interface never returns; groupLag would
+   * double-count, because a subscription's backlog is the depth of the queue
+   * it delivers to and that queue is already on this page.
+   */
+  [MQKind.KindIBMMQ]: [
+    "transmissionBacklog",
+    "entityDisabled",
+    "queueNoConsumer",
+    "queueBacklog",
+    "dlqGrowth",
+  ],
 };
 
 const ROCKETMQ_RULES: readonly AlertRuleKey[] = [
@@ -386,6 +430,7 @@ export const DESTINATION_RULES: readonly AlertRuleKey[] = [
   "topicUnsubscribed",
   "entityDisabled",
   "streamNotActive",
+  "transmissionBacklog",
   "queueNoConsumer",
   "queueBacklog",
   "dlqGrowth",
@@ -418,6 +463,7 @@ export const KINDS_NEEDING_DESTINATIONS: readonly MQKind[] = [
   MQKind.KindGooglePubSub,
   MQKind.KindAzureServiceBus,
   MQKind.KindKinesis,
+  MQKind.KindIBMMQ,
 ];
 
 export const DEFAULT_ALERT_RULES: AlertRulePrefs = {
@@ -446,6 +492,7 @@ export const DEFAULT_ALERT_RULES: AlertRulePrefs = {
   entityDisabled: true,
   streamNotActive: true,
   consumerNotActive: true,
+  transmissionBacklog: true,
 };
 
 function read(): AlertRulePrefs {

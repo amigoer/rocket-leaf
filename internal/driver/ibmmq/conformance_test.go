@@ -360,3 +360,377 @@ func TestTheMessagingTierIsDegradedRatherThanDropped(t *testing.T) {
 		t.Error("browsing carries a caveat while it is degraded")
 	}
 }
+
+/*
+ * What IBM MQ has no concept of, and why.
+ *
+ * Every entry is a capability another family in this app declares and this one
+ * must not, and each reason is about IBM MQ rather than about how far the
+ * driver has got - except where it says otherwise. Without this list the
+ * cheapest way to add a family is to copy a neighbour's capability set, and
+ * the result is a sidebar full of pages that open onto nothing.
+ *
+ * Three roots cover most of it. A queue manager stores messages and does not
+ * track who read them, so nothing about a reader's position exists anywhere.
+ * There is one queue manager rather than a cluster of brokers, so every
+ * node-shaped figure has one row to put on it and no node to attribute it to.
+ * And the management plane is HTTP, so what is missing is what those two REST
+ * interfaces do not carry rather than what the product cannot do - which is
+ * why a few of these are this driver's own and say so.
+ */
+func TestConnDeclaresNoConceptIBMMQDoesNotHave(t *testing.T) {
+	absent := []struct {
+		capability model.Capability
+		because    string
+	}{
+		{
+			model.CapPartitions,
+			"IBM MQ divides nothing. A queue is one store on one queue manager, and a " +
+				"cluster queue is several queues that share a name rather than one queue in " +
+				"parts, so a partition count would be a number with nothing behind it.",
+		},
+		{
+			model.CapShards,
+			"and there is no shard either: nothing here is split by a hash of a key.",
+		},
+		{
+			model.CapClientInspect,
+			"declared as CapChannels instead, which is not the same page. This connection " +
+				"can list the channel definitions everything has to come through; what it " +
+				"cannot enumerate is the transport connections open right now.",
+		},
+		{
+			model.CapClientClose,
+			"and with no connection list there is nothing to disconnect. STOP CONNECTION " +
+				"exists in MQSC and needs a connection identifier this driver never sees.",
+		},
+		{
+			model.CapOffsetReset,
+			"there is no position to move. A queue manager hands a message to whoever gets " +
+				"it and forgets; nothing anywhere records how far a reader has got.",
+		},
+		{
+			model.CapQueueOffset,
+			"per queue makes it no more possible, for the same reason.",
+		},
+		{
+			model.CapOffsetClone,
+			"and with no stored position there is nothing to copy from one reader onto " +
+				"another.",
+		},
+		{
+			model.CapSubscriptionPosition,
+			"nor is there a place in a log to name. A queue is not a log: a message that " +
+				"has been read is gone, so there is nothing to rewind to.",
+		},
+		{
+			model.CapSubscriptionRuntime,
+			"a subscription reports at most one attached connection and an identifier for " +
+				"it, and nothing about what that application is doing with it.",
+		},
+		{
+			model.CapSubscriptionCreate,
+			"this driver's omission rather than the family's, and the only one on this " +
+				"list: DEFINE SUB works through the same endpoint. A subscription's " +
+				"identity is a topic string, a destination queue and a durability together, " +
+				"and that needs a form rather than a name field.",
+		},
+		{
+			model.CapSubscriptionDelete,
+			"left out with the create above, for the same reason.",
+		},
+		{
+			model.CapDestinationUpdate,
+			"also this driver's, and also deliberate. ALTER changes a live object " +
+				"underneath whatever has it open, and the fields worth changing each have " +
+				"their own consequence for applications already connected - so this driver " +
+				"reads them and offers no one control that writes them all.",
+		},
+		{
+			model.CapDLQ,
+			"declared as CapDeadLetterTopology instead. Nothing here is a dead-letter " +
+				"queue by nature: what makes one is the queue manager's DEADQ attribute or " +
+				"another queue's backout queue pointing at it, which is a walk backwards " +
+				"rather than a name derived from a group.",
+		},
+		{
+			model.CapMessageResend,
+			"nothing puts a dead letter back. Moving one is an application's job - the " +
+				"dead-letter header says where it was going, and deciding what to do about " +
+				"that is a policy rather than a button.",
+		},
+		{
+			model.CapMessageReplay,
+			"and there is no connected consumer to hand a message to. A queue manager " +
+				"knows an application has a queue open and nothing about its handler.",
+		},
+		{
+			model.CapPendingEntries,
+			"nothing is owed. A message is either on the queue or has been taken; there " +
+				"is no delivery record, and an uncommitted get is a transaction rather " +
+				"than a list.",
+		},
+		{
+			model.CapPendingAdmin,
+			"and with no such list there is nothing to acknowledge or reassign.",
+		},
+		{
+			model.CapMessageTrack,
+			"there is no trace on an ordinary message. Activity recording exists and is a " +
+				"separate feature that writes its own messages to a system queue, which is " +
+				"not what this page asks for.",
+		},
+		{
+			model.CapMessageLiveTail,
+			"a queue is not a log. A tail is an incremental read against a durable " +
+				"position, and there is no position here to be incremental against - the " +
+				"only way to follow a queue is to browse it again.",
+		},
+		{
+			model.CapLiveStream,
+			"and nothing is pushed to a caller that did not ask. The REST interfaces are " +
+				"request and response; following a subscription means being an MQ client.",
+		},
+		{
+			model.CapDelayedDelivery,
+			"nothing holds a message back. A message the queue manager accepts is " +
+				"readable immediately; the delayed-delivery capability of MQ's own " +
+				"messaging APIs is the client library's timer rather than the broker's.",
+		},
+		{
+			model.CapPublishRich,
+			"and there is nowhere richer to send from. The messaging interface has no " +
+				"topic endpoint at all, so a console with an exchange and a routing key " +
+				"would be collecting fields that cannot be sent.",
+		},
+		{
+			model.CapEntryPublish,
+			"a message is bytes with a descriptor, not an ordered set of named fields.",
+		},
+		{
+			model.CapProducerInspect,
+			"there is no producer group. An application that puts a message opens a queue " +
+				"and closes it, and the queue manager counts the open handles rather than " +
+				"naming who holds them.",
+		},
+		{
+			model.CapDestinationPurge,
+			"this driver's own, and narrowly. CLEAR QLOCAL exists; what is offered here is " +
+				"the purge that goes with a delete, because emptying a queue somebody else " +
+				"is using is a larger gesture than it looks and deserves its own page.",
+		},
+		{
+			model.CapDestinationMove,
+			"nothing drains one queue into another. A queue manager moves messages along " +
+				"channels, which is a route rather than an operation on contents.",
+		},
+		{
+			model.CapStreamTrim,
+			"and there is no trim: a queue holds what it holds until something reads it " +
+				"or its expiry passes.",
+		},
+		{
+			model.CapQueueRebalance,
+			"placement is not a thing here. A queue lives on the queue manager it was " +
+				"defined on, and there is nowhere else to put it.",
+		},
+		{
+			model.CapReassign,
+			"and a queue has no replica list. High availability is the queue manager's, " +
+				"configured outside it, and not an administrator's to edit per queue.",
+		},
+		{
+			model.CapClusterTopology,
+			"there is no cluster under this connection. An IBM MQ cluster is a set of " +
+				"queue managers publishing to each other's repositories; this connection " +
+				"speaks to one of them, so a topology board would have one invented row.",
+		},
+		{
+			model.CapClusterMetrics,
+			"and no node to attribute a figure to for the same reason.",
+		},
+		{
+			model.CapClusterCensus,
+			"the queue manager keeps no running total of its own. Every figure it reports " +
+				"belongs to one object, and summing them would be this app's arithmetic " +
+				"rather than the queue manager's answer.",
+		},
+		{
+			model.CapClusterHealth,
+			"nothing answers a question about the queue manager's health. Its state is " +
+				"running or not, which is what the connection already reports.",
+		},
+		{
+			model.CapDirectory,
+			"there is no discovery tier. A client is given an address and a channel name, " +
+				"and nothing has to be asked where a queue manager is.",
+		},
+		{
+			model.CapNodeConfig,
+			"the queue manager's own settings are readable and are one object's " +
+				"attributes rather than a node's effective configuration; there is no node " +
+				"underneath it with settings of its own.",
+		},
+		{
+			model.CapNodeMaintenance,
+			"nothing here is run on demand through this interface. A queue manager's " +
+				"housekeeping is its log and its media images, which are commands on the " +
+				"machine it runs on.",
+		},
+		{
+			model.CapNodeWritePerm,
+			"and there is no node to take out of the write path. Inhibiting a queue is a " +
+				"queue's attribute rather than a broker being drained.",
+		},
+		{
+			model.CapLogDirs,
+			"the REST interfaces report no storage figure at all - not a size, not free " +
+				"space, not a percentage. What a queue manager's log occupies is readable " +
+				"on the machine it runs on.",
+		},
+		{
+			model.CapSlowLog,
+			"nothing records what has been slow. A queue's monitoring data reports how " +
+				"long messages sat on it, which is a different question and belongs to the " +
+				"queue rather than to a command.",
+		},
+		{
+			model.CapAccessControl,
+			"access here is an authority record per object and per principal, which is " +
+				"neither a credential pair the broker takes a write for nor a rule attached " +
+				"to a subject. It is a page of its own rather than a column, and this " +
+				"driver does not draw it.",
+		},
+		{
+			model.CapAccessDirectory,
+			"and there is no directory of principals inside the queue manager: it " +
+				"authorises operating system users and groups, or an LDAP repository, both " +
+				"of which live outside it.",
+		},
+		{
+			model.CapAclUsers,
+			"nor does it keep users of its own to attach rules to.",
+		},
+		{
+			model.CapIdentityList,
+			"same reason: the identities are the machine's or a directory's.",
+		},
+		{
+			model.CapNamespaceList,
+			"a queue name is flat and unique within its queue manager. There is no vhost, " +
+				"tenant or namespace inside one - a second queue manager is a second " +
+				"connection rather than a namespace in this one.",
+		},
+		{
+			model.CapConnectionScope,
+			"and the queue manager is not a scope either. A scope is a naming convention " +
+				"with an unscoped default; a queue manager is a separate process with its " +
+				"own storage and log, nothing crosses between two of them, and there is no " +
+				"unscoped IBM MQ connection at all.",
+		},
+		{
+			model.CapRouting,
+			"there is no exchange and no binding. Where a message goes is decided by the " +
+				"name it was put to and, for a publication, by the topic tree - which is a " +
+				"hierarchy rather than a topology anybody wired up.",
+		},
+		{
+			model.CapPolicyList,
+			"and nothing is applied to queues by pattern. A queue's settings are its own, " +
+				"inherited from the model queue it was copied from at definition time.",
+		},
+		{
+			model.CapQuotaList,
+			"limits here are per object - a queue's maximum depth, a channel's message " +
+				"size - rather than per identity. There is nothing that throttles one " +
+				"application across the queue manager.",
+		},
+		{
+			model.CapTransactions,
+			"a queue manager coordinates transactions and does not publish them as a " +
+				"list. An in-doubt unit of work belongs to a channel, which is on the " +
+				"channels page and reported there as what it is.",
+		},
+		{
+			model.CapDefinitionsExport,
+			"there is no one document. A queue manager's configuration is dumped by " +
+				"running MQSC on the machine it lives on, which is a command rather than " +
+				"an object this connection can ask for.",
+		},
+		{
+			model.CapReplication,
+			"nothing moves messages between queue managers on this connection's behalf. " +
+				"That is what channels do, and they are a topology rather than a shovel " +
+				"this app could create.",
+		},
+		{
+			model.CapStreamClients,
+			"and there is no second protocol to enumerate readers of. The AMQP channel " +
+				"exists and is a channel like any other, which is where it is reported.",
+		},
+	}
+
+	live := offlineConn().Capabilities()
+	for _, entry := range absent {
+		if live.Has(entry.capability) {
+			t.Errorf("declares %s, but %s", entry.capability, entry.because)
+		}
+		if _, degraded := live.DegradedReason(entry.capability); degraded {
+			t.Errorf("degrades %s, which implies the family has it; %s",
+				entry.capability, entry.because)
+		}
+	}
+}
+
+/*
+ * The sidebar contract, from the Go side.
+ *
+ * The list below is the one frontend/src/mq/navigation.ibmmq.test.ts holds,
+ * and that test asserts which pages those capabilities make reachable. This
+ * one asserts the driver still declares exactly them.
+ *
+ * Neither half is worth much alone. A capability dropped here takes a finished
+ * page out of the sidebar and nothing else notices; a page added there with no
+ * capability behind it is drawn and fails when opened. Together they cannot
+ * drift without one of them going red.
+ *
+ * The failure messages say what to do rather than what is different, because
+ * the fix is never in this file alone.
+ */
+func TestCapabilitiesMatchTheSidebarContract(t *testing.T) {
+	sidebar := []string{
+		"destination.list",
+		"destination.create",
+		"destination.delete",
+		"channel.list",
+		"message.query",
+		"message.byId",
+		"message.publish",
+		"message.dlqTopology",
+		"subscription.list",
+		"subscription.lag",
+	}
+
+	declared := make(map[string]bool, len(capabilities()))
+	for _, capability := range capabilities() {
+		declared[string(capability)] = true
+	}
+	expected := make(map[string]bool, len(sidebar))
+	for _, capability := range sidebar {
+		expected[capability] = true
+	}
+
+	for _, capability := range sidebar {
+		if !declared[capability] {
+			t.Errorf("the sidebar expects %s and the driver no longer declares it; "+
+				"restore it or drop the page, and update navigation.ibmmq.test.ts in the same commit",
+				capability)
+		}
+	}
+	for capability := range declared {
+		if !expected[capability] {
+			t.Errorf("the driver declares %s and the sidebar contract does not list it; "+
+				"add it to navigation.ibmmq.test.ts in the same commit", capability)
+		}
+	}
+}
