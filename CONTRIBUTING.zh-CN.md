@@ -217,6 +217,11 @@ capability，画出来的页面看着不像「诚实」，而像「坏了」。
   `frontend/src/design/data/connections.ts` 会把 profile 的 endpoints 打印到连接行的地址列，
   那样这一列会是空的；另外驱动必须用自己的名字存凭据。`accessKey` 与 `secretKey`
   是给 RocketMQ ACL 保留的：别的家族复用它们，保存时会被清空，拨号时还会被盖上全局那一对。
+- 家族有这个概念、但这套 API 答不上来的能力，要放进 `Degraded` 并给出原因——既不能省略，
+  也不能随便填一个数。原因是 i18n key 而不是一句话，而且要手抄一份到
+  `frontend/src/i18n/degradedReasons.test.ts`，因为没有任何机制把 Go 里的字符串和
+  JSON key 绑在一起。Pub/Sub 的积压量就是例子：这个数字存在，但在 Cloud Monitoring 里，
+  而从 Pub/Sub API 造出它的唯一办法是把积压拉下来数一遍——那会把数到的每一条都真的投递出去。
 
 不要靠眼睛数家族。哪些驱动能答哪个页面，由 capability 声明说了算：
 

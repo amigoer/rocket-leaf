@@ -22,6 +22,68 @@ was open now redials instead of going on with the old one in silence.
 
 ### Added
 
+- Google Cloud Pub/Sub is the eleventh driver, the second with no broker
+  address, and the first whose objects come in two kinds. A connection is a
+  Google Cloud project and a credential; the connection row shows the project
+  where every other family shows an address. The credential is a service
+  account key pasted whole rather than a path to it, so it travels with the
+  profile through the same encrypted store as every other secret — left blank,
+  it falls back to whatever Google identity the machine already has, which is
+  how this runs on anything inside Google Cloud.
+
+  The split between a topic and a subscription is what the driver is arranged
+  around. A topic holds nothing: a publish is fanned out to whatever
+  subscriptions exist at that instant and discarded if none do, and the service
+  reports success either way. So the topics board leads with how many
+  subscriptions read each topic rather than with a depth, and a topic with none
+  is marked — it is the one failure with no other symptom, because a discarded
+  message leaves no backlog behind it. The send console warns about the same
+  thing before the button is pressed.
+
+  Subscriptions are objects in their own right, created and deleted
+  independently of the topic, and they carry the whole of the delivery
+  configuration: the ack deadline, how long an unacknowledged message is kept,
+  the retry backoff, a filter fixed at creation, message ordering, and where
+  messages are given up to. A subscription outlives the topic it reads, which
+  is a leak with no other symptom either: it holds what it had not delivered,
+  goes on being billed for it, and can never receive again. Both of those get
+  an alert of their own.
+
+  Restore points and both kinds of seek. A snapshot copies a subscription's
+  acknowledgement state at a moment, belongs to the topic rather than to the
+  subscription it came from, and any subscription on that topic can be moved to
+  it. Moving to a moment in time is the other half, and the two are separate
+  because they are different gestures with different guarantees.
+
+  Dead letters are found by inverting every subscription's dead-letter policy.
+  The policy sits on the subscription rather than on the topic, so each source
+  names both the topic a message came from and the reader that stopped trying —
+  one topic read three ways can give up into three different places. What the
+  board leads with is how many subscriptions read the dead-letter topic,
+  because a dead letter published to one with none is discarded on arrival, and
+  the messages a system gave up on are the ones nobody notices disappearing.
+
+  Browsing carries a caveat, and it is worth reading before pressing the
+  button. Pull is the only read Pub/Sub has and it is the same call a consumer
+  makes: what it returns is held away from other consumers until the app hands
+  it back, and every message's delivery attempt goes up permanently. On a
+  subscription with a dead-letter topic, browsing often enough moves a message
+  there with nothing having failed. The messages page offers subscriptions
+  rather than topics for the same underlying reason: there is no such thing as
+  browsing a topic.
+
+  One figure is reported as unavailable rather than filled in. A subscription's
+  backlog is `num_undelivered_messages`, which is a Cloud Monitoring metric
+  rather than a field on the subscription — no call in the Pub/Sub API returns
+  it. The subscriptions page says so instead of showing a number that could
+  only be produced by pulling the backlog to count it. The throughput figures
+  are absent for the same reason.
+
+  There is no cluster page and no access page, and neither is an omission.
+  Google runs the service, so there is no node, no session and no disk figure;
+  and who may call what is IAM's, one service further out, so a page editing
+  half of it would claim to control access it cannot see.
+
 - Amazon SQS is the tenth driver, and the first with no broker address at all.
   There is nothing to dial: a connection is an AWS region and a credential, and
   the SDK resolves the endpoint from the region. The driver's own connection

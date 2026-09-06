@@ -1402,7 +1402,7 @@
         "aheadOfRelease": "当前 v{{current}} 新于线上 v{{latest}}",
         "upToDate": "已是最新版本 v{{version}}",
         "updateCheckFailed": "无法检查更新",
-        "blurb": "本地优先的消息队列桌面客户端，无需额外部署控制台，即可管理 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ 与 Amazon SQS 的集群、主题、消费者与消息。"
+        "blurb": "本地优先的消息队列桌面客户端，无需额外部署控制台，即可管理 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS 与 Google Pub/Sub 的集群、主题、消费者与消息。"
       }
     }
   },

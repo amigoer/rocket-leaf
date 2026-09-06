@@ -255,6 +255,13 @@ After adding a family, update all of these:
   driver has to store its credentials under names of its own. `accessKey` and
   `secretKey` are reserved for RocketMQ's ACL: a family reusing them has them
   cleared on save and the global pair stamped on at dial time.
+- A capability the family has and this API cannot answer belongs in
+  `Degraded` with a reason, not left out and not filled in. The reason is an
+  i18n key rather than a sentence, and it is copied by hand into
+  `frontend/src/i18n/degradedReasons.test.ts` — nothing ties the Go string to
+  the JSON key. Pub/Sub's backlog is the example: the number exists, in Cloud
+  Monitoring, and the only way to produce one from the Pub/Sub API would be to
+  pull the backlog and count it, which would deliver every message counted.
 
 Do not count the families by eye. The capability declarations settle which
 drivers answer which page:
