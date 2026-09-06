@@ -130,7 +130,7 @@ func (c *Conn) runMQSC(ctx context.Context, request mqscRequest) (*mqscResponse,
 		return nil, err
 	}
 
-	raw, _, err := c.rest.do(ctx, "POST",
+	raw, _, _, err := c.rest.do(ctx, "POST",
 		c.rest.base+"/ibmmq/rest/v1/admin/action/qmgr/"+c.qmgr+"/mqsc",
 		c.rest.adminUP, "application/json", payload, nil)
 	if err != nil {

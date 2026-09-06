@@ -773,3 +773,187 @@ func TestLiveAChannelNobodyHasStartedReportsNoStatus(t *testing.T) {
 	}
 	t.Error("SYSTEM.DEF.SENDER is missing; every queue manager defines it")
 }
+
+// depthOf reads one queue's depth straight from the admin interface, which is
+// what the non-destructive claim below is measured against.
+func depthOf(t *testing.T, conn *Conn, queue string) int64 {
+	t.Helper()
+	destination, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: queue})
+	if err != nil {
+		t.Fatalf("DestinationDetail(%s): %v", queue, err)
+	}
+	return destination.Depth
+}
+
+/*
+ * Browsing takes nothing, and this is the test that says so in figures.
+ *
+ * It is worth measuring rather than asserting because the same interface has
+ * the other operation: DELETE on the message resource consumes, and a driver
+ * that reached for it would pass every other test in this file while quietly
+ * draining whatever anybody looked at.
+ */
+func TestLiveBrowsingLeavesTheQueueAlone(t *testing.T) {
+	conn := liveConn(t)
+
+	before := depthOf(t, conn, seedQueue)
+	if before <= 0 {
+		e2e.Missing(t, "%s is empty; run: npm run e2e:ibmmq:seed", seedQueue)
+		return
+	}
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{Topic: seedQueue})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(messages) == 0 {
+		t.Fatalf("%s holds %d messages and the browse returned none", seedQueue, before)
+	}
+
+	// Twice, because a single read could consume and still look right.
+	if _, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{Topic: seedQueue}); err != nil {
+		t.Fatalf("second QueryMessages: %v", err)
+	}
+	if after := depthOf(t, conn, seedQueue); after != before {
+		t.Errorf("%s held %d messages and holds %d after two browses; the browse is consuming",
+			seedQueue, before, after)
+	}
+
+	first := messages[0]
+	if first.Body == "" {
+		t.Error("the first message came back with no body")
+	}
+	if first.MessageID == "" {
+		t.Error("the first message came back with no identifier")
+	}
+	if first.Topic != seedQueue {
+		t.Errorf("the first message names %q as its destination", first.Topic)
+	}
+	// No put time anywhere in the descriptor, and the driver must not invent
+	// one from the clock on this machine.
+	if first.StoreTime != "" || first.StoreTimestamp != 0 {
+		t.Errorf("a message carries a store time (%q / %d), and mqweb returns none",
+			first.StoreTime, first.StoreTimestamp)
+	}
+}
+
+// The limit is a real limit rather than a page size: each message costs a
+// request of its own, so a browse that ignored it would be fifty round trips
+// where the caller asked for three.
+func TestLiveBrowsingHonoursTheLimit(t *testing.T) {
+	conn := liveConn(t)
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic:      seedQueue,
+		MaxResults: 3,
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(messages) > 3 {
+		t.Errorf("asked for 3 messages and got %d", len(messages))
+	}
+}
+
+/*
+ * A message whose body the server will not decode is listed rather than
+ * dropped, and this is the case that proves it.
+ *
+ * Every dead letter carries a dead-letter header in front of its payload, so
+ * mqweb answers 501 for all of them. Which messages are on the queue is worth
+ * knowing even when their contents cannot be shown, and a browse that returned
+ * fewer rows than the depth would be the more confusing answer.
+ */
+func TestLiveAMessageTheServerWillNotDecodeIsStillListed(t *testing.T) {
+	conn := liveConn(t)
+
+	depth := depthOf(t, conn, deadLetterQueue)
+	if depth <= 0 {
+		e2e.Missing(t, "%s is empty; run: npm run e2e:ibmmq:seed", deadLetterQueue)
+		return
+	}
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{Topic: deadLetterQueue})
+	if err != nil {
+		t.Fatalf("QueryMessages(%s): %v", deadLetterQueue, err)
+	}
+	if int64(len(messages)) != depth {
+		t.Errorf("%s holds %d messages and the browse returned %d rows",
+			deadLetterQueue, depth, len(messages))
+	}
+
+	for _, message := range messages {
+		format, refused := message.Properties[PropBodyUnavailable]
+		if !refused {
+			t.Errorf("%s came back with a body, and every dead letter carries a dead-letter header",
+				message.MessageID)
+			continue
+		}
+		if format != "MQDEAD" {
+			t.Errorf("%s was refused as format %q, want MQDEAD", message.MessageID, format)
+		}
+		if message.Body != "" {
+			t.Errorf("%s is marked unreadable and carries a body anyway", message.MessageID)
+		}
+	}
+}
+
+// One message by its identifier, which is the other half of the message page:
+// the browse hands out identifiers and this is what opens one.
+func TestLiveMessageByIDFindsWhatTheBrowseListed(t *testing.T) {
+	conn := liveConn(t)
+
+	messages, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic:      seedQueue,
+		MaxResults: 1,
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(messages) == 0 {
+		e2e.Missing(t, "%s is empty; run: npm run e2e:ibmmq:seed", seedQueue)
+		return
+	}
+
+	wanted := messages[0]
+	found, err := conn.MessageByID(liveContext(t), seedQueue, wanted.MessageID)
+	if err != nil {
+		t.Fatalf("MessageByID: %v", err)
+	}
+	if found == nil {
+		t.Fatalf("%s was listed by the browse and not found by its id", wanted.MessageID)
+	}
+	if found.Body != wanted.Body {
+		t.Errorf("the same message read twice has two bodies: %q and %q", wanted.Body, found.Body)
+	}
+
+	// An identifier nothing has is nil rather than an error: a message taken by
+	// a consumer between two clicks is gone, not a failure. The queue manager
+	// answers that with 204 rather than 404, which is a success with an empty
+	// body and would otherwise read as a message with no content.
+	missing, err := conn.MessageByID(liveContext(t), seedQueue, "ff"+strings.Repeat("0", 46))
+	if err != nil {
+		t.Errorf("looking for an identifier nothing has failed: %v", err)
+	}
+	if missing != nil {
+		t.Error("an identifier nothing has came back as a message")
+	}
+}
+
+/*
+ * The all-zero identifier is refused, and it has to be.
+ *
+ * Twenty-four zero bytes is MQMI_NONE, which the queue manager reads as "no
+ * selector" rather than as an identifier nothing has - so a browse sent one
+ * comes back with whatever is at the front of the queue. A user who pasted a
+ * blank id, or a caller reusing a zeroed field, would be handed a real message
+ * and told it was the one they asked for.
+ */
+func TestLiveTheEmptyMessageIdentifierIsRefusedRatherThanMatched(t *testing.T) {
+	conn := liveConn(t)
+
+	if _, err := conn.MessageByID(liveContext(t), seedQueue, strings.Repeat("0", 48)); err == nil {
+		t.Fatal("the empty message id was accepted; the queue manager answers it with the " +
+			"first message on the queue")
+	}
+}

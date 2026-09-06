@@ -5547,6 +5547,30 @@
           "runtime": "Runtime"
         },
         "note": "Definitions, not connections: a channel is listed whether or not anything is using it, because it is what decides whether anything may. An empty status is a real answer — a channel nobody has started has none, and a client-connection definition is one this queue manager holds on behalf of clients and never runs. The counters are one instance's totals since it started and reset when it restarts."
+      },
+      "messages": {
+        "title": "Messages",
+        "subtitle": "Browse a queue without taking anything off it",
+        "pickQueue": "Choose a queue",
+        "read": "Browse",
+        "found": "{{count}} messages",
+        "readNote": "Browsing takes nothing: the queue's depth is the same afterwards and the messages stay in order. Only local queues are listed — a topic stores nothing, and a publication sits on the queues its subscriptions deliver to.",
+        "startHere": "Choose a queue and browse it.",
+        "nothingThere": "That queue is empty.",
+        "messageId": "Message ID",
+        "format": "Format",
+        "persistence": "Persistence",
+        "expiry": "Expiry",
+        "correlationId": "Correlation ID",
+        "replyTo": "Reply-to queue",
+        "replyToQmgr": "Reply-to queue manager",
+        "body": "Body",
+        "bodyUnavailable": "{{format}} — not text",
+        "bodyUnavailableNote": "The queue manager stored this message as {{format}}, and the REST interface carries character data only — so it is listed here and its body cannot be shown. Every dead letter is like this: its payload sits behind a dead-letter header.",
+        "noPutTime": "No put time: the REST interface returns the identifiers, the persistence and the expiry, and does not return when the message arrived.",
+        "section": {
+          "properties": "Message properties"
+        }
       }
     }
   }

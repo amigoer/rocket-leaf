@@ -139,7 +139,7 @@ func newRESTClient(base string, admin, messaging credential, timeout time.Durati
 
 // adminGet reads one administrative resource into out.
 func (c *restClient) adminGet(ctx context.Context, path string, out any) error {
-	body, _, err := c.do(ctx, http.MethodGet, c.base+"/ibmmq/rest/v1/admin"+path, c.adminUP, "", nil, nil)
+	body, _, _, err := c.do(ctx, http.MethodGet, c.base+"/ibmmq/rest/v1/admin"+path, c.adminUP, "", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -163,14 +163,31 @@ func (c *restClient) adminSend(ctx context.Context, method, path string, payload
 		}
 		body, contentType = encoded, "application/json"
 	}
-	_, _, err := c.do(ctx, method, c.base+"/ibmmq/rest/v1/admin"+path, c.adminUP, contentType, body, nil)
+	_, _, _, err := c.do(ctx, method, c.base+"/ibmmq/rest/v1/admin"+path, c.adminUP, contentType, body, nil)
 	return err
 }
+
+// errNoMessage is the messaging interface answering "nothing matched".
+//
+// It answers 204 rather than 404 for a message selector that found nothing,
+// which is a success status with an empty body - so a caller that only checked
+// for an error would read it as a message with no content. That is the one
+// difference between "the queue is not there" and "the message is not there",
+// and the two need different answers.
+var errNoMessage = errors.New("no message matched")
 
 // messagingGet reads from the messaging interface, which answers with the
 // message body and puts everything else in headers.
 func (c *restClient) messagingGet(ctx context.Context, path string) ([]byte, http.Header, error) {
-	return c.do(ctx, http.MethodGet, c.base+"/ibmmq/rest/v1/messaging"+path, c.msgUP, "", nil, nil)
+	body, headers, status, err := c.do(
+		ctx, http.MethodGet, c.base+"/ibmmq/rest/v1/messaging"+path, c.msgUP, "", nil, nil)
+	if err != nil {
+		return nil, headers, err
+	}
+	if status == http.StatusNoContent {
+		return nil, headers, errNoMessage
+	}
+	return body, headers, nil
 }
 
 // messagingPost sends one message. The headers carry the message descriptor
@@ -178,24 +195,28 @@ func (c *restClient) messagingGet(ctx context.Context, path string) ([]byte, htt
 func (c *restClient) messagingPost(
 	ctx context.Context, path, contentType string, body []byte, headers map[string]string,
 ) (http.Header, error) {
-	_, responseHeaders, err := c.do(
+	_, responseHeaders, _, err := c.do(
 		ctx, http.MethodPost, c.base+"/ibmmq/rest/v1/messaging"+path, c.msgUP, contentType, body, headers)
 	return responseHeaders, err
 }
 
 // do is the one place a request is built, so the CSRF header and the
 // credential cannot be forgotten at a call site.
+//
+// It returns the status alongside the body because one caller needs it: the
+// messaging interface answers 204 for a selector that matched nothing, and
+// that is a success with an empty body rather than a failure.
 func (c *restClient) do(
 	ctx context.Context, method, endpoint string, up credential,
 	contentType string, body []byte, headers map[string]string,
-) ([]byte, http.Header, error) {
+) ([]byte, http.Header, int, error) {
 	var reader io.Reader
 	if body != nil {
 		reader = bytes.NewReader(body)
 	}
 	request, err := http.NewRequestWithContext(ctx, method, endpoint, reader)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 	if contentType != "" {
 		request.Header.Set("Content-Type", contentType)
@@ -213,18 +234,19 @@ func (c *restClient) do(
 
 	response, err := c.http.Do(request)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 	defer func() { _ = response.Body.Close() }()
 
 	payload, err := io.ReadAll(response.Body)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, response.StatusCode, err
 	}
 	if response.StatusCode >= 400 {
-		return nil, response.Header, decodeRESTError(response.StatusCode, payload)
+		return nil, response.Header, response.StatusCode,
+			decodeRESTError(response.StatusCode, payload)
 	}
-	return payload, response.Header, nil
+	return payload, response.Header, response.StatusCode, nil
 }
 
 // decodeRESTError turns the server's error envelope into something a caller

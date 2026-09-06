@@ -269,3 +269,94 @@ func isTranslationKey(text string) bool {
 	const prefix = "mq.ibmmq."
 	return strings.HasPrefix(text, prefix) && !strings.Contains(text, " ")
 }
+
+/*
+ * The caveat browsing carries, and - just as importantly - the one it does not.
+ *
+ * Every other family here reached through a management API warns that looking
+ * at a message takes it away from a consumer: SQS's ReceiveMessage hides what
+ * it read and raises its receive count, Pub/Sub's Pull does the same and
+ * counts towards being dead-lettered. Neither is true here. IBM MQ's messaging
+ * interface has both operations and this driver uses the non-destructive one:
+ * GET leaves the queue's depth alone, the messages stay in order, and any
+ * number of readers can look at the same one.
+ *
+ * What is true is the other thing. The mqweb server carries character data and
+ * nothing else, so a message the queue manager stored in any other format is
+ * listed with its identifier and refused when opened - which is the ordinary
+ * state of every dead letter on the queue manager.
+ */
+func TestBrowsingWarnsAboutTheFormatAndNotAboutConsuming(t *testing.T) {
+	declared := (&Conn{qmgr: "QM1", closed: make(chan struct{})}).declare("")
+
+	if !declared.Has(model.CapMessageQuery) {
+		t.Fatal("browsing is not declared at all")
+	}
+	caveat, warned := declared.Caveat(model.CapMessageQuery)
+	if !warned {
+		t.Fatal("browsing is offered with no caveat, and the server will refuse some bodies")
+	}
+	if caveat != browseCharacterOnly {
+		t.Errorf("caveat = %q, want %q", caveat, browseCharacterOnly)
+	}
+	// The keys of the families whose browse does take a message away, named so
+	// a copied caveat cannot pass: an MQ browse takes nothing.
+	for _, borrowed := range []string{
+		"mq.sqs.caveat.receiveHides",
+		"mq.google-pubsub.caveat.pullDelivers",
+		"mq.rabbitmq.caveat.browseAltersQueue",
+	} {
+		if caveat == borrowed {
+			t.Errorf("browsing carries %s, which says a read alters the queue; "+
+				"an ibm mq browse leaves the depth alone", borrowed)
+		}
+	}
+	if _, degraded := declared.DegradedReason(model.CapMessageQuery); degraded {
+		t.Error("browsing is both supported and degraded")
+	}
+}
+
+/*
+ * The messaging tier is degraded rather than absent when the credential cannot
+ * reach it, and everything else stays supported.
+ *
+ * That split is the whole point of the middle state here. mqweb authorises its
+ * two interfaces separately, so a connection can administer every object on
+ * the queue manager and be unable to read one message - and a page that simply
+ * disappeared would send the reader looking for a bug in this app rather than
+ * at a role mapping.
+ */
+func TestTheMessagingTierIsDegradedRatherThanDropped(t *testing.T) {
+	conn := &Conn{qmgr: "QM1", closed: make(chan struct{})}
+	declared := conn.declare(messagingForbidden)
+
+	for _, capability := range messagingCapabilities() {
+		if declared.Has(capability) {
+			t.Errorf("%s is supported on a connection that cannot reach the messaging api", capability)
+		}
+		reason, degraded := declared.DegradedReason(capability)
+		if !degraded {
+			t.Errorf("%s is absent with no reason; the family has it and this endpoint does not", capability)
+			continue
+		}
+		if reason != messagingForbidden {
+			t.Errorf("%s is degraded as %q, want %q", capability, reason, messagingForbidden)
+		}
+	}
+
+	// The administrative half is untouched: it is a different interface with a
+	// different role, and it answered.
+	for _, capability := range []model.Capability{
+		model.CapDestinationList, model.CapDestinationCreate, model.CapChannels,
+	} {
+		if !declared.Has(capability) {
+			t.Errorf("%s was dropped with the messaging tier, and it is not part of it", capability)
+		}
+	}
+
+	// A caveat about browsing on a connection that cannot browse would be a
+	// warning attached to a control that is not there.
+	if _, warned := declared.Caveat(model.CapMessageQuery); warned {
+		t.Error("browsing carries a caveat while it is degraded")
+	}
+}

@@ -152,6 +152,9 @@ func capabilities() []model.Capability {
 		model.CapDestinationDelete,
 
 		model.CapChannels,
+
+		model.CapMessageQuery,
+		model.CapMessageByID,
 	}
 }
 
@@ -207,14 +210,20 @@ func (c *Conn) declare(messagingReason string) model.Capabilities {
 			declared.Supported = without(declared.Supported, capability)
 			declared.Degraded[capability] = messagingReason
 		}
+		return declared
 	}
+
+	declared.Caveats[model.CapMessageQuery] = browseCharacterOnly
 	return declared
 }
 
 // messagingCapabilities are the ones the second interface answers, and the
 // ones that go degraded together when it will not take this credential.
 func messagingCapabilities() []model.Capability {
-	return []model.Capability{}
+	return []model.Capability{
+		model.CapMessageQuery,
+		model.CapMessageByID,
+	}
 }
 
 func without(capabilities []model.Capability, unwanted model.Capability) []model.Capability {
