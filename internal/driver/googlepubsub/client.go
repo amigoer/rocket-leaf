@@ -117,3 +117,6 @@ func newClient(ctx context.Context, config clientConfig) (*pubsub.Client, error)
 // ordinary and the row is simply dropped, where an authentication or
 // permission failure is something the user has to act on.
 func notFound(err error) bool { return status.Code(err) == codes.NotFound }
+
+// alreadyExists reports the service refusing to create something twice.
+func alreadyExists(err error) bool { return status.Code(err) == codes.AlreadyExists }

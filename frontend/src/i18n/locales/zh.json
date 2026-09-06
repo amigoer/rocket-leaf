@@ -4670,6 +4670,30 @@
         "stateDeadLetter": "死信",
         "note": "所有计数都是近似值，来自队列列表——那是 SQS 报告的全部内容。速率、消息年龄和每队列的历史数据在 CloudWatch，需要另一份权限。"
       }
+    },
+    "google-pubsub": {
+      "topics": {
+        "count": "{{count}} 个主题",
+        "search": "按名称筛选",
+        "name": "主题",
+        "subscribers": "订阅数",
+        "subscriptionNames": "被谁订阅",
+        "retention": "保留时长",
+        "path": "资源名",
+        "state": "状态",
+        "schema": "Schema",
+        "schemaEncoding": "编码",
+        "kmsKey": "加密密钥",
+        "storageRegions": "存储区域",
+        "noSubscriberBadge": "无订阅",
+        "noSubscriberNote": "没有任何订阅指向这个主题，发布到这里的消息会被接受、然后直接丢弃。下游不会留下任何记录。",
+        "note": "主题本身不存消息：一次发布只会送达那一刻已存在的订阅，积压属于各个订阅。",
+        "section": {
+          "delivery": "投递",
+          "identity": "标识",
+          "labels": "标签"
+        }
+      }
     }
   }
 }

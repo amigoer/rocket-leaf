@@ -4670,6 +4670,30 @@
         "stateDeadLetter": "dead letters",
         "note": "Every count is approximate and comes from the queue listing — the whole of what SQS reports. Rates, ages and per-queue history live in CloudWatch, under a different permission."
       }
+    },
+    "google-pubsub": {
+      "topics": {
+        "count": "{{count}} topics",
+        "search": "Filter by name",
+        "name": "Topic",
+        "subscribers": "Subscriptions",
+        "subscriptionNames": "Read by",
+        "retention": "Retention",
+        "path": "Resource name",
+        "state": "State",
+        "schema": "Schema",
+        "schemaEncoding": "Encoding",
+        "kmsKey": "Encryption key",
+        "storageRegions": "Storage regions",
+        "noSubscriberBadge": "no subscription",
+        "noSubscriberNote": "Nothing subscribes to this topic, so every message published to it is accepted and then discarded. Nothing downstream records that it happened.",
+        "note": "A topic stores nothing: a publish reaches whatever subscriptions exist at that instant, and the backlog belongs to each of them.",
+        "section": {
+          "delivery": "Delivery",
+          "identity": "Identity",
+          "labels": "Labels"
+        }
+      }
     }
   }
 }

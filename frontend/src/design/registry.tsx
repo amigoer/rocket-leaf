@@ -79,6 +79,7 @@ import { MqttWorkbench } from "./boards/mqtt/MqttWorkbench";
 import { NatsWorkbench } from "./boards/nats/NatsWorkbench";
 import { ActiveMQWorkbench } from "./boards/activemq/ActiveMQWorkbench";
 import { QueuesSqs } from "./boards/topics/QueuesSqs";
+import { TopicsGooglePubSub } from "./boards/topics/TopicsGooglePubSub";
 import { MessagesSqs } from "./boards/messages/MessagesSqs";
 import { ProducerSqs } from "./boards/producer/ProducerSqs";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
@@ -152,6 +153,7 @@ const BOARDS: Partial<
     activemq: DestinationsActiveMQ,
     nsq: TopicsNsq,
     sqs: QueuesSqs,
+    "google-pubsub": TopicsGooglePubSub,
   },
   exchanges: { rabbitmq: ExchangesRabbitMQ },
   vhosts: { rabbitmq: VhostsRabbitMQ, pulsar: NamespacesPulsar, nats: AccountsNats },

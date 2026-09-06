@@ -183,3 +183,145 @@ func TestLiveCloseIsIdempotent(t *testing.T) {
 		t.Error("a closed connection still answers a ping")
 	}
 }
+
+func findDestination(list []*model.Destination, name string) *model.Destination {
+	for _, entry := range list {
+		if entry.Ref.Name == name {
+			return entry
+		}
+	}
+	return nil
+}
+
+/*
+ * The listing, and the one figure it exists to show.
+ *
+ * A Pub/Sub topic holds nothing, so there is no depth to compare and the
+ * subscription count is the whole of what separates a working topic from one
+ * that is discarding everything published to it.
+ */
+func TestLiveListDestinationsCountsWhatReadsEachTopic(t *testing.T) {
+	conn := liveConn(t)
+
+	topics, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+
+	orders := findDestination(topics, seedOrders)
+	if orders == nil {
+		e2e.Missing(t, "%s is not seeded; run `npm run e2e:google-pubsub:seed`", seedOrders)
+	}
+	if orders.Subscribers != 2 {
+		t.Errorf("%s reports %d subscriptions, want the 2 the seed creates",
+			seedOrders, orders.Subscribers)
+	}
+	names := orders.Attribute(AttrSubscriptionNames)
+	if !strings.Contains(names, seedWorker) || !strings.Contains(names, seedAudit) {
+		t.Errorf("%s names its subscriptions as %q, want both seeded ones", seedOrders, names)
+	}
+
+	orphaned := findDestination(topics, seedOrphaned)
+	if orphaned == nil {
+		e2e.Missing(t, "%s is not seeded; run `npm run e2e:google-pubsub:seed`", seedOrphaned)
+	}
+	// The state the alerts page fires on: nothing is subscribed, so every
+	// publish is discarded on the spot.
+	if orphaned.Subscribers != 0 {
+		t.Errorf("%s reports %d subscriptions, want none", seedOrphaned, orphaned.Subscribers)
+	}
+	if orphaned.Attribute(AttrSubscriptionNames) != "" {
+		t.Errorf("%s names subscriptions it does not have: %q",
+			seedOrphaned, orphaned.Attribute(AttrSubscriptionNames))
+	}
+}
+
+/*
+ * Depth is unknown rather than zero, on every topic, always.
+ *
+ * A topic stores nothing a caller can count. Zero would read as "this topic is
+ * empty" where the truth is that there is no such number, and the seeded topic
+ * holding twelve messages for two subscriptions is exactly the case that would
+ * be reported wrongly.
+ */
+func TestLiveTopicsReportNoDepthRatherThanZero(t *testing.T) {
+	conn := liveConn(t)
+
+	topics, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(topics) == 0 {
+		e2e.Missing(t, "the project holds no topics; run `npm run e2e:google-pubsub:seed`")
+	}
+	for _, topic := range topics {
+		if topic.Depth != model.UnknownMetric {
+			t.Errorf("%s reports a depth of %d; a topic holds nothing countable",
+				topic.Ref.Name, topic.Depth)
+		}
+		if topic.Partitions != model.UnknownMetric {
+			t.Errorf("%s reports %d partitions; a topic is not split",
+				topic.Ref.Name, topic.Partitions)
+		}
+	}
+}
+
+// The prefix is applied by this driver rather than by the service, which has
+// no filter of any kind - so it has to be asserted rather than assumed.
+func TestLiveResourcePrefixNarrowsTheListing(t *testing.T) {
+	requireProject(t)
+
+	profile := liveProfile()
+	profile.Options[OptionResourcePrefix] = seedOrders
+	conn, err := open(liveContext(t), profile)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
+	topics, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(topics) != 1 || topics[0].Ref.Name != seedOrders {
+		names := make([]string, 0, len(topics))
+		for _, topic := range topics {
+			names = append(names, topic.Ref.Name)
+		}
+		t.Fatalf("prefix %q let through %v, want only %s", seedOrders, names, seedOrders)
+	}
+
+	// A topic's subscriber count is not narrowed with it. The prefix says what
+	// to list; how many readers a topic has is a fact about the topic, and one
+	// hidden reader is the difference between a topic nothing reads and one
+	// three teams read.
+	if topics[0].Subscribers != 2 {
+		t.Errorf("%s reports %d subscriptions under a prefix that excludes them, want 2",
+			seedOrders, topics[0].Subscribers)
+	}
+}
+
+// One topic, read on its own rather than found in the listing: a project with
+// a thousand topics should not answer for all of them to describe one.
+func TestLiveDestinationDetailReadsOneTopic(t *testing.T) {
+	conn := liveConn(t)
+
+	topic, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: seedQuiet})
+	if err != nil {
+		e2e.Missing(t, "%s is not seeded; run `npm run e2e:google-pubsub:seed` (%v)", seedQuiet, err)
+	}
+	if topic.Ref.Name != seedQuiet {
+		t.Errorf("detail named %q, want %q", topic.Ref.Name, seedQuiet)
+	}
+	if !strings.HasSuffix(topic.Attribute(AttrPath), "/topics/"+seedQuiet) {
+		t.Errorf("path %q does not end in the topic name", topic.Attribute(AttrPath))
+	}
+
+	_, err = conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: "mqs-test-not-here"})
+	if err == nil {
+		t.Fatal("described a topic that does not exist")
+	}
+	if !strings.Contains(err.Error(), "mqs-test-not-here") {
+		t.Errorf("error does not name the topic that is missing: %v", err)
+	}
+}

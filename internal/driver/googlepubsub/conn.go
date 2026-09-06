@@ -88,7 +88,9 @@ func (c *Conn) live() error {
 // interface behind it, so each one arrives in the commit that implements it
 // rather than as a promise the connection cannot keep.
 func capabilities() []model.Capability {
-	return nil
+	return []model.Capability{
+		model.CapDestinationList,
+	}
 }
 
 // open builds the client and proves the credential reaches the project.
@@ -154,6 +156,8 @@ func (c *Conn) Emulator() string { return c.config.emulator }
 
 func (c *Conn) projectPath() string { return "projects/" + c.config.project }
 
+func (c *Conn) topicPath(name string) string { return c.projectPath() + "/topics/" + name }
+
 // shortName is the last segment of a resource path.
 //
 // A Pub/Sub name may not contain a slash, so the last segment is unambiguous;
@@ -165,4 +169,26 @@ func shortName(path string) string {
 		return trimmed[index+1:]
 	}
 	return trimmed
+}
+
+// requiredName trims a resource name and refuses one the API could not take.
+//
+// A Pub/Sub name is one segment: a slash in it would silently address
+// something else, because every call takes a full path and the name is its
+// last part.
+func requiredName(kind, name string) (string, error) {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return "", fmt.Errorf("no %s name given", kind)
+	}
+	if strings.Contains(trimmed, "/") {
+		return "", fmt.Errorf("a %s name cannot contain a slash: %q", kind, trimmed)
+	}
+	return trimmed, nil
+}
+
+// matchesPrefix reports whether a short name passes the connection's filter.
+// An empty prefix keeps everything, which is the ordinary case.
+func (c *Conn) matchesPrefix(name string) bool {
+	return c.config.prefix == "" || strings.HasPrefix(name, c.config.prefix)
 }
