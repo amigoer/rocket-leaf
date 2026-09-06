@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,13 @@ import {
   SectionLabel,
 } from "@/components";
 import { ProtocolIcon } from "@/design/icons/ProtocolIcon";
-import { PROTOCOL_ORDER, isProtocolReady, type ProtocolId } from "@/design/data/protocols";
+import {
+  PROTOCOL_GROUPS,
+  PROTOCOL_ORDER,
+  isProtocolReady,
+  protocolsIn,
+  type ProtocolId,
+} from "@/design/data/protocols";
 import { cn, formatErrorMessage } from "@/lib/utils";
 import type { ConnectionDraft, CredentialsMode } from "@/api/connection";
 import type { Connection as ConnectionProfile } from "@/api/models";
@@ -116,6 +123,19 @@ export function NewConnectionDialog({
   const { t } = useTranslation();
   const [draft, setDraft] = useState<ProtocolDraft>(() => emptyDraft("rocketmq"));
   const protocol = draft.protocol;
+  /*
+   * Two steps, not one column.
+   *
+   * The protocol list and the form it configures are separate questions, and
+   * stacking them made the dialog a scroll: fifteen tiles above, the fields
+   * that are actually being filled in below, and every vendor added pushing
+   * the form further down. Each step now has the whole dialog.
+   *
+   * An edit opens on the form and cannot go back - the protocol is what a
+   * stored profile is, so changing it would make this a different connection.
+   */
+  const [step, setStep] = useState<"protocol" | "form">(editing == null ? "protocol" : "form");
+  const [search, setSearch] = useState("");
   const [probe, setProbe] = useState<ProbeState>({ kind: "idle" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,10 +152,32 @@ export function NewConnectionDialog({
         : "rocketmq";
       setDraft(emptyDraft(wanted));
     }
+    // Open on a new connection so the whole list is browsable, shut on an
+    // edit where the protocol cannot change anyway.
+    setStep(editing == null ? "protocol" : "form");
+    setSearch("");
     setProbe({ kind: "idle" });
     setError(null);
     setSaving(false);
   }, [editing, initialProtocol, open]);
+
+  /*
+   * Matches a protocol against the search box, by the two things the tile
+   * shows: its name and its versions. Typing "managed" finds the hosted
+   * three, and "5.0" finds MQTT - both are on the tile, so both are things
+   * somebody will try.
+   */
+  const matches = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return (candidate: ProtocolId) => {
+      if (needle === "") return true;
+      const tile = TILE[candidate];
+      return (
+        tile.name.toLowerCase().includes(needle) ||
+        tile.versions.toLowerCase().includes(needle)
+      );
+    };
+  }, [search]);
 
   const invalid = useMemo(() => draftInvalidReason(draft, t), [draft, t]);
 
@@ -179,47 +221,99 @@ export function NewConnectionDialog({
       <DialogContent className="flex max-h-[85vh] flex-col gap-3.5 overflow-y-auto sm:max-w-[580px]">
         <DialogHeader>
           <DialogTitle>
-            {t(editing != null ? "page.connections.dialogTitleEdit" : "page.connections.dialogTitle")}
+            {t(
+              editing != null
+                ? "page.connections.dialogTitleEdit"
+                : step === "protocol"
+                  ? "page.connections.dialogTitleProtocol"
+                  : "page.connections.dialogTitle",
+            )}
           </DialogTitle>
         </DialogHeader>
-      <div>
-        <SectionLabel style={{ marginBottom: "8px" }}>{t("page.connections.dialogProtocol")}</SectionLabel>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: "8px" }}>
-          {PROTOCOL_ORDER.map((p) => {
-            const ready = isProtocolReady(p);
+      {step === "protocol" ? (
+        <>
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t("page.connections.protocolSearch")}
+            autoFocus
+          />
+          {PROTOCOL_GROUPS.map((group) => {
+            const listed = protocolsIn(group.id).filter(matches);
+            if (listed.length === 0) return null;
             return (
-              <button
-                key={p}
-                type="button"
-                aria-pressed={p === protocol}
-                /* Nothing drives the other five yet. And the protocol is what
-                   a stored profile is, so changing it on an edit would make
-                   the dialog a different connection. */
-                disabled={!ready || (editing != null && p !== protocol)}
-                className={cn("ptile", p === protocol && "sel")}
-                onClick={() => {
-                  if (!isDraftable(p)) return;
-                  setDraft(emptyDraft(p));
-                  setProbe({ kind: "idle" });
-                  setError(null);
-                }}
-              >
-                <ProtocolIcon protocol={p} size={18} className="" />
-                {TILE[p].name}
-                <span className="pv">
-                  {ready ? TILE[p].versions : t("page.connections.soon")}
-                </span>
-              </button>
+              <div key={group.id}>
+                <SectionLabel style={{ marginBottom: "8px" }}>{t(group.label)}</SectionLabel>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "8px" }}>
+                  {listed.map((p) => {
+                    const ready = isProtocolReady(p);
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        disabled={!ready}
+                        aria-pressed={p === protocol}
+                        /* Highlighted so returning from the form shows which
+                           one is in hand, rather than an unmarked grid. */
+                        className={cn("ptile", p === protocol && "sel")}
+                        onClick={() => {
+                          if (!isDraftable(p)) return;
+                          setDraft(emptyDraft(p));
+                          setProbe({ kind: "idle" });
+                          setError(null);
+                          setStep("form");
+                        }}
+                      >
+                        <ProtocolIcon protocol={p} size={20} className="" />
+                        {TILE[p].name}
+                        <span className="pv">
+                          {ready ? TILE[p].versions : t("page.connections.soon")}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
-        </div>
-        {/* The dimmed tiles say they are off; this says why, once, rather than
-            in a tooltip a disabled button never shows. It names no protocol on
-            purpose: the version that named the ready ones went stale the day
-            Kafka shipped and told people it had no driver. */}
-        <div style={{ marginTop: "8px", fontSize: "11px", color: "var(--c-muted)" }}>
-          {t("page.connections.protocolSoonHint")}
-        </div>
+          {PROTOCOL_ORDER.every((p) => !matches(p)) ? (
+            <div style={{ fontSize: "11px", color: "var(--c-muted)" }}>
+              {t("page.connections.protocolNoMatch")}
+            </div>
+          ) : null}
+          {/* Only when something really is off. The version that printed
+              unconditionally outlived the last dimmed tile and sat there
+              describing protocols that all had drivers. */}
+          {PROTOCOL_ORDER.some((p) => !isProtocolReady(p)) ? (
+            <div style={{ fontSize: "11px", color: "var(--c-muted)" }}>
+              {t("page.connections.protocolSoonHint")}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>
+              {t("common.cancel")}
+            </Button>
+          </DialogFooter>
+        </>
+      ) : (
+        <>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        {editing == null ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setStep("protocol");
+              setSearch("");
+            }}
+          >
+            {t("page.connections.protocolBack")}
+          </Button>
+        ) : null}
+        <ProtocolIcon protocol={protocol} size={18} className="" />
+        <span style={{ fontWeight: 500 }}>{TILE[protocol].name}</span>
+        <span className="pv">{TILE[protocol].versions}</span>
       </div>
       {draft.protocol === "rabbitmq" ? (
         <RabbitMQForm
@@ -329,6 +423,8 @@ export function NewConnectionDialog({
             {t(editing != null ? "page.connections.dialogSaveOnly" : "page.connections.dialogSave")}
           </Button>
         </DialogFooter>
+        </>
+      )}
       </DialogContent>
     </Dialog>
   );
