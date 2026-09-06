@@ -46,9 +46,14 @@ beforeAll(async () => {
     );
 });
 
-/** The markup of one field, from its hint to the end of that field's block. */
-function fieldAfter(html: string, hintKey: string): string {
-  const rest = html.split(hintKey)[1] ?? "";
+/**
+ * The markup of one field, from its label to the end of that field's block.
+ *
+ * Split on the closing tag as well: the label key is a prefix of its own hint
+ * key, so the bare key matches twice and the first half of the field is lost.
+ */
+function fieldAfter(html: string, labelKey: string): string {
+  const rest = html.split(`${labelKey}</span>`)[1] ?? "";
   return rest.slice(0, rest.indexOf("</div>"));
 }
 
@@ -56,7 +61,7 @@ describe("the RocketMQ connection form", () => {
   it("draws the namespace as a live field, not the placeholder it replaced", () => {
     const html = renderRocketMQForm("MQ_INST_1");
 
-    const namespace = fieldAfter(html, `${KEY}.namespaceHint`);
+    const namespace = fieldAfter(html, `${KEY}.namespace`);
     expect(namespace).toContain('value="MQ_INST_1"');
     // The attribute, not the substring: Tailwind's disabled: variants put the
     // word in every input's class list.
@@ -66,6 +71,21 @@ describe("the RocketMQ connection form", () => {
     // difference: the two fields beside it are still placeholders.
     expect(html).not.toContain("instanceId");
     expect(fieldAfter(html, `${KEY}.traceTopic`)).toContain('disabled=""');
+  });
+
+  it("puts a field's explanation under its control, not above it", () => {
+    // A hint on the label line ran the two together, and made the row as tall
+    // as the longest explanation in it - which left the short field beside it
+    // an empty band where its own label belonged.
+    const html = renderRocketMQForm("MQ_INST_1");
+
+    const label = html.indexOf(`${KEY}.namespace</span>`);
+    const input = html.indexOf('value="MQ_INST_1"');
+    const hint = html.indexOf(`${KEY}.namespaceHint`);
+
+    expect(label).toBeGreaterThan(-1);
+    expect(label).toBeLessThan(input);
+    expect(input).toBeLessThan(hint);
   });
 
   it("opens the advanced block by itself when a namespace is set", () => {
