@@ -8,6 +8,7 @@ import (
 	"github.com/amigoer/mq-studio/internal/crypto"
 	"github.com/amigoer/mq-studio/internal/driver"
 	"github.com/amigoer/mq-studio/internal/driver/activemq"
+	azureservicebusdriver "github.com/amigoer/mq-studio/internal/driver/azureservicebus"
 	googlepubsubdriver "github.com/amigoer/mq-studio/internal/driver/googlepubsub"
 	"github.com/amigoer/mq-studio/internal/driver/kafka"
 	"github.com/amigoer/mq-studio/internal/driver/mqtt"
@@ -98,6 +99,7 @@ func New() (*Services, error) {
 	driver.Register(nsqdriver.New())
 	driver.Register(sqsdriver.New())
 	driver.Register(googlepubsubdriver.New())
+	driver.Register(azureservicebusdriver.New())
 
 	registry := driver.NewRegistry()
 	settingsService := settings.New(paths.SettingsFile)

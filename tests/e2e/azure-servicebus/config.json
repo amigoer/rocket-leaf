@@ -1,0 +1,103 @@
+{
+  "UserConfig": {
+    "Namespaces": [
+      {
+        "Name": "sbemulatorns",
+        "Queues": [
+          {
+            "Name": "mqs-seed-orders",
+            "Properties": {
+              "LockDuration": "PT1M",
+              "MaxDeliveryCount": 10,
+              "DefaultMessageTimeToLive": "PT1H",
+              "DeadLetteringOnMessageExpiration": false,
+              "RequiresSession": false
+            }
+          },
+          {
+            "Name": "mqs-seed-failures",
+            "Properties": {
+              "LockDuration": "PT5S",
+              "MaxDeliveryCount": 2,
+              "DefaultMessageTimeToLive": "PT1H",
+              "DeadLetteringOnMessageExpiration": true,
+              "RequiresSession": false
+            }
+          },
+          {
+            "Name": "mqs-seed-quiet",
+            "Properties": {
+              "LockDuration": "PT1M",
+              "MaxDeliveryCount": 10,
+              "DefaultMessageTimeToLive": "PT1H",
+              "RequiresSession": false
+            }
+          }
+        ],
+        "Topics": [
+          {
+            "Name": "mqs-seed-events",
+            "Properties": {
+              "DefaultMessageTimeToLive": "PT1H"
+            },
+            "Subscriptions": [
+              {
+                "Name": "mqs-seed-events-all",
+                "Properties": {
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "DeadLetteringOnMessageExpiration": false,
+                  "RequiresSession": false
+                },
+                "Rules": []
+              },
+              {
+                "Name": "mqs-seed-events-red",
+                "Properties": {
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "DeadLetteringOnMessageExpiration": false,
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "red-only",
+                    "Properties": {
+                      "FilterType": "Sql",
+                      "SqlFilter": {
+                        "SqlExpression": "colour = 'red'"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "Name": "mqs-seed-events-orders",
+                "Properties": {
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "DeadLetteringOnMessageExpiration": false,
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "orders-only",
+                    "Properties": {
+                      "FilterType": "Correlation",
+                      "CorrelationFilter": {
+                        "Label": "order"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "Logging": {
+      "Type": "File"
+    }
+  }
+}

@@ -1,0 +1,106 @@
+name: mq-studio-e2e-azure-servicebus
+
+# Microsoft's own Service Bus emulator, and the database it cannot start
+# without.
+#
+# Service Bus is an Azure API rather than a broker anyone can run, so an
+# environment for it is either a real namespace or this. Two things make it
+# heavier than the two hosted families before it.
+#
+# The first is the sidecar. The emulator keeps its entities and its messages in
+# SQL Server and refuses to start without one, so azure-sql-edge runs beside it
+# and both containers need ACCEPT_EULA - Microsoft's licence is on the image
+# and the container exits without it.
+#
+# The second is that the topology below is declared up front rather than by the
+# seed. The emulator reads Config.json at startup and creates what it names;
+# scripts/e2e-azure-servicebus-seed.sh then fills those entities with messages
+# and adds the rules the routing board needs. Both halves are asserted by the
+# seed, which prints what it found and fails loudly when the emulator started
+# with a config it did not expect.
+#
+# What the emulator is not: it reports no message counts. A queue's and a
+# topic's Atom description carry no CountDetails element at all, and a
+# subscription's carries one whose five children are renamed to obfuscated
+# tokens the Azure SDK cannot read - so a depth and a backlog are unavailable
+# here and only here, and internal/driver/azureservicebus/conn.go degrades them
+# for an emulator connection rather than reporting a zero. The live tests pin
+# that narrowing rather than stepping around it.
+
+services:
+  # Azure SQL Edge publishes an amd64 image only, so on an arm64 host this runs
+  # under emulation: it starts in about a minute rather than fifteen seconds,
+  # which is what the emulator's long start_period below is for. The platform
+  # is pinned rather than left to the daemon so the failure on arm64 is a slow
+  # start rather than "no matching manifest".
+  sqledge:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    platform: linux/amd64
+    hostname: sqledge
+    environment:
+      ACCEPT_EULA: 'Y'
+      MSSQL_SA_PASSWORD: 'mq-studio-e2e-Passw0rd!'
+    # Not published. Nothing outside the compose network has any business
+    # reaching the emulator's storage, and the port is one a developer is
+    # likely to already have a SQL Server on.
+    healthcheck:
+      # The port is open long before the server will take a connection, and
+      # the emulator's own retry loop gives up: this waits for the process
+      # rather than for the socket.
+      test: ['CMD-SHELL', 'ps aux | grep -v grep | grep -q sqlservr']
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+    restart: unless-stopped
+
+  servicebus:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    hostname: servicebus
+    depends_on:
+      sqledge:
+        condition: service_healthy
+    environment:
+      ACCEPT_EULA: 'Y'
+      SQL_SERVER: sqledge
+      MSSQL_SA_PASSWORD: 'mq-studio-e2e-Passw0rd!'
+    volumes:
+      - ./config.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+    ports:
+      # AMQP 1.0, unencrypted. It is what the connection profile's endpoint
+      # field names, and the driver reaches it through the same
+      # UseDevelopmentEmulator flag a developer would set by hand.
+      - '127.0.0.1:5672:5672'
+      # The Atom management API, unencrypted. A real namespace serves this on
+      # 443 on the host it is named after; the emulator serves it on a port of
+      # its own, which is what the connection form's emulator-management
+      # option carries - so that option is exercised by every test here rather
+      # than by none.
+      - '127.0.0.1:5300:5300'
+    # No healthcheck, and it cannot have one: the emulator image is distroless,
+    # so there is no shell and no wget inside it for a check to run. The gate
+    # below is what `up --wait` actually waits on.
+    restart: unless-stopped
+
+  # A health gate for a container that cannot check itself.
+  #
+  # It exists only so `docker compose up -d --wait` returns when the emulator
+  # is answering rather than when its process has started - the difference
+  # matters because the emulator binds both ports well before it has finished
+  # creating the entities Config.json names, and the seed would then find a
+  # namespace that is still filling itself in.
+  ready:
+    image: curlimages/curl:8.11.1
+    depends_on:
+      - servicebus
+    command: ['sleep', 'infinity']
+    healthcheck:
+      # /health answers `healthy` only once every entity is created, which is
+      # exactly the state the seed needs. Grepping the body rather than
+      # trusting the status keeps a 200 saying something else from passing.
+      test: ['CMD-SHELL', 'curl -sf http://servicebus:5300/health | grep -q healthy']
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
+    restart: unless-stopped
