@@ -7,6 +7,7 @@ import * as ClusterService from "./clusterservice.js";
 import * as ConnectionService from "./connectionservice.js";
 import * as ConsumerService from "./consumerservice.js";
 import * as DriverService from "./driverservice.js";
+import * as GooglePubSubService from "./googlepubsubservice.js";
 import * as KafkaService from "./kafkaservice.js";
 import * as MQTTService from "./mqttservice.js";
 import * as MessageService from "./messageservice.js";
@@ -30,6 +31,7 @@ export {
     ConnectionService,
     ConsumerService,
     DriverService,
+    GooglePubSubService,
     KafkaService,
     MQTTService,
     MessageService,
@@ -69,6 +71,7 @@ export {
     DriverInfo,
     EntryInput,
     ExchangeInput,
+    GooglePubSubTopicInput,
     GroupInput,
     IdentityInput,
     KafkaTopicInput,

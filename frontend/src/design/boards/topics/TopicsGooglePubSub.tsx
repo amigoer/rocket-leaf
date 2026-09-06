@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Page, PageBody, PageHeader, RefreshButton } from "@/design/shell";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -10,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KV, Panel, PanelHeader, SectionLabel } from "@/components";
+import { KV, Panel, PanelHeader, SectionLabel, useConfirm } from "@/components";
 import { BoardState } from "@/design/boards/BoardState";
 import { useGooglePubSubTopics } from "@/hooks/googlepubsub/useGooglePubSubTopics";
 import {
@@ -19,6 +21,10 @@ import {
   type PubSubTopic,
 } from "@/mq/googlepubsub/topics";
 import { formatCount } from "@/lib/format";
+import { formatErrorMessage } from "@/lib/utils";
+import { useConnectionScope } from "@/mq/ConnectionScope";
+import * as pubsubApi from "@/api/googlepubsub";
+import { TopicDialogGooglePubSub } from "./TopicDialogGooglePubSub";
 
 const MONO11 = { fontSize: "11px" } as const;
 
@@ -54,8 +60,12 @@ function duration(seconds: number | null): string {
 export function TopicsGooglePubSub() {
   const { t } = useTranslation();
   const state = useGooglePubSubTopics();
+  const { id: connID } = useConnectionScope();
+  const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [editing, setEditing] = useState<PubSubTopic | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
 
   const topics = useMemo(() => (state.data ?? []).map(readTopic), [state.data]);
 
@@ -67,6 +77,49 @@ export function TopicsGooglePubSub() {
   const detail = useMemo(
     () => shown.find((entry) => entry.name === selected) ?? shown[0] ?? null,
     [shown, selected],
+  );
+
+  const save = useCallback(
+    async (input: pubsubApi.GooglePubSubTopicInput) => {
+      if (editing == null) {
+        await pubsubApi.createTopic(connID, input);
+        toast.success(t("board.google-pubsub.topics.created", { name: input.name }));
+      } else {
+        await pubsubApi.updateTopic(connID, input);
+        toast.success(t("board.google-pubsub.topics.updated", { name: input.name }));
+      }
+      await state.refresh();
+    },
+    [connID, editing, state, t],
+  );
+
+  /*
+   * The confirmation says what deleting a topic does not do. Its subscriptions
+   * survive it, keep whatever they had not delivered, and go on being billed
+   * for it while never receiving another message - which is the one
+   * consequence nothing else on this board would show.
+   */
+  const remove = useCallback(
+    async (entry: PubSubTopic) => {
+      const ok = await confirm({
+        title: t("board.google-pubsub.topics.deleteTitle", { name: entry.name }),
+        description: t("board.google-pubsub.topics.deleteDesc", { count: entry.subscribers }),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await pubsubApi.removeTopic(connID, entry.name);
+        toast.success(t("board.google-pubsub.topics.deleted", { name: entry.name }));
+        setSelected(null);
+        await state.refresh();
+      } catch (deleteError) {
+        toast.error(t("board.google-pubsub.topics.deleteFailed"), {
+          description: formatErrorMessage(deleteError),
+        });
+      }
+    },
+    [confirm, connID, state, t],
   );
 
   return (
@@ -82,6 +135,15 @@ export function TopicsGooglePubSub() {
               placeholder={t("board.google-pubsub.topics.search")}
               onChange={(event) => setSearch(event.target.value)}
             />
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              {t("board.google-pubsub.topics.create")}
+            </Button>
             <RefreshButton
               refreshing={state.refreshing}
               online={state.online}
@@ -89,6 +151,12 @@ export function TopicsGooglePubSub() {
             />
           </div>
         }
+      />
+      <TopicDialogGooglePubSub
+        open={formOpen}
+        editing={editing}
+        onOpenChange={setFormOpen}
+        onSubmit={save}
       />
       <BoardState state={state}>
         <PageBody>
@@ -148,7 +216,16 @@ export function TopicsGooglePubSub() {
               </Table>
             </Panel>
 
-            {detail != null && <TopicDetail entry={detail} />}
+            {detail != null && (
+              <TopicDetail
+                entry={detail}
+                onEdit={() => {
+                  setEditing(detail);
+                  setFormOpen(true);
+                }}
+                onRemove={() => void remove(detail)}
+              />
+            )}
           </div>
           <p
             style={{
@@ -166,7 +243,15 @@ export function TopicsGooglePubSub() {
   );
 }
 
-function TopicDetail({ entry }: { entry: PubSubTopic }) {
+function TopicDetail({
+  entry,
+  onEdit,
+  onRemove,
+}: {
+  entry: PubSubTopic;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
   const { t } = useTranslation();
   return (
     <Panel style={{ width: "300px", flex: "none", overflow: "auto" }}>
@@ -205,6 +290,15 @@ function TopicDetail({ entry }: { entry: PubSubTopic }) {
             <KV rows={entry.labels} />
           </>
         )}
+
+        <div style={{ display: "flex", gap: "6px", marginTop: "12px" }}>
+          <Button size="sm" variant="outline" onClick={onEdit}>
+            {t("common.edit")}
+          </Button>
+          <Button size="sm" variant="destructive" onClick={onRemove}>
+            {t("common.delete")}
+          </Button>
+        </div>
 
         {/* Said where the number is, because a topic nothing subscribes to
             reports success on every publish and leaves nothing behind. */}

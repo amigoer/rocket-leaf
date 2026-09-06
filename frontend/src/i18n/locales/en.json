@@ -4692,7 +4692,28 @@
           "delivery": "Delivery",
           "identity": "Identity",
           "labels": "Labels"
-        }
+        },
+        "create": "New topic",
+        "createTitle": "New topic",
+        "editTitle": "Edit {{name}}",
+        "created": "Created {{name}}",
+        "updated": "Saved {{name}}",
+        "deleted": "Deleted {{name}}",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "The topic goes and its {{count}} subscription(s) do not. They keep whatever they have not delivered, report their topic as _deleted-topic_, and can never receive another message.",
+        "deleteFailed": "Could not delete the topic",
+        "nameHint": "Three to 255 characters, starting with a letter. A name cannot be changed afterwards: there is no rename call in the API.",
+        "nameProblem": {
+          "empty": "A topic needs a name.",
+          "tooShort": "A name is at least three characters long.",
+          "tooLong": "A name is at most 255 characters long.",
+          "charset": "A name starts with a letter and holds only letters, digits and - _ . ~ + %.",
+          "reserved": "Google keeps names beginning with \"goog\" for its own resources."
+        },
+        "retentionHint": "Seconds to keep a published message available for a subscription to seek back into. Zero keeps it only until every subscription has acknowledged it.",
+        "retentionRange": "Retention is between 600 seconds and 31 days, or zero to leave it unset.",
+        "labels": "Labels",
+        "labelsHint": "One key=value per line. The whole set is replaced on save, because the API replaces the field rather than one key."
       }
     }
   }

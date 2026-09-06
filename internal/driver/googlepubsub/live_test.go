@@ -325,3 +325,127 @@ func TestLiveDestinationDetailReadsOneTopic(t *testing.T) {
 		t.Errorf("error does not name the topic that is missing: %v", err)
 	}
 }
+
+// createTopic makes a topic the test owns and removes it again.
+func createTopic(t *testing.T, conn *Conn, spec TopicSpec) {
+	t.Helper()
+	if err := conn.CreateTopic(liveContext(t), spec); err != nil {
+		t.Fatalf("create %s: %v", spec.Name, err)
+	}
+	t.Cleanup(func() {
+		_ = conn.RemoveDestination(context.Background(), model.DestinationRef{Name: spec.Name})
+	})
+}
+
+// The whole round trip on the object this family has fewest settings for.
+func TestLiveTopicCreateReadAndDelete(t *testing.T) {
+	conn := liveConn(t)
+	name := "mqs-test-topic-lifecycle"
+	_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: name})
+
+	createTopic(t, conn, TopicSpec{
+		Name:         name,
+		RetentionSec: 1200,
+		Labels:       map[string]string{"owner": "e2e"},
+	})
+
+	topic, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if topic.Attribute(AttrRetentionSec) != "1200" {
+		t.Errorf("retention = %q, want 1200", topic.Attribute(AttrRetentionSec))
+	}
+	if topic.Attribute(AttrLabelPrefix+"owner") != "e2e" {
+		t.Errorf("label owner = %q, want e2e", topic.Attribute(AttrLabelPrefix+"owner"))
+	}
+	// A topic nothing subscribes to. Not an error and not an empty backlog:
+	// every publish is accepted and discarded.
+	if topic.Subscribers != 0 {
+		t.Errorf("a topic just created reports %d subscriptions", topic.Subscribers)
+	}
+
+	if err := conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: name}); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if _, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name}); err == nil {
+		t.Error("a deleted topic still describes itself")
+	}
+}
+
+// Creating the same topic twice is refused, and the service's own message
+// names neither the topic nor the project - which is unhelpful in a project
+// several teams create topics in from a script.
+func TestLiveCreateTopicRefusesADuplicateByName(t *testing.T) {
+	conn := liveConn(t)
+	name := "mqs-test-topic-duplicate"
+	_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: name})
+	createTopic(t, conn, TopicSpec{Name: name})
+
+	err := conn.CreateTopic(liveContext(t), TopicSpec{Name: name})
+	if err == nil {
+		t.Fatal("created the same topic twice")
+	}
+	if !strings.Contains(err.Error(), name) {
+		t.Errorf("error does not name the topic that already exists: %v", err)
+	}
+}
+
+// Retention is the one setting a topic owns, and the bounds are the service's.
+// They are checked before the request so the message can name the field the
+// form actually draws rather than message_retention_duration.
+func TestLiveUpdateTopicChangesRetention(t *testing.T) {
+	conn := liveConn(t)
+	name := "mqs-test-topic-retention"
+	_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: name})
+	createTopic(t, conn, TopicSpec{Name: name, RetentionSec: 1200})
+
+	if err := conn.UpdateTopic(liveContext(t), TopicSpec{Name: name, RetentionSec: 3600}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	topic, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if topic.Attribute(AttrRetentionSec) != "3600" {
+		t.Errorf("retention = %q, want 3600", topic.Attribute(AttrRetentionSec))
+	}
+
+	if err := conn.UpdateTopic(liveContext(t), TopicSpec{Name: name, RetentionSec: 60}); err == nil {
+		t.Error("accepted a retention below the service's own minimum")
+	}
+}
+
+/*
+ * What the emulator will not do, asserted rather than skipped.
+ *
+ * The real API takes `labels` in an UpdateTopic mask; the emulator refuses it
+ * with INVALID_ARGUMENT saying labels is not a known Topic field. So a user
+ * editing a label against an emulator gets an error and the same edit works
+ * against a real project - which is worth recording here rather than leaving
+ * as a gap somebody rediscovers.
+ *
+ * If this ever starts passing, the emulator has grown the field and the
+ * assertion should become the ordinary one.
+ */
+func TestLiveEmulatorRefusesATopicLabelUpdate(t *testing.T) {
+	conn := liveConn(t)
+	if conn.Emulator() == "" {
+		e2e.Missing(t, "this asserts an emulator limitation and the connection is not one")
+	}
+	name := "mqs-test-topic-labels"
+	_ = conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: name})
+	createTopic(t, conn, TopicSpec{Name: name, Labels: map[string]string{"owner": "e2e"}})
+
+	err := conn.UpdateTopic(liveContext(t), TopicSpec{
+		Name:   name,
+		Labels: map[string]string{"owner": "someone-else"},
+	})
+	if err == nil {
+		t.Fatal("the emulator accepted a label update, which it did not use to; " +
+			"drop this test and let the ordinary update path cover it")
+	}
+	if !strings.Contains(err.Error(), "labels") {
+		t.Errorf("the refusal is not the known one about labels: %v", err)
+	}
+}

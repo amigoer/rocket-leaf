@@ -4692,7 +4692,28 @@
           "delivery": "投递",
           "identity": "标识",
           "labels": "标签"
-        }
+        },
+        "create": "新建主题",
+        "createTitle": "新建主题",
+        "editTitle": "编辑 {{name}}",
+        "created": "已创建 {{name}}",
+        "updated": "已保存 {{name}}",
+        "deleted": "已删除 {{name}}",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "主题会被删除，它的 {{count}} 个订阅不会。它们会保留尚未投递的消息，主题字段变成 _deleted-topic_，并且再也收不到任何消息。",
+        "deleteFailed": "删除主题失败",
+        "nameHint": "3 到 255 个字符，以字母开头。创建之后名字无法修改：API 里没有重命名这个操作。",
+        "nameProblem": {
+          "empty": "请填写主题名。",
+          "tooShort": "名字至少要 3 个字符。",
+          "tooLong": "名字最多 255 个字符。",
+          "charset": "名字要以字母开头，且只能包含字母、数字和 - _ . ~ + %。",
+          "reserved": "以 “goog” 开头的名字被 Google 保留给自己的资源。"
+        },
+        "retentionHint": "已发布消息保留多少秒，供订阅回溯。填 0 表示只保留到所有订阅都确认为止。",
+        "retentionRange": "保留时长在 600 秒到 31 天之间，或填 0 表示不设置。",
+        "labels": "标签",
+        "labelsHint": "每行一个 key=value。保存时整组替换，因为 API 替换的是整个字段而不是单个键。"
       }
     }
   }

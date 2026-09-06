@@ -1069,6 +1069,58 @@ export class ExchangeInput {
 }
 
 /**
+ * GooglePubSubTopicInput is a topic as the topic form collects it.
+ * 
+ * Deliberately not TopicService.Create's shape. That one takes a broker
+ * address, two queue counts and a permission string - RocketMQ's vocabulary,
+ * of which a Pub/Sub topic has none. What a topic has instead is almost
+ * nothing, because everything about delivery belongs to the subscription.
+ */
+export class GooglePubSubTopicInput {
+    "name": string;
+
+    /**
+     * RetentionSec keeps published messages available for a subscription to
+     * seek back into. Zero leaves it alone, which on an edit means "keep what
+     * is stored" and on a create takes the service's default.
+     */
+    "retentionSec": number;
+
+    /**
+     * Labels replace the topic's whole set rather than merging into it, which
+     * is the API's own behaviour: the update mask names the field, not one key.
+     */
+    "labels": { [_ in string]?: string };
+
+    /** Creates a new GooglePubSubTopicInput instance. */
+    constructor($$source: Partial<GooglePubSubTopicInput> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("retentionSec" in $$source)) {
+            this["retentionSec"] = 0;
+        }
+        if (!("labels" in $$source)) {
+            this["labels"] = {};
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GooglePubSubTopicInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): GooglePubSubTopicInput {
+        const $$createField2_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("labels" in $$parsedSource) {
+            $$parsedSource["labels"] = $$createField2_0($$parsedSource["labels"]);
+        }
+        return new GooglePubSubTopicInput($$parsedSource as Partial<GooglePubSubTopicInput>);
+    }
+}
+
+/**
  * GroupInput is a consumer group as the form collects it.
  * 
  * The stream is a field rather than part of the name because a group's name is

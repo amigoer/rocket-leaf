@@ -48,6 +48,7 @@ func Services(
 		application.NewService(&ActiveMQService{service: services.ActiveMQ}),
 		application.NewService(&NSQService{service: services.NSQ}),
 		application.NewService(&SQSService{service: services.SQS}),
+		application.NewService(&GooglePubSubService{service: services.GooglePubSub}),
 		// Wails' own service, registered rather than wrapped: it is a platform
 		// capability like WindowService, not business data to reshape. On macOS
 		// it only delivers from a packaged, signed bundle -- the renderer falls
