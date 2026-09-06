@@ -120,3 +120,10 @@ func notFound(err error) bool { return status.Code(err) == codes.NotFound }
 
 // alreadyExists reports the service refusing to create something twice.
 func alreadyExists(err error) bool { return status.Code(err) == codes.AlreadyExists }
+
+// unimplemented reports an operation the endpoint does not serve at all.
+//
+// It is not a permission failure and not a bad request: the emulator answers
+// this for the parts of the API it never implemented, and the difference
+// matters because there is nothing the user could change to make it work.
+func unimplemented(err error) bool { return status.Code(err) == codes.Unimplemented }

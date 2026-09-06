@@ -80,6 +80,7 @@ import { NatsWorkbench } from "./boards/nats/NatsWorkbench";
 import { ActiveMQWorkbench } from "./boards/activemq/ActiveMQWorkbench";
 import { QueuesSqs } from "./boards/topics/QueuesSqs";
 import { TopicsGooglePubSub } from "./boards/topics/TopicsGooglePubSub";
+import { SubscriptionsGooglePubSub } from "./boards/consumers/SubscriptionsGooglePubSub";
 import { MessagesSqs } from "./boards/messages/MessagesSqs";
 import { ProducerSqs } from "./boards/producer/ProducerSqs";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
@@ -170,6 +171,7 @@ const BOARDS: Partial<
     nats: ConsumersNats,
     activemq: SubscriptionsActiveMQ,
     nsq: ChannelsNsq,
+    "google-pubsub": SubscriptionsGooglePubSub,
   },
   subscribe: { mqtt: MqttWorkbench, nats: NatsWorkbench, activemq: ActiveMQWorkbench },
   clients: {

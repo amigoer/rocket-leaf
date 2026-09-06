@@ -17,10 +17,49 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 /**
+ * CreateSnapshot takes a restore point from one subscription.
+ */
+export function CreateSnapshot(connID: number, name: string, subscription: string): $CancellablePromise<void> {
+    return $Call.ByID(2199453935, connID, name, subscription);
+}
+
+/**
+ * CreateSubscription declares a subscription on a topic.
+ */
+export function CreateSubscription(connID: number, input: $models.GooglePubSubSubscriptionInput): $CancellablePromise<void> {
+    return $Call.ByID(550444058, connID, input);
+}
+
+/**
  * CreateTopic declares a topic in the connection's project.
  */
 export function CreateTopic(connID: number, input: $models.GooglePubSubTopicInput): $CancellablePromise<void> {
     return $Call.ByID(2501491050, connID, input);
+}
+
+/**
+ * ListSnapshots is every restore point in the project.
+ */
+export function ListSnapshots(connID: number): $CancellablePromise<$models.GooglePubSubSnapshot[]> {
+    return $Call.ByID(3308443124, connID).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
+/**
+ * RemoveSnapshot deletes a restore point, and with it the reason the topic was
+ * holding everything it could restore.
+ */
+export function RemoveSnapshot(connID: number, name: string): $CancellablePromise<void> {
+    return $Call.ByID(1566444755, connID, name);
+}
+
+/**
+ * RemoveSubscription deletes a subscription and everything it had not
+ * acknowledged. Those messages were never the topic's to hand out again.
+ */
+export function RemoveSubscription(connID: number, name: string): $CancellablePromise<void> {
+    return $Call.ByID(2019229654, connID, name);
 }
 
 /**
@@ -32,9 +71,32 @@ export function RemoveTopic(connID: number, name: string): $CancellablePromise<v
 }
 
 /**
+ * SeekToSnapshot moves a subscription to a restore point.
+ * 
+ * The other half of Seek - moving to a moment in time - goes through the
+ * canonical consumer service, and is degraded against an emulator because the
+ * emulator answers it Unimplemented.
+ */
+export function SeekToSnapshot(connID: number, subscription: string, snapshot: string): $CancellablePromise<void> {
+    return $Call.ByID(1746239434, connID, subscription, snapshot);
+}
+
+/**
+ * UpdateSubscription changes what a subscription lets be changed. The topic,
+ * the filter and message ordering are fixed at creation and are not among them.
+ */
+export function UpdateSubscription(connID: number, input: $models.GooglePubSubSubscriptionInput): $CancellablePromise<void> {
+    return $Call.ByID(3224954387, connID, input);
+}
+
+/**
  * UpdateTopic changes an existing topic's settings. Labels are replaced
  * wholesale, so a form editing them sends the complete set.
  */
 export function UpdateTopic(connID: number, input: $models.GooglePubSubTopicInput): $CancellablePromise<void> {
     return $Call.ByID(3786342201, connID, input);
 }
+
+// Private type creation functions
+const $$createType0 = $models.GooglePubSubSnapshot.createFrom;
+const $$createType1 = $Create.Array($$createType0);

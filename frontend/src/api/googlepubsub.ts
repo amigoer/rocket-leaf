@@ -1,7 +1,12 @@
 import { GooglePubSubService } from "@bindings/bridge";
-import type { GooglePubSubTopicInput } from "@bindings/bridge/models";
+import type {
+  GooglePubSubSnapshot,
+  GooglePubSubSubscriptionInput,
+  GooglePubSubTopicInput,
+} from "@bindings/bridge/models";
+import { present } from "./client";
 
-export type { GooglePubSubTopicInput };
+export type { GooglePubSubSnapshot, GooglePubSubSubscriptionInput, GooglePubSubTopicInput };
 
 /**
  * The Pub/Sub-only half of the surface.
@@ -36,3 +41,68 @@ export const updateTopic = (connID: number, input: GooglePubSubTopicInput): Prom
  */
 export const removeTopic = (connID: number, name: string): Promise<void> =>
   GooglePubSubService.RemoveTopic(connID, name);
+
+/**
+ * Declare a subscription on a topic.
+ *
+ * The topic, the filter and message ordering are fixed at creation: a
+ * subscription reads exactly one topic and the service refuses to change any
+ * of the three afterwards.
+ */
+export const createSubscription = (
+  connID: number,
+  input: GooglePubSubSubscriptionInput,
+): Promise<void> => GooglePubSubService.CreateSubscription(connID, input);
+
+/**
+ * Change what a subscription lets be changed.
+ *
+ * Only what the form sends is written. An empty dead-letter topic is how the
+ * policy is removed - there is no separate call, and leaving the field out
+ * keeps it instead.
+ */
+export const updateSubscription = (
+  connID: number,
+  input: GooglePubSubSubscriptionInput,
+): Promise<void> => GooglePubSubService.UpdateSubscription(connID, input);
+
+/**
+ * Delete a subscription and everything it had not acknowledged.
+ *
+ * Those messages go with it. They were never the topic's to hand out again,
+ * which is the whole point of the split between the two objects.
+ */
+export const removeSubscription = (connID: number, name: string): Promise<void> =>
+  GooglePubSubService.RemoveSubscription(connID, name);
+
+/** Every restore point in the project. */
+export const listSnapshots = (connID: number): Promise<GooglePubSubSnapshot[]> =>
+  GooglePubSubService.ListSnapshots(connID).then(present);
+
+/** Take a restore point from one subscription. */
+export const createSnapshot = (
+  connID: number,
+  name: string,
+  subscription: string,
+): Promise<void> => GooglePubSubService.CreateSnapshot(connID, name, subscription);
+
+/**
+ * Delete a restore point.
+ *
+ * Worth doing rather than waiting for the seven-day expiry: while it exists
+ * the topic keeps every message the snapshot could restore.
+ */
+export const removeSnapshot = (connID: number, name: string): Promise<void> =>
+  GooglePubSubService.RemoveSnapshot(connID, name);
+
+/**
+ * Move a subscription to a restore point.
+ *
+ * The other half of Seek - moving to a moment in time - goes through the
+ * shared consumer API, because that is what every family's reset is.
+ */
+export const seekToSnapshot = (
+  connID: number,
+  subscription: string,
+  snapshot: string,
+): Promise<void> => GooglePubSubService.SeekToSnapshot(connID, subscription, snapshot);

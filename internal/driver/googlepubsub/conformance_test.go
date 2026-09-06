@@ -1,6 +1,7 @@
 package googlepubsub
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/amigoer/mq-studio/internal/driver"
@@ -216,4 +217,93 @@ func TestShortNameReadsTheLastSegment(t *testing.T) {
 			t.Errorf("shortName(%q) = %q, want %q", test.path, got, test.want)
 		}
 	}
+}
+
+/*
+ * The backlog is degraded, always, and it is worth saying why in a test.
+ *
+ * num_undelivered_messages is a Cloud Monitoring metric. It is not a field on
+ * the Subscription this API returns and there is no call anywhere in Pub/Sub
+ * that reports it, so the honest states are "degraded with a reason" and "not
+ * offered" - and degraded is the truer of the two, because the family does
+ * have the concept.
+ *
+ * What is not honest is a number. The only way to produce one here would be to
+ * pull the backlog and count it, which would deliver every message counted and
+ * hide it from the consumer that should have had it.
+ */
+func TestSubscriptionLagIsDegradedRatherThanInvented(t *testing.T) {
+	declared := (&Conn{closed: make(chan struct{})}).declare()
+
+	if declared.Has(model.CapSubscriptionLag) {
+		t.Fatal("the backlog is offered as a figure, and the admin API reports none")
+	}
+	reason, degraded := declared.DegradedReason(model.CapSubscriptionLag)
+	if !degraded {
+		t.Fatal("the backlog is neither supported nor explained, so the page says nothing at all")
+	}
+	if reason != lagInMonitoring {
+		t.Errorf("reason = %q, want %q", reason, lagInMonitoring)
+	}
+	// The subscriptions page still has to be reachable: listing, creating and
+	// deleting all work, and only the one figure is missing.
+	if !declared.Has(model.CapSubscriptionList) {
+		t.Error("the subscriptions page is unreachable because one figure is missing")
+	}
+}
+
+/*
+ * Seek is two operations and both are declared, which took a correction.
+ *
+ * A timestamp names a moment; a snapshot names the place itself. The first
+ * looked like something an emulator could not do at all - it answers
+ * Unimplemented - and the hole turned out to be one subscription's setting
+ * rather than the endpoint's: an ordered subscription cannot be sought to a
+ * time there, and every other one can. So neither capability is narrowed, and
+ * the refusal is an error at the call with a message naming message ordering.
+ *
+ * Declaring both is what the difference is for. CapOffsetReset describes a
+ * moment and lets the service place it; CapSubscriptionPosition names a
+ * snapshot the caller already holds, which is the only target the emulator
+ * serves for an ordered subscription.
+ */
+func TestBothHalvesOfSeekAreDeclared(t *testing.T) {
+	declared := (&Conn{closed: make(chan struct{})}).declare()
+
+	if !declared.Has(model.CapOffsetReset) {
+		t.Error("seeking to a moment is not offered, and Pub/Sub serves it")
+	}
+	if !declared.Has(model.CapSubscriptionPosition) {
+		t.Error("seeking to a snapshot is not offered, and it is the only target that always works")
+	}
+	for _, capability := range []model.Capability{
+		model.CapOffsetReset, model.CapSubscriptionPosition,
+	} {
+		if _, degraded := declared.DegradedReason(capability); degraded {
+			t.Errorf("%s is both supported and degraded", capability)
+		}
+	}
+}
+
+/*
+ * The reasons cross a language boundary as keys and are resolved by the
+ * renderer, so a sentence here reaches the screen as a sentence in the wrong
+ * language - and the renderer's own key test cannot see them, because it only
+ * scans literal t("...") calls in the frontend source.
+ */
+func TestDegradedReasonsAreTranslationKeys(t *testing.T) {
+	for _, reason := range []string{lagInMonitoring} {
+		if reason == "" {
+			t.Error("a reason is empty")
+			continue
+		}
+		if !isTranslationKey(reason) {
+			t.Errorf("%q is a sentence, not an i18n key", reason)
+		}
+	}
+}
+
+func isTranslationKey(text string) bool {
+	const prefix = "mq.google-pubsub."
+	return strings.HasPrefix(text, prefix) && !strings.Contains(text, " ")
 }

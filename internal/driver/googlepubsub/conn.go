@@ -16,6 +16,18 @@ import (
 
 var errConnectionDown = errors.New("google pub/sub connection is not open")
 
+// Degraded reasons, as i18n keys rather than sentences. The renderer turns
+// them into the user's language; an English frame around one would put the key
+// itself on screen.
+const (
+	// lagInMonitoring is why a subscription's backlog is never a number here.
+	// The count exists - num_undelivered_messages - and it is a Cloud
+	// Monitoring metric rather than a field on the Subscription this API
+	// returns, so reading it means a different API under a different
+	// credential.
+	lagInMonitoring = "mq.google-pubsub.degraded.lagInMonitoring"
+)
+
 // Conn is one live connection to one Google Cloud project's Pub/Sub.
 //
 // "One connection" is an authenticated API client rather than a socket:
@@ -93,6 +105,12 @@ func capabilities() []model.Capability {
 		model.CapDestinationCreate,
 		model.CapDestinationUpdate,
 		model.CapDestinationDelete,
+
+		model.CapSubscriptionList,
+		model.CapSubscriptionCreate,
+		model.CapSubscriptionDelete,
+		model.CapSubscriptionPosition,
+		model.CapOffsetReset,
 	}
 }
 
@@ -132,12 +150,32 @@ func open(ctx context.Context, profile model.ConnectionProfile) (*Conn, error) {
 	return conn, nil
 }
 
-// declare turns what answered into the capability set the pages gate on.
+/*
+ * declare turns what answered into the capability set the pages gate on.
+ *
+ * One entry is not what the admin API can do, and it is the point of declaring
+ * rather than promising: a subscription's backlog is degraded, always. The
+ * figure exists and it is num_undelivered_messages, a Cloud Monitoring metric.
+ * It is not a field on the Subscription this API returns, and there is no call
+ * anywhere in Pub/Sub that reports it. The only way to produce a number here
+ * would be to pull the backlog and count it, which would deliver every message
+ * counted - an invented figure with a real consequence.
+ *
+ * Nothing else varies by endpoint. Pub/Sub is one service with one feature
+ * set, and a credential that cannot do something fails the call rather than
+ * narrowing what the connection reports. Seeking to a moment looked like a
+ * second exception and is not: the emulator refuses it only for a subscription
+ * with message ordering on, which is one subscription's setting rather than
+ * anything about the endpoint - so it is an error at the call, where the
+ * message can name the setting, and not a capability the whole page loses.
+ */
 func (c *Conn) declare() model.Capabilities {
 	return model.Capabilities{
 		Supported: capabilities(),
-		Degraded:  map[model.Capability]string{},
-		Caveats:   map[model.Capability]string{},
+		Degraded: map[model.Capability]string{
+			model.CapSubscriptionLag: lagInMonitoring,
+		},
+		Caveats: map[model.Capability]string{},
 	}
 }
 
@@ -161,6 +199,10 @@ func (c *Conn) projectPath() string { return "projects/" + c.config.project }
 
 func (c *Conn) topicPath(name string) string { return c.projectPath() + "/topics/" + name }
 
+func (c *Conn) subscriptionPath(name string) string {
+	return c.projectPath() + "/subscriptions/" + name
+}
+
 // shortName is the last segment of a resource path.
 //
 // A Pub/Sub name may not contain a slash, so the last segment is unambiguous;
@@ -173,6 +215,15 @@ func shortName(path string) string {
 	}
 	return trimmed
 }
+
+// deletedTopic is what Pub/Sub puts in a subscription's topic field once that
+// topic is gone.
+//
+// Deleting a topic does not delete its subscriptions: they stay, they keep
+// whatever they had not delivered, and they can never receive anything again.
+// The literal is the service's own and is not a resource path, which is why
+// nothing here tries to shorten it.
+const deletedTopic = "_deleted-topic_"
 
 // requiredName trims a resource name and refuses one the API could not take.
 //

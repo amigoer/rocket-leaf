@@ -56,6 +56,14 @@ const REASONS: Record<string, string[]> = {
   // an address that answers nothing fails the connection at open rather than
   // leaving a tier degraded.
   nsq: ["lookupdAbsent"],
+  // internal/driver/googlepubsub/conn.go
+  //
+  // One, and it is not about the endpoint at all: a subscription's backlog is
+  // a Cloud Monitoring metric, so no Pub/Sub connection anywhere can report it.
+  // Degraded rather than absent because the family does have the concept - and
+  // a page that said nothing would leave a reader looking for a column that is
+  // never coming.
+  "google-pubsub": ["lagInMonitoring"],
 };
 
 /**
