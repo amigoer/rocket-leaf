@@ -65,6 +65,7 @@ const (
 	// AzureServiceBus is spelled with the vendor for the same reason: a
 	// service bus is a pattern, and this is one vendor's product.
 	AzureServiceBus Family = "azure-servicebus"
+	Kinesis         Family = "kinesis"
 )
 
 // AllFamilies is the list every other place derives from - the CI shard matrix
@@ -72,7 +73,7 @@ const (
 // twice is how the lists drift apart.
 var AllFamilies = []Family{
 	RocketMQ, RabbitMQ, Kafka, Pulsar, Redis, MQTT, NATS, ActiveMQ, NSQ, SQS,
-	GooglePubSub, AzureServiceBus,
+	GooglePubSub, AzureServiceBus, Kinesis,
 }
 
 // Env is one broker environment a live test needs.
