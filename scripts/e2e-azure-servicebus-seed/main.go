@@ -139,9 +139,21 @@ func seed() error {
 
 	// The emulator refuses a config declaring a topic with no subscriptions,
 	// so the one topic this family alerts on has to be made at runtime.
+	//
+	// Asked about before being deleted, rather than deleted and the failure
+	// forgiven: this emulator answers 400 for a delete of something that was
+	// never there, which is indistinguishable from a delete that went wrong.
+	// A nil response with a nil error is how the client spells "no such
+	// entity", so the question has an unambiguous answer.
 	fmt.Println("==> creating what the emulator's config cannot declare")
-	if _, err := management.DeleteTopic(ctx, orphaned, nil); err != nil && !gone(err) {
-		return fmt.Errorf("removing %s from a previous run: %w", orphaned, err)
+	existing, err := management.GetTopic(ctx, orphaned, nil)
+	if err != nil {
+		return fmt.Errorf("looking for %s: %w", orphaned, err)
+	}
+	if existing != nil {
+		if _, err := management.DeleteTopic(ctx, orphaned, nil); err != nil {
+			return fmt.Errorf("removing %s from a previous run: %w", orphaned, err)
+		}
 	}
 	if _, err := management.CreateTopic(ctx, orphaned, nil); err != nil {
 		return fmt.Errorf("creating %s: %w", orphaned, err)
@@ -559,10 +571,6 @@ func listSubscriptions(ctx context.Context, management *admin.Client, topic stri
 		}
 	}
 	return names, nil
-}
-
-func gone(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "404")
 }
 
 func env(name, fallback string) string {
