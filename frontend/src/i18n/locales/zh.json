@@ -5458,6 +5458,43 @@
         "stateProvisioned": "预置",
         "note": "没有吞吐也没有深度：两者都是 CloudWatch 指标，属于另一个服务、另一套权限，任何本连接发出的调用都不返回它们。这里不统计已关闭的分片——分片页会列出它们，它们会保留记录直到过期。"
       }
+    },
+    "ibmmq": {
+      "queues": {
+        "count": "{{count}} 个队列与主题",
+        "search": "按名称或主题字符串搜索",
+        "name": "名称",
+        "type": "类型",
+        "kindTopic": "主题",
+        "depth": "深度",
+        "openInput": "读取打开数",
+        "openOutput": "写入打开数",
+        "subscribers": "订阅数",
+        "deadLetterBadge": "死信",
+        "description": "描述",
+        "topicString": "主题字符串",
+        "topicType": "主题类型",
+        "maxDepth": "最大深度",
+        "maxMessageLength": "最大消息长度",
+        "cluster": "集群",
+        "uncommitted": "未提交",
+        "oldestMessage": "最旧消息",
+        "seconds": "{{count}} 秒",
+        "lastPut": "最近写入",
+        "lastGet": "最近读取",
+        "backoutQueue": "退回队列",
+        "backoutThreshold": "退回阈值",
+        "altered": "最近修改",
+        "inhibited": "该队列已禁止{{what}}。应用会被拒绝，发往它的消息会进入死信队列。",
+        "inhibitPut": "写入",
+        "inhibitGet": "读取",
+        "section": {
+          "definition": "定义",
+          "runtime": "运行状态",
+          "handling": "失败处理"
+        },
+        "note": "没有速率列：队列管理器报告队列持有多少消息、最近何时被读写，但不报告流速。别名与远程定义本身不存储消息，因此这些行的数字为空——列出它们是因为消息接下来会走到那里。"
+      }
     }
   }
 }

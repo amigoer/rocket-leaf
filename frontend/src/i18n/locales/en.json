@@ -5458,6 +5458,43 @@
         "stateProvisioned": "Provisioned",
         "note": "No throughput and no depth: both are CloudWatch metrics, a different service under a different permission, and neither is on any call this connection makes. Closed shards are not counted here — the shards page lists them, and they hold their records until retention expires."
       }
+    },
+    "ibmmq": {
+      "queues": {
+        "count": "{{count}} queues and topics",
+        "search": "Search by name or topic string",
+        "name": "Name",
+        "type": "Type",
+        "kindTopic": "topic",
+        "depth": "Depth",
+        "openInput": "Open for input",
+        "openOutput": "Open for output",
+        "subscribers": "Subscribers",
+        "deadLetterBadge": "Dead letter",
+        "description": "Description",
+        "topicString": "Topic string",
+        "topicType": "Topic type",
+        "maxDepth": "Maximum depth",
+        "maxMessageLength": "Maximum message length",
+        "cluster": "Cluster",
+        "uncommitted": "Uncommitted",
+        "oldestMessage": "Oldest message",
+        "seconds": "{{count}}s",
+        "lastPut": "Last put",
+        "lastGet": "Last get",
+        "backoutQueue": "Backout queue",
+        "backoutThreshold": "Backout threshold",
+        "altered": "Last altered",
+        "inhibited": "This queue has {{what}} inhibited. Applications are refused, and messages sent to it end up on the dead-letter queue.",
+        "inhibitPut": "put",
+        "inhibitGet": "get",
+        "section": {
+          "definition": "Definition",
+          "runtime": "Runtime",
+          "handling": "Failure handling"
+        },
+        "note": "No rates: the queue manager reports what a queue holds and when it was last touched, not how fast it is moving. Alias and remote definitions hold nothing, so every figure on those rows is blank — they are listed because they are where a message goes next."
+      }
     }
   }
 }

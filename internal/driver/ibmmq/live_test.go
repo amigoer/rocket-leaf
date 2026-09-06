@@ -326,3 +326,151 @@ func TestLiveCloseIsIdempotent(t *testing.T) {
 		t.Error("a closed connection still answers a ping")
 	}
 }
+
+// find returns the destination named, or fails the test saying what was there.
+func find(t *testing.T, destinations []*model.Destination, name string) *model.Destination {
+	t.Helper()
+	names := make([]string, 0, len(destinations))
+	for _, destination := range destinations {
+		if destination.Ref.Name == name {
+			return destination
+		}
+		names = append(names, destination.Ref.Name)
+	}
+	t.Fatalf("no destination named %q; the listing held %s", name, strings.Join(names, ", "))
+	return nil
+}
+
+/*
+ * The listing crosses both interfaces, and that is what has to be proved
+ * against a real queue manager: queues come from a REST resource and topics
+ * from MQSC, and a driver that read only the first would produce a page that
+ * looks complete and is missing half the topology.
+ */
+func TestLiveListDestinationsReadsQueuesAndTopics(t *testing.T) {
+	conn := liveConn(t)
+
+	destinations, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("ListDestinations: %v", err)
+	}
+
+	queue := find(t, destinations, seedQueue)
+	if queue.Attribute(AttrKind) != KindQueue {
+		t.Errorf("%s is a %q", seedQueue, queue.Attribute(AttrKind))
+	}
+	if queue.Attribute(AttrQueueType) != "local" {
+		t.Errorf("%s is a %q queue", seedQueue, queue.Attribute(AttrQueueType))
+	}
+	if queue.Depth <= 0 {
+		t.Errorf("%s reports depth %d; the seed put messages on it", seedQueue, queue.Depth)
+	}
+	// No partitions and no rates anywhere in this family, and the difference
+	// between "none" and "zero" is the whole point of UnknownMetric: a zero
+	// would read as an idle queue rather than as a figure MQ never reports.
+	if queue.Partitions != model.UnknownMetric {
+		t.Errorf("%s claims %d partitions, and IBM MQ divides nothing", seedQueue, queue.Partitions)
+	}
+	if queue.RateIn != model.UnknownMetric || queue.RateOut != model.UnknownMetric {
+		t.Errorf("%s reports rates (%d in, %d out), and no MQSC command returns one",
+			seedQueue, queue.RateIn, queue.RateOut)
+	}
+
+	topic := find(t, destinations, seedTopic)
+	if topic.Attribute(AttrKind) != KindTopic {
+		t.Errorf("%s is a %q", seedTopic, topic.Attribute(AttrKind))
+	}
+	// The object's name and the string publishers use are two different
+	// things, and a page that showed only the first could not tell a reader
+	// where to publish.
+	if got := topic.Attribute(AttrTopicString); got != seedTopicString {
+		t.Errorf("%s carries topic string %q, want %q", seedTopic, got, seedTopicString)
+	}
+	if topic.Subscribers < 1 {
+		t.Errorf("%s reports %d subscribers; the seed made one", seedTopic, topic.Subscribers)
+	}
+	// A topic stores nothing: what a subscription is owed sits on the queue it
+	// delivers to, which is a different row.
+	if topic.Depth != model.UnknownMetric {
+		t.Errorf("%s reports depth %d, and a topic holds nothing", seedTopic, topic.Depth)
+	}
+}
+
+/*
+ * SYSTEM.* is IBM's reserved prefix and the queue manager enforces it, so it
+ * is a rule rather than a convention - but there are sixty of them on a fresh
+ * queue manager and they would bury a listing.
+ */
+func TestLiveListDestinationsHidesTheQueueManagersOwn(t *testing.T) {
+	conn := liveConn(t)
+
+	visible, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("ListDestinations: %v", err)
+	}
+	for _, destination := range visible {
+		if strings.HasPrefix(destination.Ref.Name, "SYSTEM.") {
+			t.Errorf("%s is drawn by default, and the queue manager made it for itself",
+				destination.Ref.Name)
+		}
+	}
+
+	all, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{IncludeInternal: true})
+	if err != nil {
+		t.Fatalf("ListDestinations(internal): %v", err)
+	}
+	if len(all) <= len(visible) {
+		t.Errorf("asking for internal objects returned %d rows against %d; "+
+			"a fresh queue manager has some sixty of its own", len(all), len(visible))
+	}
+	// The image's own DEV.* objects are somebody's configuration rather than
+	// the queue manager's, so they must not be filtered with them.
+	find(t, visible, deadLetterQueue)
+}
+
+// The queue manager names one queue for what it cannot deliver, and a depth on
+// that queue means something quite different from a depth anywhere else - so
+// the row has to say which one it is.
+func TestLiveTheQueueManagersDeadLetterQueueIsMarked(t *testing.T) {
+	conn := liveConn(t)
+
+	destinations, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("ListDestinations: %v", err)
+	}
+
+	marked := 0
+	for _, destination := range destinations {
+		if destination.Attribute(AttrDeadLetter) == "true" {
+			marked++
+			if destination.Ref.Name != deadLetterQueue {
+				t.Errorf("%s is marked as the dead-letter queue, and the queue manager names %s",
+					destination.Ref.Name, deadLetterQueue)
+			}
+		}
+	}
+	if marked != 1 {
+		t.Errorf("%d queues are marked as the dead-letter queue; the queue manager names exactly one", marked)
+	}
+}
+
+/*
+ * A detail lookup has to work for both kinds, and a name alone does not say
+ * which it is. A driver that asked the queue resource would report every topic
+ * as missing, which is the mistake this pins.
+ */
+func TestLiveDestinationDetailAnswersForATopicToo(t *testing.T) {
+	conn := liveConn(t)
+
+	topic, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: seedTopic})
+	if err != nil {
+		t.Fatalf("DestinationDetail(%s): %v", seedTopic, err)
+	}
+	if topic.Attribute(AttrKind) != KindTopic {
+		t.Errorf("%s came back as a %q", seedTopic, topic.Attribute(AttrKind))
+	}
+
+	if _, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: "MQS.TEST.NOTHING"}); err == nil {
+		t.Error("a name nothing has came back as a destination")
+	}
+}
