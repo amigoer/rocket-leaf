@@ -717,6 +717,9 @@
       },
       "caveat": {
         "readQuota": "Reading a stream takes nothing away: no record is hidden, consumed or marked, and any number of readers can read the same one until it expires. What a read does spend is the shard's allowance — five GetRecords a second and two megabytes a second — which is shared with every classic consumer on that shard, so browsing a busy stream can throttle the applications reading it."
+      },
+      "degraded": {
+        "positionInDynamo": "A Kinesis stream records that a consumer is registered and nothing about where it has read to. A classic consumer keeps its position in a DynamoDB table the KCL owns, and an enhanced fan-out consumer keeps none at all — so no connection anywhere can report a backlog, and the millisBehindLatest on a read is this app's own lag rather than any consumer's."
       }
     }
   },
@@ -5349,6 +5352,30 @@
         "countRange": "Send between 1 and 1000 copies.",
         "hashKeyInvalid": "An explicit hash key is a decimal number between 0 and 2^128-1.",
         "aimedRepeatNote": "Aimed at a shard, every copy lands on that one shard: the hash key replaces the partition key entirely, so the per-copy key that would otherwise spread them does nothing."
+      },
+      "consumers": {
+        "count": "{{count}} registered consumers",
+        "search": "Search consumers",
+        "name": "Consumer",
+        "stream": "Stream",
+        "status": "Status",
+        "registeredAt": "Registered",
+        "arn": "Consumer ARN",
+        "register": "Register",
+        "registerTitle": "Register a consumer",
+        "registered": "Registered {{name}}",
+        "streamHint": "A consumer belongs to one stream and its name is unique only within it, so the same name may exist on several.",
+        "nameHint": "Letters, digits, underscores, hyphens and dots, up to 128 characters. A stream takes at most 20 registered consumers.",
+        "deregisterAction": "Deregister",
+        "deregisterTitle": "Deregister {{name}}?",
+        "deregisterDesc": "The name is freed and the dedicated read throughput stops being reserved. Nothing stops reading: an application holding a subscription is cut off at its next call, and a classic consumer registered nothing and is unaffected.",
+        "deregistered": "Deregistered {{name}}",
+        "deregisterFailed": "Could not deregister the consumer",
+        "settling": "This registration is {{status}}. An application pointed at it now fails with an error about the consumer rather than about the stream.",
+        "section": {
+          "registration": "Registration"
+        },
+        "note": "Enhanced fan-out consumers only, because they are the only readers a stream knows about. Anything else reading — the KCL, a Lambda event source, any call to GetRecords — registers nothing and keeps its position in a DynamoDB table this connection never sees, which is also why there is no backlog here."
       }
     }
   }

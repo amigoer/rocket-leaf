@@ -717,6 +717,9 @@
       },
       "caveat": {
         "readQuota": "读取流不会拿走任何东西：记录不会被隐藏、消费或标记，在过期之前任意多个读者都能读到同一条。读取消耗的是分片的额度——每秒 5 次 GetRecords、每秒 2 MB——而这份额度由该分片上的所有经典消费者共享，所以浏览繁忙的流可能会限流正在读它的应用。"
+      },
+      "degraded": {
+        "positionInDynamo": "Kinesis 流只记录某个消费者已注册，完全不记录它读到了哪里。经典消费者把位点存在 KCL 自己的 DynamoDB 表里，增强扇出消费者则根本不保存位点——所以任何连接都报不出积压，而一次读取返回的 millisBehindLatest 是本应用自己的滞后量，不是任何消费者的。"
       }
     }
   },
@@ -5349,6 +5352,30 @@
         "countRange": "份数请填 1 到 1000 之间。",
         "hashKeyInvalid": "显式哈希键要填 0 到 2^128-1 之间的十进制数。",
         "aimedRepeatNote": "指定分片后，每一份都会落到那一个分片上：哈希键完全取代了分区键，所以本来用来分散它们的逐份键不起作用。"
+      },
+      "consumers": {
+        "count": "{{count}} 个已注册消费者",
+        "search": "搜索消费者",
+        "name": "消费者",
+        "stream": "流",
+        "status": "状态",
+        "registeredAt": "注册于",
+        "arn": "消费者 ARN",
+        "register": "注册",
+        "registerTitle": "注册消费者",
+        "registered": "已注册 {{name}}",
+        "streamHint": "消费者只属于一个流，名称也只在该流内唯一，所以同一个名字可以在多个流上存在。",
+        "nameHint": "可用字母、数字、下划线、连字符和点，最多 128 个字符。一个流最多注册 20 个消费者。",
+        "deregisterAction": "取消注册",
+        "deregisterTitle": "取消注册 {{name}}？",
+        "deregisterDesc": "名称会被释放，专用读取吞吐也不再预留。但这不会让任何读取停下来：仍持有订阅的应用会在下一次调用时被断开，而经典消费者本来就没有注册，不受影响。",
+        "deregistered": "已取消注册 {{name}}",
+        "deregisterFailed": "无法取消注册该消费者",
+        "settling": "该注册当前为 {{status}}。此时指向它的应用会收到关于消费者（而不是流）的错误。",
+        "section": {
+          "registration": "注册信息"
+        },
+        "note": "这里只有增强扇出消费者，因为它们是流唯一知道的读者。其他读取方——KCL、Lambda 事件源、任何 GetRecords 调用——都不会注册，位点保存在这个连接看不到的 DynamoDB 表里，这也是这里没有积压列的原因。"
       }
     }
   }

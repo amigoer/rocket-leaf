@@ -69,3 +69,22 @@ export const publish = (
   input: KinesisPublishInput,
 ): Promise<KinesisPublishResult> =>
   KinesisService.Publish(connID, input).then(required);
+
+/**
+ * Register an enhanced fan-out consumer on a stream.
+ *
+ * Registering reserves the name and the dedicated two megabytes a second of
+ * read throughput; an application then subscribes against the ARN. A stream
+ * takes at most twenty, which is a service quota rather than a setting.
+ */
+export const registerConsumer = (connID: number, stream: string, name: string): Promise<void> =>
+  KinesisService.RegisterConsumer(connID, stream, name);
+
+/**
+ * Remove a registration.
+ *
+ * It frees the name and stops the throughput being reserved. It does not stop
+ * anything reading: a classic consumer registered nothing and is unaffected.
+ */
+export const deregisterConsumer = (connID: number, stream: string, name: string): Promise<void> =>
+  KinesisService.DeregisterConsumer(connID, stream, name);

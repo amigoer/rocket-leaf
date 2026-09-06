@@ -138,3 +138,21 @@ func (s *KinesisService) Publish(connID int, input KinesisPublishInput) (*Kinesi
 		Failed:         result.Failed,
 	}, nil
 }
+
+// RegisterConsumer registers an enhanced fan-out consumer on a stream.
+//
+// Registering is not subscribing. It reserves the name and the dedicated two
+// megabytes a second of read throughput this consumer gets on every shard;
+// an application then subscribes against the ARN. Nothing here reads on its
+// behalf, and the registration outlives whatever does.
+func (s *KinesisService) RegisterConsumer(connID int, stream, name string) error {
+	return s.service.RegisterConsumer(context.Background(), connID, stream, name)
+}
+
+// DeregisterConsumer removes a registration.
+//
+// The stream is required as well as the name: a consumer name is unique only
+// within its stream, and every call that names one takes the stream too.
+func (s *KinesisService) DeregisterConsumer(connID int, stream, name string) error {
+	return s.service.DeregisterConsumer(context.Background(), connID, stream, name)
+}

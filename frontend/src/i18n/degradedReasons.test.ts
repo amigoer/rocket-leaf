@@ -69,6 +69,14 @@ const REASONS: Record<string, string[]> = {
   // everywhere else. Degraded only on that endpoint, which is what declare()
   // narrowing is for.
   "azure-servicebus": ["countsNotInEmulator"],
+  // internal/driver/kinesis/conn.go
+  //
+  // One, and unconditional like Pub/Sub's rather than endpoint-specific: a
+  // stream records that a consumer is registered and nothing about where it
+  // has read to. Unlike Pub/Sub's, the number does not exist in a second API
+  // either - a classic consumer keeps its position in a DynamoDB table the
+  // KCL owns, and an enhanced fan-out consumer keeps none at all.
+  kinesis: ["positionInDynamo"],
 };
 
 /**

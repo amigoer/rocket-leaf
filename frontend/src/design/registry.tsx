@@ -86,6 +86,7 @@ import { ShardsKinesis } from "./boards/shards/ShardsKinesis";
 import { RulesAzureServiceBus } from "./boards/topics/RulesAzureServiceBus";
 import { SubscriptionsGooglePubSub } from "./boards/consumers/SubscriptionsGooglePubSub";
 import { SubscriptionsAzureServiceBus } from "./boards/consumers/SubscriptionsAzureServiceBus";
+import { ConsumersKinesis } from "./boards/consumers/ConsumersKinesis";
 import { MessagesSqs } from "./boards/messages/MessagesSqs";
 import { MessagesGooglePubSub } from "./boards/messages/MessagesGooglePubSub";
 import { MessagesAzureServiceBus } from "./boards/messages/MessagesAzureServiceBus";
@@ -201,6 +202,7 @@ const BOARDS: Partial<
     nsq: ChannelsNsq,
     "google-pubsub": SubscriptionsGooglePubSub,
     "azure-servicebus": SubscriptionsAzureServiceBus,
+    kinesis: ConsumersKinesis,
   },
   subscribe: { mqtt: MqttWorkbench, nats: NatsWorkbench, activemq: ActiveMQWorkbench },
   clients: {

@@ -1155,3 +1155,157 @@ func TestLivePublishRefusesASendWithNoPartitionKey(t *testing.T) {
 		t.Error("accepted an empty record")
 	}
 }
+
+/*
+ * Registered consumers, which are the only readers a stream knows about.
+ *
+ * The seed registers two on MQS-SEED-orders. What this asserts beyond their
+ * being listed is the shape: a consumer is addressed by its stream and its
+ * name together, and every figure a consumers page would want is absent rather
+ * than zero - there is no position anywhere in the service to compute one
+ * from.
+ */
+func TestLiveListSubscriptionsFindsRegisteredConsumers(t *testing.T) {
+	conn := liveConn(t)
+
+	subscriptions, err := conn.ListSubscriptions(liveContext(t))
+	if err != nil {
+		t.Fatalf("ListSubscriptions: %v", err)
+	}
+	found := map[string]*model.Subscription{}
+	for _, subscription := range subscriptions {
+		if subscription.Ref.Namespace == seedOrders {
+			found[subscription.Ref.Name] = subscription
+		}
+	}
+	if len(found) < 2 {
+		e2e.Missing(t, "%s has %d registered consumers; run `npm run e2e:kinesis:seed`",
+			seedOrders, len(found))
+	}
+
+	for name, subscription := range found {
+		if subscription.Backlog != model.UnknownMetric {
+			t.Errorf("%s reports a backlog of %d, and no call in the API returns one",
+				name, subscription.Backlog)
+		}
+		if subscription.Members != model.UnknownMetric {
+			t.Errorf("%s reports %d members, and the stream keeps no record of who is attached",
+				name, subscription.Members)
+		}
+		if subscription.RateOut != model.UnknownMetric {
+			t.Errorf("%s reports a consume rate, which lives in CloudWatch", name)
+		}
+		if subscription.Destinations != 1 {
+			t.Errorf("%s reads %d streams; a consumer is registered on exactly one",
+				name, subscription.Destinations)
+		}
+		if subscription.Attribute(AttrConsumerARN) == "" {
+			t.Errorf("%s carries no consumer ARN, which is what an application subscribes with",
+				name)
+		}
+	}
+}
+
+// Register, describe and deregister, against the service. The name is unique
+// within its stream and nowhere else, which is why every call takes both.
+func TestLiveRegisterAndDeregisterAConsumer(t *testing.T) {
+	conn := liveConn(t)
+	stream := testStream(t, conn, "MQS-TEST-consumers", StreamSpec{Shards: 1})
+	ref := model.SubscriptionRef{Namespace: stream, Name: "MQS-TEST-reader"}
+
+	if err := conn.CreateSubscription(liveContext(t), model.SubscriptionSpec{Ref: ref}); err != nil {
+		t.Fatalf("CreateSubscription: %v", err)
+	}
+
+	// Registration is asynchronous: the consumer is CREATING before it is
+	// ACTIVE, which is what the warning status is for.
+	var detail *model.Subscription
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		found, err := conn.SubscriptionDetail(liveContext(t), ref)
+		if err != nil {
+			t.Fatalf("SubscriptionDetail: %v", err)
+		}
+		detail = found
+		if detail.Status == model.SubscriptionOnline || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if detail.Status != model.SubscriptionOnline {
+		t.Errorf("status = %q after registering, want online", detail.Status)
+	}
+	if !strings.Contains(detail.Attribute(AttrConsumerARN), "/consumer/") {
+		t.Errorf("consumer arn = %q, which does not name a consumer",
+			detail.Attribute(AttrConsumerARN))
+	}
+
+	// A second registration under the same name is refused, and the message
+	// has to name the stream as well - the name means nothing without it.
+	err := conn.CreateSubscription(liveContext(t), model.SubscriptionSpec{Ref: ref})
+	if err == nil {
+		t.Error("registered the same consumer name twice on one stream")
+	} else if !strings.Contains(err.Error(), stream) {
+		t.Errorf("error does not name the stream: %v", err)
+	}
+
+	if err := conn.RemoveSubscription(liveContext(t), ref); err != nil {
+		t.Fatalf("RemoveSubscription: %v", err)
+	}
+	// Deregistration is asynchronous too, so a describe straight afterwards
+	// may still answer - what matters is that the listing loses it.
+	gone := false
+	deadline = time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := conn.SubscriptionDetail(liveContext(t), ref); err != nil {
+			gone = true
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if !gone {
+		t.Error("the deregistered consumer still describes")
+	}
+}
+
+// A consumer name addresses nothing on its own: it is unique within its stream
+// and every call takes the stream's ARN, so a ref with no namespace has to be
+// refused where the message can say why.
+func TestLiveConsumerRefNeedsItsStream(t *testing.T) {
+	conn := liveConn(t)
+
+	_, err := conn.SubscriptionDetail(liveContext(t), model.SubscriptionRef{Name: "reader"})
+	if err == nil {
+		t.Fatal("described a consumer without naming its stream")
+	}
+	if !strings.Contains(err.Error(), "stream") {
+		t.Errorf("error does not say the stream is missing: %v", err)
+	}
+
+	err = conn.CreateSubscription(liveContext(t), model.SubscriptionSpec{
+		Ref: model.SubscriptionRef{Namespace: seedOrders},
+	})
+	if err == nil {
+		t.Error("registered a consumer with no name")
+	}
+}
+
+/*
+ * A registered consumer has nothing to update, and the update path says so
+ * rather than accepting the call and doing nothing.
+ *
+ * Its name, ARN, status and creation time are all the service's, and every
+ * setting a reader might want - retention, capacity, encryption - belongs to
+ * the stream. No capability is declared for it, so nothing in the UI reaches
+ * this; the error is what a future caller would find.
+ */
+func TestLiveConsumerUpdateIsRefusedRatherThanIgnored(t *testing.T) {
+	conn := liveConn(t)
+
+	err := conn.UpdateSubscription(liveContext(t), model.SubscriptionSpec{
+		Ref: model.SubscriptionRef{Namespace: seedOrders, Name: "MQS-SEED-analytics"},
+	})
+	if err == nil {
+		t.Fatal("accepted an update to a consumer that has nothing to change")
+	}
+}

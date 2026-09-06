@@ -27,6 +27,21 @@ const (
 	readQuota = "mq.kinesis.caveat.readQuota"
 )
 
+// Degraded reasons, as i18n keys rather than sentences, for the same reason.
+//
+// A degraded capability is not an absent one: the family has the concept and
+// this endpoint cannot answer it, which the page explains rather than hides.
+const (
+	// positionInDynamo is why a registered consumer never has a backlog.
+	//
+	// It is unconditional rather than about this endpoint. A classic consumer
+	// keeps its position in a DynamoDB table the KCL owns, and an enhanced
+	// fan-out consumer keeps none at all - so no Kinesis connection anywhere
+	// can report where a reader has got to, and the number does not exist to
+	// be fetched from a second API the way Pub/Sub's does.
+	positionInDynamo = "mq.kinesis.degraded.positionInDynamo"
+)
+
 // Conn is one live connection to one AWS account's Kinesis in one region.
 //
 // "One connection" is a signed client rather than a socket: every call is an
@@ -110,6 +125,10 @@ func capabilities() []model.Capability {
 		model.CapMessageByID,
 
 		model.CapPublish,
+
+		model.CapSubscriptionList,
+		model.CapSubscriptionCreate,
+		model.CapSubscriptionDelete,
 	}
 }
 
@@ -159,7 +178,11 @@ func open(ctx context.Context, profile model.ConnectionProfile) (*Conn, error) {
 func (c *Conn) declare() model.Capabilities {
 	return model.Capabilities{
 		Supported: capabilities(),
-		Degraded:  map[model.Capability]string{},
+		Degraded: map[model.Capability]string{
+			// Unconditional: a stream records that a consumer is registered
+			// and nothing about where it has read to.
+			model.CapSubscriptionLag: positionInDynamo,
+		},
 		Caveats: map[model.Capability]string{
 			model.CapMessageQuery: readQuota,
 		},

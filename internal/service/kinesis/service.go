@@ -148,3 +148,37 @@ func (s *Service) Publish(
 	defer cancel()
 	return api.Publish(ctx, request)
 }
+
+// RegisterConsumer registers an enhanced fan-out consumer on a stream.
+//
+// Beside the canonical create rather than through it, because the canonical
+// one takes a group name and nothing else: a consumer here belongs to one
+// stream, its name is unique only within that stream, and every call that
+// names one takes the stream's ARN as well.
+func (s *Service) RegisterConsumer(ctx context.Context, connID int, stream, name string) error {
+	api, err := s.kinesisConn(connID, model.CapSubscriptionCreate)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.CreateSubscription(ctx, model.SubscriptionSpec{
+		Ref: model.SubscriptionRef{Namespace: stream, Name: name},
+	})
+}
+
+// DeregisterConsumer removes a registration.
+//
+// It frees the name and stops the dedicated read throughput being reserved. It
+// does not stop anything reading: a classic consumer registered nothing and is
+// unaffected, and an application holding a subscription is cut off at its next
+// call rather than at this one.
+func (s *Service) DeregisterConsumer(ctx context.Context, connID int, stream, name string) error {
+	api, err := s.kinesisConn(connID, model.CapSubscriptionDelete)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.RemoveSubscription(ctx, model.SubscriptionRef{Namespace: stream, Name: name})
+}

@@ -294,3 +294,49 @@ func isTranslationKey(text string) bool {
 	const prefix = "mq.kinesis."
 	return strings.HasPrefix(text, prefix) && !strings.Contains(text, " ")
 }
+
+/*
+ * The backlog is degraded rather than absent or filled in, and this is why.
+ *
+ * A registered consumer is a real object - it can be listed, created and
+ * removed - so the family plainly has subscriptions, and hiding the backlog
+ * column outright would leave a reader waiting for a number that is never
+ * coming. What it does not have is a position: a classic consumer keeps one in
+ * a DynamoDB table the KCL owns, and an enhanced fan-out consumer keeps none
+ * at all.
+ *
+ * The thing that must not happen is the number being invented from
+ * MillisBehindLatest, which is how far behind the tip one GetRecords call was.
+ * That belongs to whoever made the call - this app, when it browses - and
+ * says nothing about any consumer.
+ */
+func TestSubscriptionLagIsDegradedRatherThanInvented(t *testing.T) {
+	declared := (&Conn{closed: make(chan struct{})}).declare()
+
+	if declared.Has(model.CapSubscriptionLag) {
+		t.Fatal("declares a subscription backlog, and no call in the API returns one")
+	}
+	reason, degraded := declared.DegradedReason(model.CapSubscriptionLag)
+	if !degraded {
+		t.Fatal("the backlog is absent with no reason; a consumers page would show a " +
+			"column that never arrives and say nothing about why")
+	}
+	if reason != positionInDynamo {
+		t.Errorf("reason = %q, want %q", reason, positionInDynamo)
+	}
+	if !declared.Has(model.CapSubscriptionList) {
+		t.Error("degrades the backlog of subscriptions it does not declare")
+	}
+}
+
+/*
+ * The degraded reasons cross a language boundary as keys, the same as the
+ * caveats above, and the renderer's own key test cannot see either.
+ */
+func TestDegradedReasonsAreTranslationKeys(t *testing.T) {
+	for _, reason := range []string{positionInDynamo} {
+		if !isTranslationKey(reason) {
+			t.Errorf("%q is a sentence, not an i18n key", reason)
+		}
+	}
+}

@@ -28,12 +28,34 @@ export function CreateStream(connID: number, input: $models.KinesisStreamInput):
 }
 
 /**
+ * DeregisterConsumer removes a registration.
+ * 
+ * The stream is required as well as the name: a consumer name is unique only
+ * within its stream, and every call that names one takes the stream too.
+ */
+export function DeregisterConsumer(connID: number, stream: string, name: string): $CancellablePromise<void> {
+    return $Call.ByID(1626568643, connID, stream, name);
+}
+
+/**
  * Publish sends to one stream and reports what the service took.
  */
 export function Publish(connID: number, input: $models.KinesisPublishInput): $CancellablePromise<$models.KinesisPublishResult | null> {
     return $Call.ByID(1645475376, connID, input).then(($result: any) => {
         return $$createType1($result);
     });
+}
+
+/**
+ * RegisterConsumer registers an enhanced fan-out consumer on a stream.
+ * 
+ * Registering is not subscribing. It reserves the name and the dedicated two
+ * megabytes a second of read throughput this consumer gets on every shard;
+ * an application then subscribes against the ARN. Nothing here reads on its
+ * behalf, and the registration outlives whatever does.
+ */
+export function RegisterConsumer(connID: number, stream: string, name: string): $CancellablePromise<void> {
+    return $Call.ByID(3684958644, connID, stream, name);
 }
 
 /**
