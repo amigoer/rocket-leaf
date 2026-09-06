@@ -4820,6 +4820,219 @@ export class ShellPage {
 }
 
 /**
+ * SolacePublishInput is a send as the Solace console collects it.
+ * 
+ * Deliberately not MessageService.Send's shape. That one takes a topic, tags,
+ * keys and a delay level; a Solace message has a delivery mode, a time to live
+ * and a dead-message flag instead, and it can go to a queue by name or to a
+ * topic to be matched - which are two different things and not one field with
+ * two spellings.
+ */
+export class SolacePublishInput {
+    /**
+     * Target is "queue" or "topic". A queue send names one endpoint; a topic
+     * send is matched against every subscription in the Message VPN and lands
+     * on nothing when none match.
+     */
+    "target": string;
+    "destination": string;
+    "body": string;
+    "contentType": string;
+
+    /**
+     * DeliveryMode is "persistent", "non-persistent" or "direct". Empty is
+     * persistent.
+     */
+    "deliveryMode": string;
+
+    /**
+     * TimeToLiveMs discards the message if nothing takes it by then. Zero is
+     * the broker's own unlimited.
+     */
+    "timeToLiveMs": number;
+
+    /**
+     * DMQEligible decides whether a message given up on is moved to the
+     * queue's dead message queue or discarded. The broker's default is off,
+     * which is why a queue configured to dead-letter can still discard.
+     */
+    "dmqEligible": boolean;
+    "correlationId": string;
+    "replyTo": string;
+    "properties": { [_ in string]?: string };
+
+    /**
+     * Count sends the same body more than once. Each copy is its own request.
+     */
+    "count": number;
+
+    /** Creates a new SolacePublishInput instance. */
+    constructor($$source: Partial<SolacePublishInput> = {}) {
+        if (!("target" in $$source)) {
+            this["target"] = "";
+        }
+        if (!("destination" in $$source)) {
+            this["destination"] = "";
+        }
+        if (!("body" in $$source)) {
+            this["body"] = "";
+        }
+        if (!("contentType" in $$source)) {
+            this["contentType"] = "";
+        }
+        if (!("deliveryMode" in $$source)) {
+            this["deliveryMode"] = "";
+        }
+        if (!("timeToLiveMs" in $$source)) {
+            this["timeToLiveMs"] = 0;
+        }
+        if (!("dmqEligible" in $$source)) {
+            this["dmqEligible"] = false;
+        }
+        if (!("correlationId" in $$source)) {
+            this["correlationId"] = "";
+        }
+        if (!("replyTo" in $$source)) {
+            this["replyTo"] = "";
+        }
+        if (!("properties" in $$source)) {
+            this["properties"] = {};
+        }
+        if (!("count" in $$source)) {
+            this["count"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SolacePublishInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SolacePublishInput {
+        const $$createField9_0 = $$createType9;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("properties" in $$parsedSource) {
+            $$parsedSource["properties"] = $$createField9_0($$parsedSource["properties"]);
+        }
+        return new SolacePublishInput($$parsedSource as Partial<SolacePublishInput>);
+    }
+}
+
+/**
+ * SolacePublishResult is what the send did.
+ * 
+ * There is no message id, and that is the interface rather than an omission:
+ * the broker answers a successful send with an empty body and no identifier.
+ * The id a browse lists is the queue's own sequence number, assigned when the
+ * message is spooled and never told to the publisher.
+ */
+export class SolacePublishResult {
+    "sent": number;
+
+    /** Creates a new SolacePublishResult instance. */
+    constructor($$source: Partial<SolacePublishResult> = {}) {
+        if (!("sent" in $$source)) {
+            this["sent"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SolacePublishResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SolacePublishResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SolacePublishResult($$parsedSource as Partial<SolacePublishResult>);
+    }
+}
+
+/**
+ * SolaceQueueInput is a queue as the form collects it.
+ * 
+ * Deliberately not TopicService.Create's shape. That one takes a broker
+ * address, two queue counts and a permission string - RocketMQ's vocabulary,
+ * of which a Solace queue has none.
+ */
+export class SolaceQueueInput {
+    "name": string;
+
+    /**
+     * AccessType is "exclusive" or "non-exclusive", and it is the setting most
+     * likely to be wrong: exclusive hands every message to one consumer and
+     * keeps the rest waiting as standbys, which looks like a broken fan-out
+     * rather than like a configuration choice.
+     */
+    "accessType": string;
+
+    /**
+     * Permission is what a client bound to this queue may do to it - read,
+     * consume, modify its topics, or delete it.
+     */
+    "permission": string;
+
+    /**
+     * Owner is the client username the queue belongs to. Empty leaves it
+     * unowned, which is what a queue created by an administrator usually is.
+     */
+    "owner": string;
+
+    /**
+     * DeadMsgQueue is where undelivered messages go. Naming one also turns off
+     * respectDmqEligible, because otherwise only a message its publisher
+     * marked eligible is ever moved - and nothing this app sends is marked.
+     */
+    "deadMsgQueue": string;
+
+    /**
+     * MaxRedeliveryCount is how many attempts before that happens. Zero is the
+     * broker's own unlimited.
+     */
+    "maxRedeliveryCount": number;
+
+    /**
+     * MaxSpoolUsageMb caps what the queue may hold, in megabytes. Zero leaves
+     * the broker's own default.
+     */
+    "maxSpoolUsageMb": number;
+
+    /** Creates a new SolaceQueueInput instance. */
+    constructor($$source: Partial<SolaceQueueInput> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("accessType" in $$source)) {
+            this["accessType"] = "";
+        }
+        if (!("permission" in $$source)) {
+            this["permission"] = "";
+        }
+        if (!("owner" in $$source)) {
+            this["owner"] = "";
+        }
+        if (!("deadMsgQueue" in $$source)) {
+            this["deadMsgQueue"] = "";
+        }
+        if (!("maxRedeliveryCount" in $$source)) {
+            this["maxRedeliveryCount"] = 0;
+        }
+        if (!("maxSpoolUsageMb" in $$source)) {
+            this["maxSpoolUsageMb"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SolaceQueueInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SolaceQueueInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SolaceQueueInput($$parsedSource as Partial<SolaceQueueInput>);
+    }
+}
+
+/**
  * StreamInput is a stream as the dialog collects it.
  * 
  * Deliberately not TopicService.Create's shape. Every field there is

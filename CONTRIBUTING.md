@@ -287,11 +287,22 @@ After adding a family, update all of these:
   nobody can build. Before reaching for a vendor's SDK, check what it links
   against: `github.com/ibm-messaging/mq-golang` is cgo over IBM's native MQ
   libraries, and adding it would have put the redistributable client on the
-  critical path of every `go build` and every CI job in this repository. Two
+  critical path of every `go build` and every CI job in this repository. Three
   families are reached over the vendor's own HTTP management plane instead -
-  ActiveMQ through Jolokia and IBM MQ through the mqweb server's REST APIs -
-  and both needed the standard library and nothing else. A management plane
-  that is also the data plane is worth looking for.
+  ActiveMQ through Jolokia, IBM MQ through the mqweb server's REST APIs, and
+  Solace through SEMP v2 - and every one of them needed the standard library
+  and nothing else. A management plane that is also the data plane is worth
+  looking for.
+
+- A figure whose name reads like the one you want is worth measuring before it
+  is believed. Solace reports `spooledMsgCount` on every queue, which reads
+  exactly like a current depth and is a lifetime statistic: `clearStats` sets
+  it to zero on a full queue, and a drained queue keeps its high-water mark.
+  The depth is `meta.count` on the queue's message collection instead. The same
+  object reports its spool usage in bytes beside a quota in megabytes. Neither
+  is documented as a trap and both were found by putting a known number of
+  messages on a queue and reading every field back - which is what a new
+  driver's first hour should be spent on.
 
 - A family whose management plane authorises in more than one place needs the
   credential asked for more than once. IBM MQ's mqweb server maps its
@@ -301,7 +312,11 @@ After adding a family, update all of these:
   did not answer is degraded with a reason, the way ActiveMQ's AMQP acceptor
   and MQTT's $SYS tree are. What must not happen is one credential silently
   standing in for the other: half a second pair is refused rather than
-  completed from the first.
+  completed from the first. Whether an empty second pair falls back to the
+  first is the family's own answer rather than a convention - IBM MQ's does,
+  because both interfaces read one user registry; Solace's does not, because a
+  SEMP management user and a Message VPN's client-username are objects in
+  different directories.
 
 Do not count the families by eye. The capability declarations settle which
 drivers answer which page:

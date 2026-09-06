@@ -135,6 +135,36 @@ function KinesisGlyph({ size = 14, color = "currentColor", ...rest }: IconBasePr
 }
 
 /**
+ * One publication fanning out to three subscribers, which is the thing Solace
+ * is arranged around: nothing here is addressed to a queue by name if it can
+ * be helped. A message goes to a topic, and every queue whose subscriptions
+ * match it gets a copy.
+ */
+function SolaceGlyph({ size = 14, color = "currentColor", ...rest }: IconBaseProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...rest}
+    >
+      <circle cx="4" cy="12" r="2" />
+      <circle cx="20" cy="5" r="2" />
+      <circle cx="20" cy="12" r="2" />
+      <circle cx="20" cy="19" r="2" />
+      <path d="M6 11.3 18 5.7" />
+      <path d="M6 12h12" />
+      <path d="M6 12.7 18 18.3" />
+    </svg>
+  );
+}
+
+/**
  * Two ends joined by a link, which is the object IBM MQ is arranged around and
  * the one no other family here has: nothing reaches a queue manager except
  * through a channel somebody defined, whether that is an application, another
@@ -177,6 +207,7 @@ const GLYPH: Record<ProtocolId, { icon: IconType; color: string }> = {
   sqs: { icon: SqsGlyph, color: "var(--c-brand-sqs)" },
   kinesis: { icon: KinesisGlyph, color: "var(--c-brand-kinesis)" },
   ibmmq: { icon: IbmMqGlyph, color: "var(--c-brand-ibmmq)" },
+  solace: { icon: SolaceGlyph, color: "var(--c-brand-solace)" },
   // Simple Icons does carry this one, in a pale blue meant for a dark
   // ground, so the token is what keeps it legible on a light one.
   "google-pubsub": { icon: SiGooglepubsub, color: "var(--c-brand-google-pubsub)" },

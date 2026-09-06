@@ -25,6 +25,7 @@ import {
   emptyAzureServiceBusDraft,
   emptyKinesisDraft,
   emptyIbmMqDraft,
+  emptySolaceDraft,
 } from "./ConnectionForms";
 import { emptyDraft, toSubmission, type ProtocolDraft } from "./connectionDraft";
 import { countAddresses, draftInvalidReason } from "./connectionValidation";
@@ -198,6 +199,20 @@ const RULES: Record<ProtocolDraft["protocol"], Rules> = {
     bare: { protocol: "ibmmq", value: { ...emptyIbmMqDraft(), name: NAME } },
     firstAsk: "page.connections.form.ibmmq.mqwebRequired",
   },
+  /*
+   * Solace's first refusal is the address for the same reason IBM MQ's is: it
+   * is the only field with nothing to fall back on. The Message VPN falls back
+   * to "default" and the REST credential is optional outright, so neither can
+   * be what a bare draft is asked for first.
+   */
+  solace: {
+    saveable: {
+      protocol: "solace",
+      value: { ...emptySolaceDraft(), name: NAME, endpoints: "http://solace.example:8080" },
+    },
+    bare: { protocol: "solace", value: { ...emptySolaceDraft(), name: NAME } },
+    firstAsk: "page.connections.form.solace.sempRequired",
+  },
 };
 
 const PROTOCOLS = Object.keys(RULES) as ProtocolDraft["protocol"][];
@@ -340,6 +355,53 @@ describe("the connection draft's validity", () => {
     expect(
       draftInvalidReason({ protocol: "ibmmq", value: { ...base, endpoints: "mq.example:9443" } }, key),
     ).toBe("page.connections.form.ibmmq.mqwebScheme");
+  });
+
+  /*
+   * Solace's three, and the last is the one worth having. The address is a URL
+   * because every SEMP path is built on it; the Message VPN rule is the
+   * broker's own, quoted from the message it refuses a bad name with; and half
+   * a REST credential fails in the direction nobody expects - a password with
+   * no username is discarded rather than refused.
+   */
+  it("refuses a semp address with no scheme", () => {
+    const base = { ...emptySolaceDraft(), name: NAME, endpoints: "http://solace.example:8080" };
+    expect(draftInvalidReason({ protocol: "solace", value: base }, key)).toBeNull();
+    expect(
+      draftInvalidReason(
+        { protocol: "solace", value: { ...base, endpoints: "solace.example:8080" } },
+        key,
+      ),
+    ).toBe("page.connections.form.solace.sempScheme");
+  });
+
+  it("refuses a message vpn name the broker would not take", () => {
+    const base = { ...emptySolaceDraft(), name: NAME, endpoints: "http://solace.example:8080" };
+    expect(
+      draftInvalidReason({ protocol: "solace", value: { ...base, msgVpn: "orders/eu" } }, key),
+    ).toBeNull();
+    expect(
+      draftInvalidReason({ protocol: "solace", value: { ...base, msgVpn: "orders*" } }, key),
+    ).toBe("page.connections.form.solace.msgVpnName");
+    expect(
+      draftInvalidReason({ protocol: "solace", value: { ...base, msgVpn: "v".repeat(33) } }, key),
+    ).toBe("page.connections.form.solace.msgVpnName");
+  });
+
+  it("refuses half a solace rest credential in either direction", () => {
+    const base = { ...emptySolaceDraft(), name: NAME, endpoints: "http://solace.example:8080" };
+    expect(
+      draftInvalidReason({ protocol: "solace", value: { ...base, restUsername: "app" } }, key),
+    ).toBe("page.connections.form.solace.restPairRequired");
+    expect(
+      draftInvalidReason({ protocol: "solace", value: { ...base, restPassword: "secret" } }, key),
+    ).toBe("page.connections.form.solace.restPairRequired");
+    expect(
+      draftInvalidReason(
+        { protocol: "solace", value: { ...base, restUsername: "app", restPassword: "secret" } },
+        key,
+      ),
+    ).toBeNull();
   });
 
   it("refuses a queue manager name IBM MQ could not have", () => {

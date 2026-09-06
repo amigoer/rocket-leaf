@@ -48,7 +48,8 @@ export type ProtocolId =
   | "google-pubsub"
   | "azure-servicebus"
   | "kinesis"
-  | "ibmmq";
+  | "ibmmq"
+  | "solace";
 
 export type PageId =
   | "overview"
@@ -594,6 +595,47 @@ export const PROTOCOLS: Record<ProtocolId, Protocol> = {
       },
     ],
   },
+  solace: {
+    id: "solace",
+    name: "Solace PubSub+",
+    badge: "SOL",
+    badgeClass: "pSOL",
+    /* Nine entries, and the exchanges slot is the one worth explaining. A
+       Solace queue does not have to be published to by name: it carries topic
+       subscriptions, and whatever is published to a matching topic lands on
+       it. That is a routing topology rather than a setting on the queue - the
+       same page RabbitMQ's exchanges and Service Bus's rules are drawn on -
+       and it is where topic endpoints belong too, because a topic endpoint's
+       routing is its own name.
+
+       There is no consumers entry: this family has no consumer group. What
+       reads a queue is a client bound to it, and that is the clients page.
+
+       The cluster page is a broker page: one appliance, its version and what
+       it is holding. A redundancy pair here shares one virtual router and
+       only one half is ever active, so there is no list of nodes to draw. */
+    nav: [
+      { items: [{ id: "overview", icon: House, label: "shell.nav.solace.overview" }] },
+      {
+        label: BROWSE,
+        items: [
+          { id: "topics", icon: Layers, label: "shell.nav.solace.topics" },
+          { id: "exchanges", icon: Split, label: "shell.nav.solace.exchanges" },
+          { id: "messages", icon: Mail, label: "shell.nav.solace.messages" },
+          { id: "producer", icon: Send, label: "shell.nav.solace.producer" },
+          { id: "clients", icon: Plug, label: "shell.nav.solace.clients" },
+        ],
+      },
+      {
+        label: OPS,
+        items: [
+          { id: "dlq", icon: TriangleAlert, label: "shell.nav.solace.dlq" },
+          { id: "cluster", icon: Server, label: "shell.nav.solace.cluster" },
+          { id: "alerts", icon: BellRing, label: "shell.nav.solace.alerts" },
+        ],
+      },
+    ],
+  },
 };
 
 export const PROTOCOL_ORDER: ProtocolId[] = [
@@ -611,6 +653,7 @@ export const PROTOCOL_ORDER: ProtocolId[] = [
   "azure-servicebus",
   "kinesis",
   "ibmmq",
+  "solace",
 ];
 
 /** Every page the protocol's sidebar can reach, flattened. */
@@ -648,6 +691,7 @@ const READY: ReadonlySet<ProtocolId> = new Set<ProtocolId>([
   "azure-servicebus",
   "kinesis",
   "ibmmq",
+  "solace",
 ]);
 
 export function isProtocolReady(protocol: ProtocolId): boolean {

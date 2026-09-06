@@ -39,3 +39,24 @@ export function scopeOptions(scopes: readonly Scope[], query: string): ScopeOpti
     typed: typed !== "" && !byName.has(typed) ? typed : "",
   };
 }
+
+/**
+ * The i18n keys for one piece of the switcher's copy, family first.
+ *
+ * The shared wording is RocketMQ's, because RocketMQ was the only family with
+ * a switchable scope for a long time: "All namespaces" means the whole cluster
+ * with names unchanged, which is exactly what an unscoped RocketMQ connection
+ * reads. It is not what an unnamed Solace profile does - that one is resolved
+ * to a single Message VPN at dial time - so a family whose scope means
+ * something else says so in its own bundle and everything else falls through
+ * to the shared line.
+ *
+ * A list rather than a lookup because i18next takes one and uses the first key
+ * that resolves, so a family needs to override only the lines that would be
+ * wrong rather than all of them.
+ */
+export function scopeKeys(kind: string | undefined, key: string): string[] {
+  const shared = `shell.scope.${key}`;
+  if (kind == null || kind === "") return [shared];
+  return [`mq.${kind}.scope.${key}`, shared];
+}

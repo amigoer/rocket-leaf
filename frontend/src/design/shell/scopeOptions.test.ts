@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scopeOptions } from "./scopeOptions";
+import { scopeKeys, scopeOptions } from "./scopeOptions";
 
 /*
  * What the switcher's popover offers for a query.
@@ -36,5 +36,34 @@ describe("what the popover offers", () => {
     const options = scopeOptions([scope("orders")], "   ");
     expect(options.matched.map((entry) => entry.name)).toEqual(["orders"]);
     expect(options.typed).toBe("");
+  });
+});
+
+/*
+ * The switcher's copy, which is RocketMQ's until a family says otherwise.
+ *
+ * "All namespaces" is true of an unscoped RocketMQ connection and false of an
+ * unnamed Solace profile, which is resolved to a single Message VPN at dial
+ * time - so the shared line cannot be the only one. What this pins is that a
+ * family's own key is preferred and the shared one is still the fallback, so a
+ * family overriding one line does not have to override the other nine.
+ */
+describe("the switcher's wording", () => {
+  it("prefers the family's own line and falls back to the shared one", () => {
+    expect(scopeKeys("solace", "unscoped")).toEqual([
+      "mq.solace.scope.unscoped",
+      "shell.scope.unscoped",
+    ]);
+    expect(scopeKeys("rocketmq", "label")).toEqual([
+      "mq.rocketmq.scope.label",
+      "shell.scope.label",
+    ]);
+  });
+
+  // Nothing connected is not a family, and a key of "mq..scope.x" would
+  // resolve to nothing at all rather than to the shared line.
+  it("asks only for the shared line when there is no family", () => {
+    expect(scopeKeys(undefined, "unscoped")).toEqual(["shell.scope.unscoped"]);
+    expect(scopeKeys("", "unscoped")).toEqual(["shell.scope.unscoped"]);
   });
 });

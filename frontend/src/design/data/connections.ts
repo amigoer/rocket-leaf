@@ -19,6 +19,13 @@ export type Connection = {
   name: string;
   /** null for a broker family the design has no boards for. */
   protocol: ProtocolId | null;
+  /**
+   * The stored kind, which is not the protocol id: Redis Stream is "redis" to
+   * the design shell and "redis-stream" on disk. It is carried because the
+   * i18n bundle is keyed by kind, so anything that wants a family's own
+   * wording - the scope switcher's, today - needs this rather than the id.
+   */
+  kind: MQKind;
   protocolLabel: string;
   address: string;
   /**
@@ -54,6 +61,7 @@ const PROTOCOL_BY_KIND: Partial<Record<MQKind, ProtocolId>> = {
   [MQKind.KindAzureServiceBus]: "azure-servicebus",
   [MQKind.KindKinesis]: "kinesis",
   [MQKind.KindIBMMQ]: "ibmmq",
+  [MQKind.KindSolace]: "solace",
 };
 
 export function protocolOfKind(kind: MQKind): ProtocolId | null {
@@ -85,6 +93,13 @@ export function protocolOfKind(kind: MQKind): ProtocolId | null {
  * queue managers, they share nothing, and two profiles pointed at two of them
  * would otherwise print the same row. So the queue manager is appended as the
  * path segment it actually is in every REST call the driver makes.
+ *
+ * Solace is here for the same reason and not quite the same one. A Message VPN
+ * is also a path segment on a broker that hosts several, so two profiles would
+ * print the same row - but unlike a queue manager it is a scope, and the
+ * sidebar re-points it without the profile being edited. That makes the row the
+ * only place a user can see which VPN a connection is on while looking at the
+ * list.
  */
 function addressOf(profile: ConnectionProfile): string {
   if (profile.kind === MQKind.KindSQS) return profile.options?.region ?? "";
@@ -92,6 +107,7 @@ function addressOf(profile: ConnectionProfile): string {
   if (profile.kind === MQKind.KindGooglePubSub) return profile.options?.projectId ?? "";
   if (profile.kind === MQKind.KindAzureServiceBus) return namespaceOf(profile.endpoints);
   if (profile.kind === MQKind.KindIBMMQ) return queueManagerAddress(profile);
+  if (profile.kind === MQKind.KindSolace) return msgVpnAddress(profile);
   return profile.endpoints;
 }
 
@@ -110,6 +126,21 @@ function queueManagerAddress(profile: ConnectionProfile): string {
 }
 
 /**
+ * The SEMP address with the Message VPN on it, when the profile names one.
+ *
+ * It may not, and blank means something different here than it does for IBM
+ * MQ: the driver falls back to "default", which every broker ships. Printing
+ * that fallback would still be printing something the profile does not say, so
+ * the row shows the broker alone until the scope switcher writes a name.
+ */
+function msgVpnAddress(profile: ConnectionProfile): string {
+  const broker = profile.endpoints.trim().replace(/\/+$/, "");
+  const vpn = (profile.options?.msgVpn ?? "").trim();
+  if (broker === "" || vpn === "") return broker;
+  return `${broker}/${vpn}`;
+}
+
+/**
  * The host out of whatever a Service Bus endpoint field holds.
  *
  * Deliberately string work rather than `new URL`: the field's ordinary value
@@ -122,11 +153,27 @@ function namespaceOf(endpoints: string): string {
   return scheme < 0 ? first : first.slice(scheme + 3);
 }
 
-/** Only RocketMQ scopes a connection by name today. */
+/**
+ * What the connection is scoped to, for the two families that carry one.
+ *
+ * The option key is the driver's own - RocketMQ spells it "namespace" and
+ * Solace "msgVpn" - and it is read here rather than from the descriptor
+ * because this runs on a list of stored profiles with nothing dialled.
+ *
+ * Empty means something different in each and neither is shown: a RocketMQ
+ * connection with no namespace is reading the whole cluster, and a Solace
+ * profile with no Message VPN is resolved to one at dial time. Printing a
+ * marker for either would be printing something the profile does not say.
+ */
 function scopeOf(profile: ConnectionProfile): string | undefined {
-  if (profile.kind !== MQKind.KindRocketMQ) return undefined;
-  const namespace = profile.options?.namespace ?? "";
-  return namespace === "" ? undefined : namespace;
+  const option =
+    profile.kind === MQKind.KindRocketMQ
+      ? profile.options?.namespace
+      : profile.kind === MQKind.KindSolace
+        ? profile.options?.msgVpn
+        : undefined;
+  const scope = option ?? "";
+  return scope === "" ? undefined : scope;
 }
 
 export function toShellConnection(profile: ConnectionProfile): Connection {
@@ -136,6 +183,7 @@ export function toShellConnection(profile: ConnectionProfile): Connection {
     id: profile.id,
     name: profile.name,
     protocol,
+    kind: profile.kind,
     // A family with no board still names itself; the raw kind is all there is.
     protocolLabel: protocol != null ? PROTOCOLS[protocol].name : profile.kind,
     address: addressOf(profile),

@@ -1,0 +1,82 @@
+name: mq-studio-e2e-solace
+
+# Solace PubSub+ Standard, the vendor's own free edition.
+#
+# One broker rather than a redundancy group. A second appliance here would be a
+# high-availability mate rather than a second node of a cluster - the pair
+# shares one virtual router and only one of them is ever active - and nothing
+# the boards show would differ.
+#
+# No platform pin, and that is worth saying out loud because the two
+# environments beside this one need one. Solace publishes an arm64 manifest as
+# well as amd64, so this image runs natively on both CI's x86 runners and an
+# Apple Silicon workstation - no emulation, and a broker that is answering in
+# well under a minute rather than several.
+#
+# Three settings below are the difference between a broker and a container that
+# exits during startup, and none of them is optional:
+#
+#   - shm_size. The default 64 MB is far below what the message spool's shared
+#     memory needs, and the daemon dies without a message that names it.
+#   - the nofile hard limit. SolOS runs a power-on self test that refuses to
+#     continue below 1048576, naming the limit it found; Docker's own default
+#     is orders of magnitude lower, so the broker shuts itself down seconds
+#     after starting and the log entry is a POST violation rather than
+#     anything about files.
+#   - system_scaling_maxconnectioncount. Left at the default the broker sizes
+#     itself for 100k connections and wants the memory to match.
+
+services:
+  solace:
+    image: solace/solace-pubsub-standard:10.26.0
+    hostname: solace
+    shm_size: 2g
+    ulimits:
+      core: -1
+      nofile:
+        soft: 2448
+        hard: 1048576
+    environment:
+      # The management account. Solace's own convention is that the container
+      # creates it on first boot from these two variables, and there is no
+      # default administrator to fall back on if they are left out.
+      username_admin_globalaccesslevel: admin
+      username_admin_password: admin
+      system_scaling_maxconnectioncount: '100'
+    ports:
+      # SEMP: the management API and the browser console. This is the whole of
+      # what a connection profile points at.
+      - '127.0.0.1:8080:8080'
+      # The REST messaging interface for the default Message VPN, which is the
+      # only way this driver sends a message. Its port is a per-VPN setting
+      # rather than a broker-wide one, so the second VPN the seed creates gets
+      # its own - published below so a send to it can be exercised too.
+      - '127.0.0.1:9000:9000'
+      - '127.0.0.1:9010:9010'
+      # SMF, the broker's own binary protocol. Published for anything that
+      # wants to attach a real client; this driver never opens it.
+      - '127.0.0.1:55555:55555'
+    healthcheck:
+      # The Message VPN answering for itself, not the port being open. SEMP
+      # binds 8080 and answers about the broker well before the default VPN is
+      # up, and a probe on the socket - or on /SEMP/v2/config/about - would
+      # hand the seed an API whose every VPN call fails. Worse, SEMP answers a
+      # collection under a Message VPN that is not there with an empty list and
+      # no error at all, so a health check that asked for the queues would go
+      # green on a broker that had not finished starting.
+      test:
+        - CMD-SHELL
+        - >-
+          curl -sf -u admin:admin
+          'http://127.0.0.1:8080/SEMP/v2/monitor/msgVpns/default?select=state'
+          | grep -q '"state":"up"'
+      interval: 5s
+      timeout: 10s
+      retries: 60
+      start_period: 30s
+    restart: unless-stopped
+    volumes:
+      - solace-data:/var/lib/solace
+
+volumes:
+  solace-data:

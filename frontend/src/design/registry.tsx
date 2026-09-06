@@ -57,6 +57,7 @@ import { ProducerRedis } from "./boards/producer/ProducerRedis";
 import { ProducerNats } from "./boards/producer/ProducerNats";
 import { ProducerActiveMQ } from "./boards/producer/ProducerActiveMQ";
 import { ProducerNsq } from "./boards/producer/ProducerNsq";
+import { BrokerSolace } from "./boards/cluster/BrokerSolace";
 import { BrokerActiveMQ } from "./boards/cluster/BrokerActiveMQ";
 import { OverviewActiveMQ } from "./boards/overview/OverviewActiveMQ";
 import { ClientsActiveMQ } from "./boards/consumers/ClientsActiveMQ";
@@ -82,9 +83,11 @@ import { QueuesSqs } from "./boards/topics/QueuesSqs";
 import { TopicsGooglePubSub } from "./boards/topics/TopicsGooglePubSub";
 import { EntitiesAzureServiceBus } from "./boards/topics/EntitiesAzureServiceBus";
 import { StreamsKinesis } from "./boards/topics/StreamsKinesis";
+import { QueuesSolace } from "./boards/topics/QueuesSolace";
 import { QueuesIbmMq } from "./boards/topics/QueuesIbmMq";
 import { ShardsKinesis } from "./boards/shards/ShardsKinesis";
 import { ChannelsIbmMq } from "./boards/channels/ChannelsIbmMq";
+import { RoutingSolace } from "./boards/topics/RoutingSolace";
 import { RulesAzureServiceBus } from "./boards/topics/RulesAzureServiceBus";
 import { SubscriptionsGooglePubSub } from "./boards/consumers/SubscriptionsGooglePubSub";
 import { SubscriptionsAzureServiceBus } from "./boards/consumers/SubscriptionsAzureServiceBus";
@@ -94,12 +97,14 @@ import { MessagesSqs } from "./boards/messages/MessagesSqs";
 import { MessagesGooglePubSub } from "./boards/messages/MessagesGooglePubSub";
 import { MessagesAzureServiceBus } from "./boards/messages/MessagesAzureServiceBus";
 import { MessagesKinesis } from "./boards/messages/MessagesKinesis";
+import { MessagesSolace } from "./boards/messages/MessagesSolace";
 import { MessagesIbmMq } from "./boards/messages/MessagesIbmMq";
 import { ProducerSqs } from "./boards/producer/ProducerSqs";
 import { ProducerGooglePubSub } from "./boards/producer/ProducerGooglePubSub";
 import { ProducerAzureServiceBus } from "./boards/producer/ProducerAzureServiceBus";
 import { ProducerKinesis } from "./boards/producer/ProducerKinesis";
 import { ProducerIbmMq } from "./boards/producer/ProducerIbmMq";
+import { ProducerSolace } from "./boards/producer/ProducerSolace";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
 import { DlqGooglePubSub } from "./boards/dlq/DlqGooglePubSub";
 import { DlqAzureServiceBus } from "./boards/dlq/DlqAzureServiceBus";
@@ -107,15 +112,18 @@ import { OverviewSqs } from "./boards/overview/OverviewSqs";
 import { OverviewGooglePubSub } from "./boards/overview/OverviewGooglePubSub";
 import { OverviewAzureServiceBus } from "./boards/overview/OverviewAzureServiceBus";
 import { OverviewKinesis } from "./boards/overview/OverviewKinesis";
+import { OverviewSolace } from "./boards/overview/OverviewSolace";
 import { OverviewIbmMq } from "./boards/overview/OverviewIbmMq";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
 import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
 import { DlqActiveMQ } from "./boards/dlq/DlqActiveMQ";
+import { DlqSolace } from "./boards/dlq/DlqSolace";
 import { DlqIbmMq } from "./boards/dlq/DlqIbmMq";
 import { TopicsNsq } from "./boards/topics/TopicsNsq";
 import { ChannelsNsq } from "./boards/consumers/ChannelsNsq";
 import { ClientsNsq } from "./boards/consumers/ClientsNsq";
+import { ClientsSolace } from "./boards/consumers/ClientsSolace";
 import { ClusterNsq } from "./boards/cluster/ClusterNsq";
 import { OverviewNsq } from "./boards/overview/OverviewNsq";
 import { NotDesigned } from "./boards/misc/NotDesigned";
@@ -170,6 +178,7 @@ const BOARDS: Partial<
     "azure-servicebus": OverviewAzureServiceBus,
     kinesis: OverviewKinesis,
     ibmmq: OverviewIbmMq,
+    solace: OverviewSolace,
   },
   topics: {
     rocketmq: TopicsRocketMQ,
@@ -186,6 +195,7 @@ const BOARDS: Partial<
     "azure-servicebus": EntitiesAzureServiceBus,
     kinesis: StreamsKinesis,
     ibmmq: QueuesIbmMq,
+    solace: QueuesSolace,
   },
   /* One family, and that is the point rather than an oversight: every other
      partitioned broker here reports a count, and a shard is an object. */
@@ -197,6 +207,10 @@ const BOARDS: Partial<
     // messages reach one subscription, which is a routing topology rather
     // than a setting on the reader.
     "azure-servicebus": RulesAzureServiceBus,
+    // And again, with the strongest claim of the three: a Solace publisher
+    // never names a queue at all, so what has subscribed is the whole of what
+    // decides where a message lands.
+    solace: RoutingSolace,
   },
   vhosts: { rabbitmq: VhostsRabbitMQ, pulsar: NamespacesPulsar, nats: AccountsNats },
   policies: { rabbitmq: PoliciesRabbitMQ },
@@ -224,6 +238,7 @@ const BOARDS: Partial<
     nats: ClientsNats,
     activemq: ClientsActiveMQ,
     nsq: ClientsNsq,
+    solace: ClientsSolace,
   },
   messages: {
     rocketmq: MessagesRocketMQ,
@@ -238,6 +253,7 @@ const BOARDS: Partial<
     "azure-servicebus": MessagesAzureServiceBus,
     kinesis: MessagesKinesis,
     ibmmq: MessagesIbmMq,
+    solace: MessagesSolace,
   },
   dlq: {
     rocketmq: DlqRocketMQ,
@@ -249,6 +265,7 @@ const BOARDS: Partial<
     "google-pubsub": DlqGooglePubSub,
     "azure-servicebus": DlqAzureServiceBus,
     ibmmq: DlqIbmMq,
+    solace: DlqSolace,
   },
   cluster: {
     rocketmq: ClusterRocketMQ,
@@ -260,6 +277,7 @@ const BOARDS: Partial<
     nats: ServersNats,
     activemq: BrokerActiveMQ,
     nsq: ClusterNsq,
+    solace: BrokerSolace,
   },
 };
 
@@ -326,6 +344,14 @@ export function renderBoard(
        rather than tidiness: the messaging REST API has no topic resource at
        all, so publishing needs an MQ client. */
     if (protocol === "ibmmq") return <ProducerIbmMq />;
+    /* Solace's own too, and for one field the others have no counterpart for.
+       A queue and a topic here are routinely called the same thing, and the
+       two sends are different acts: one names an endpoint, the other is
+       matched against every subscription in the Message VPN and lands nowhere
+       at all when none match. So the target is a choice rather than something
+       guessed from the name - and beside it sits the flag that decides whether
+       a message given up on is moved or quietly discarded. */
+    if (protocol === "solace") return <ProducerSolace />;
     return <Producer protocol={protocol} nav={nav} />;
   }
   /* Alerts is one board for every family: the rules are numeric comparisons

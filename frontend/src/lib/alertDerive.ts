@@ -35,6 +35,7 @@ import { deriveGooglePubSubAlerts } from "@/mq/googlepubsub/alerts";
 import { deriveAzureServiceBusAlerts } from "@/mq/azureservicebus/alerts";
 import { deriveKinesisAlerts } from "@/mq/kinesis/alerts";
 import { deriveIbmMqAlerts } from "@/mq/ibmmq/alerts";
+import { deriveSolaceAlerts } from "@/mq/solace/alerts";
 
 export type AlertSeverity = "crit" | "warn" | "info";
 
@@ -112,7 +113,9 @@ export function deriveAlerts(
                             ? deriveKinesisAlerts(facts, rules, thresholds)
                             : kind === MQKind.KindIBMMQ
                               ? deriveIbmMqAlerts(facts, rules, thresholds)
-                              : /* Every other family is read with RocketMQ's rules, which is
+                              : kind === MQKind.KindSolace
+                                ? deriveSolaceAlerts(facts, rules, thresholds)
+                                : /* Every other family is read with RocketMQ's rules, which is
                      what they were before this dispatch existed. A family whose
                      vocabulary they do not fit reports nothing rather than
                      something wrong, and gets its own rules when it gets its

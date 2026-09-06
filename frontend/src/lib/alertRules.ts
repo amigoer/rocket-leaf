@@ -124,7 +124,17 @@ export type AlertRuleKey =
    * on a transmission queue is already the fault; ten thousand is the same
    * fault, older.
    */
-  | "transmissionBacklog";
+  | "transmissionBacklog"
+  /*
+   * Solace's own, and no other family here can raise it. Every endpoint on
+   * this broker ships pointing at a dead message queue called
+   * "#DEAD_MSG_QUEUE" and no broker ever creates one - so a queue with a
+   * redelivery limit or a time to live is configured to dead-letter and
+   * actually discards. None of the other rules describes it: the queue is
+   * healthy, the pointer is set, the messages are simply gone, and the only
+   * thing that reveals it is comparing the pointer against what exists.
+   */
+  | "deadMsgQueueMissing";
 
 export type AlertRulePrefs = Record<AlertRuleKey, boolean>;
 
@@ -140,6 +150,7 @@ export const ALERT_RULE_KEYS: readonly AlertRuleKey[] = [
   "streamNotActive",
   "consumerNotActive",
   "transmissionBacklog",
+  "deadMsgQueueMissing",
   "subscriptionBlocked",
   "resourceAlarm",
   "nodePartition",
@@ -395,6 +406,35 @@ const RULES_BY_KIND: Partial<Record<MQKind, readonly AlertRuleKey[]>> = {
     "queueBacklog",
     "dlqGrowth",
   ],
+  /*
+   * Six, and five are keys another family already asks - the honest answer for
+   * a family whose faults are ordinary. A queue nobody is draining, a backlog
+   * past a threshold, a dead message queue growing, an endpoint switched off
+   * and a spool filling up are all things somebody else says too.
+   *
+   * deadMsgQueueMissing is this family's own, and it is the one worth having:
+   * every endpoint ships pointing at a dead message queue no broker creates,
+   * so a queue that gives up on a message discards it while reporting nothing
+   * wrong anywhere.
+   *
+   * diskUsage is the Message VPN's spool share rather than a disk: past its
+   * quota the broker refuses guaranteed messages for this VPN and every other
+   * figure stays healthy.
+   *
+   * The rest are absent because there is nothing to read. brokerOffline needs
+   * a cluster and there is one broker; groupOffline and groupLag need consumer
+   * groups, which this product has none of - what reads a queue is a client
+   * bound to it, and that is the clients page; memoryUsage needs a figure SEMP
+   * does not report.
+   */
+  [MQKind.KindSolace]: [
+    "deadMsgQueueMissing",
+    "entityDisabled",
+    "queueNoConsumer",
+    "queueBacklog",
+    "dlqGrowth",
+    "diskUsage",
+  ],
 };
 
 const ROCKETMQ_RULES: readonly AlertRuleKey[] = [
@@ -431,6 +471,7 @@ export const DESTINATION_RULES: readonly AlertRuleKey[] = [
   "entityDisabled",
   "streamNotActive",
   "transmissionBacklog",
+  "deadMsgQueueMissing",
   "queueNoConsumer",
   "queueBacklog",
   "dlqGrowth",
@@ -464,6 +505,7 @@ export const KINDS_NEEDING_DESTINATIONS: readonly MQKind[] = [
   MQKind.KindAzureServiceBus,
   MQKind.KindKinesis,
   MQKind.KindIBMMQ,
+  MQKind.KindSolace,
 ];
 
 export const DEFAULT_ALERT_RULES: AlertRulePrefs = {
@@ -493,6 +535,7 @@ export const DEFAULT_ALERT_RULES: AlertRulePrefs = {
   streamNotActive: true,
   consumerNotActive: true,
   transmissionBacklog: true,
+  deadMsgQueueMissing: true,
 };
 
 function read(): AlertRulePrefs {

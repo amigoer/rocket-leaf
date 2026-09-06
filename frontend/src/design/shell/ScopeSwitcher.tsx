@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCapabilities } from "@/mq/capabilities";
 import { useConnectionScope } from "@/mq/ConnectionScope";
 import { cn, formatErrorMessage } from "@/lib/utils";
-import { scopeOptions } from "./scopeOptions";
+import { scopeKeys, scopeOptions } from "./scopeOptions";
 
 /** What the list is doing, so an empty popover can say why it is empty. */
 type Listing =
@@ -98,7 +98,9 @@ export function ScopeSwitcher({
 }) {
   const { t } = useTranslation();
   const capabilities = useCapabilities();
-  const { id: connID, online } = useConnectionScope();
+  const { id: connID, kind, online } = useConnectionScope();
+  // The family's own wording where it has one, the shared line otherwise.
+  const st = (key: string, values?: Record<string, unknown>) => t(scopeKeys(kind, key), values);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [listing, setListing] = useState<Listing>({ kind: "idle" });
@@ -118,7 +120,7 @@ export function ScopeSwitcher({
 
   if (!capabilities.has(Capability.CapConnectionScope)) return null;
 
-  const label = scope === "" ? t("shell.scope.unscoped") : scope;
+  const label = scope === "" ? st("unscoped") : scope;
   const { matched, hidden, typed } = scopeOptions(
     listing.kind === "ready" ? listing.scopes : [],
     query,
@@ -146,8 +148,8 @@ export function ScopeSwitcher({
         <button
           type="button"
           className="ni side3-scope"
-          aria-label={t("shell.scope.label", { scope: label })}
-          title={t("shell.scope.label", { scope: label })}
+          aria-label={st("label", { scope: label })}
+          title={st("label", { scope: label })}
           disabled={!online || switching}
         >
           <span className="nic">
@@ -178,7 +180,7 @@ export function ScopeSwitcher({
       <PopoverContent align="start" side="bottom" sideOffset={6} className="w-80 p-0">
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder={t("shell.scope.search")}
+            placeholder={st("search")}
             value={query}
             onValueChange={setQuery}
           />
@@ -192,8 +194,8 @@ export function ScopeSwitcher({
               {query.trim() === "" && (
                 <ScopeRow
                   value=" unscoped"
-                  name={t("shell.scope.unscoped")}
-                  detail={t("shell.scope.unscopedHint")}
+                  name={st("unscoped")}
+                  detail={st("unscopedHint")}
                   selected={scope === ""}
                   onSelect={() => pick("")}
                 />
@@ -203,7 +205,7 @@ export function ScopeSwitcher({
                   key={entry.name}
                   value={entry.name}
                   name={entry.name}
-                  detail={t("shell.scope.counts", {
+                  detail={st("counts", {
                     destinations: entry.destinations,
                     subscriptions: entry.subscriptions,
                   })}
@@ -213,7 +215,7 @@ export function ScopeSwitcher({
               ))}
             </CommandGroup>
 
-            {listing.kind === "loading" && <LoadingRows label={t("shell.scope.loading")} />}
+            {listing.kind === "loading" && <LoadingRows label={st("loading")} />}
             {listing.kind === "failed" && (
               <div className="px-4 py-3 text-xs leading-relaxed text-(--c-err-text)">
                 {listing.message}
@@ -224,7 +226,7 @@ export function ScopeSwitcher({
                 there - so its empty state never fires. */}
             {barren && (
               <div className="px-4 py-3 text-xs text-muted-foreground">
-                {t("shell.scope.empty")}
+                {st("empty")}
               </div>
             )}
 
@@ -237,14 +239,14 @@ export function ScopeSwitcher({
                     onSelect={() => pick(typed)}
                     className="px-2 py-2"
                   >
-                    <span className="truncate">{t("shell.scope.useTyped", { scope: typed })}</span>
+                    <span className="truncate">{st("useTyped", { scope: typed })}</span>
                   </CommandItem>
                 </CommandGroup>
               </>
             )}
             {hidden > 0 && (
               <div className="px-2 py-1.5 text-center text-xs text-muted-foreground">
-                {t("shell.scope.more", { count: hidden })}
+                {st("more", { count: hidden })}
               </div>
             )}
           </CommandList>

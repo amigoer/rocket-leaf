@@ -320,6 +320,38 @@ export function draftInvalidReason(draft: ProtocolDraft, t: Translate): string |
     }
     return null;
   }
+  if (draft.protocol === "solace") {
+    // The broker's SEMP URL, and a URL rather than a host:port: the driver
+    // builds every path on it. Left to default it would be http, which is
+    // right for a broker that has not been given a certificate - but a user
+    // who typed https:// meant it, so the scheme is required rather than
+    // guessed here where the message can say so.
+    const endpoints = draft.value.endpoints.trim();
+    if (endpoints === "") return t("page.connections.form.solace.sempRequired");
+    if (!/^https?:\/\//i.test(endpoints)) {
+      return t("page.connections.form.solace.sempScheme");
+    }
+    // The broker's own rule, quoted from the message it answers a bad one
+    // with: at most 32 characters, and no * or ? anywhere. Catching it here
+    // rather than at connect time is what keeps the message about the field.
+    const vpn = draft.value.msgVpn.trim();
+    if (vpn !== "" && (vpn.length > 32 || /[*?]/.test(vpn))) {
+      return t("page.connections.form.solace.msgVpnName");
+    }
+    // Half a REST credential is worse than none, and in the direction people
+    // do not expect: with only a password the driver sends no Authorization
+    // header at all, so the password is silently discarded and the send works
+    // right up until somebody turns authentication on.
+    const stored = draft.value.credentialsStored && !draft.value.clearCredentials;
+    if (!stored) {
+      const user = draft.value.restUsername.trim();
+      const secret = draft.value.restPassword.trim();
+      if ((user === "") !== (secret === "")) {
+        return t("page.connections.form.solace.restPairRequired");
+      }
+    }
+    return null;
+  }
   if (draft.protocol === "rocketmq") {
     if (draft.value.endpoints.trim() === "") return t("page.connections.endpointsRequired");
     if (draft.value.version === "5.x" && draft.value.access === "proxy") {

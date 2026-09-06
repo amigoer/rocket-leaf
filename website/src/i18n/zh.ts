@@ -5,11 +5,11 @@ export const zh: Content = {
   meta: {
     title: 'MQ Studio — 一套界面，连接所有消息队列',
     description:
-      'MQ Studio 是本地优先的消息队列桌面客户端，RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus、Amazon Kinesis 与 IBM MQ 共用同一套界面和操作，无需部署和值守 Web 控制台。支持 macOS、Windows、Linux，Apache-2.0 开源。',
+      'MQ Studio 是本地优先的消息队列桌面客户端，RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus、Amazon Kinesis、IBM MQ 与 Solace PubSub+ 共用同一套界面和操作，无需部署和值守 Web 控制台。支持 macOS、Windows、Linux，Apache-2.0 开源。',
     ogAlt: 'MQ Studio 集群概览界面',
   },
   banner: {
-    text: 'IBM MQ 驱动已支持\u00a0—— 通道有了自己的页面，全程走 REST 接口，不需要原生客户端',
+    text: 'Solace PubSub+ 驱动已支持\u00a0—— 第十五个驱动，也是路线图上列出的最后一个',
     linkLabel: '更新日志',
     dismiss: '关闭公告',
   },
@@ -33,7 +33,7 @@ export const zh: Content = {
     badgeSuffix: '现已发布 · Apache-2.0 开源',
     title: '一套界面，连接所有消息队列',
     subtitle:
-      'MQ Studio 是本地优先的消息队列桌面客户端\u00a0—— RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus、Amazon Kinesis 与 IBM MQ 同一套界面、同一套操作，无需部署和值守 Web 控制台。',
+      'MQ Studio 是本地优先的消息队列桌面客户端\u00a0—— RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus、Amazon Kinesis、IBM MQ 与 Solace PubSub+ 同一套界面、同一套操作，无需部署和值守 Web 控制台。',
     downloadFallback: '下载 MQ Studio',
     downloadFor: (platform: string) => `下载 ${platform} 版`,
     installGuide: '安装说明',
@@ -59,8 +59,9 @@ export const zh: Content = {
       'Azure Service Bus',
       'Amazon Kinesis',
       'IBM MQ',
+      'Solace PubSub+ 10.x',
     ],
-    planned: '计划中：Solace PubSub+ 等',
+    planned: '路线图上列出的驱动都已落地，接下来是 Agent 相关功能。',
   },
   features: {
     title: '为什么用 MQ Studio',
@@ -157,7 +158,7 @@ export const zh: Content = {
       { label: 'Azure Service Bus', done: true },
       { label: 'Amazon Kinesis', done: true },
       { label: 'IBM MQ', done: true },
-      { label: '更多驱动', done: false },
+      { label: 'Solace PubSub+', done: true },
       { label: 'Agent', done: false },
     ],
   },

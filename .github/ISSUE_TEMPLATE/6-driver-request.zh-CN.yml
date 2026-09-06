@@ -26,7 +26,6 @@ body:
     attributes:
       label: 哪个消息队列
       options:
-        - Solace
         - 其他
     validations:
       required: true
@@ -41,7 +40,7 @@ body:
     id: deployment
     attributes:
       label: 版本与部署方式
-      placeholder: Solace PubSub+ 10.x，单 broker，通过 SEMP v2 访问
+      placeholder: Apache Artemis 2.x，单 broker，通过 Jolokia 控制台访问
     validations:
       required: true
 

@@ -23,6 +23,7 @@ import * as RoutingService from "./routingservice.js";
 import * as SQSService from "./sqsservice.js";
 import * as SettingsService from "./settingsservice.js";
 import * as ShellService from "./shellservice.js";
+import * as SolaceService from "./solaceservice.js";
 import * as SystemService from "./systemservice.js";
 import * as TopicService from "./topicservice.js";
 import * as UpdateService from "./updateservice.js";
@@ -50,6 +51,7 @@ export {
     SQSService,
     SettingsService,
     ShellService,
+    SolaceService,
     SystemService,
     TopicService,
     UpdateService,
@@ -138,6 +140,9 @@ export {
     SettingsInput,
     SettingsView,
     ShellPage,
+    SolacePublishInput,
+    SolacePublishResult,
+    SolaceQueueInput,
     StreamInput,
     TopicInput,
     TopicPermissionInput,

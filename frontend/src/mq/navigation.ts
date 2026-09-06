@@ -33,8 +33,12 @@ const requires: Record<string, Capability | Capability[]> = {
   // carries many connections at once.
   channels: Capability.CapChannels,
   consumers: Capability.CapSubscriptionList,
-  // Only RabbitMQ has exchanges, and the sidebar is where that shows: a
-  // family without them must not draw the entry at all.
+  // Three families draw a routing page and only one of them has exchanges.
+  // A Service Bus rule decides which of a topic's messages reach one
+  // subscription; a Solace queue's topic subscriptions decide whether it
+  // receives anything at all, because a publisher on that broker never names
+  // a queue. All three are a topology rather than a setting on the reader,
+  // and a family with none of them must not draw the entry.
   exchanges: Capability.CapRouting,
   messages: Capability.CapMessageQuery,
   // A live subscription is not a message query: there is nothing stored to
@@ -42,16 +46,16 @@ const requires: Record<string, Capability | Capability[]> = {
   // that promises history. MQTT, NATS and ActiveMQ draw it - and the last of
   // those only when its AMQP acceptor is reachable, because JMX cannot push.
   subscribe: Capability.CapLiveStream,
-  // Three means for nine families, because none can answer the page
+  // Three means for ten families, because none can answer the page
   // another's way. RocketMQ reads a dead-letter topic per consumer group and
   // Service Bus reads the $DeadLetterQueue the broker gives every entity;
-  // RabbitMQ, Pulsar, ActiveMQ, SQS, Pub/Sub and IBM MQ all go looking for
-  // what something else dead-letters into - through the topology, by the
+  // RabbitMQ, Pulsar, ActiveMQ, SQS, Pub/Sub, IBM MQ and Solace all go looking
+  // for what something else dead-letters into - through the topology, by the
   // naming convention the client libraries use, by the dead-letter address a
-  // queue declares, by a queue's redrive policy, by a subscription's, and by
-  // the queue manager's own DEADQ plus every queue's backout queue; Redis
-  // moves nothing at all and keeps, per group, a record of every delivery it
-  // has not had acknowledged.
+  // queue declares, by a queue's redrive policy, by a subscription's, by the
+  // queue manager's own DEADQ plus every queue's backout queue, and by the
+  // deadMsgQueue every endpoint carries; Redis moves nothing at all and keeps,
+  // per group, a record of every delivery it has not had acknowledged.
   dlq: [
     Capability.CapDLQ,
     Capability.CapDeadLetterTopology,

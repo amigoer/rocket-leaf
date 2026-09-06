@@ -213,7 +213,8 @@
       "entityDisabled": "实体已停用",
       "streamNotActive": "流仍在变更中",
       "consumerNotActive": "消费者注册仍在变更中",
-      "transmissionBacklog": "传输队列未被清空"
+      "transmissionBacklog": "传输队列未被清空",
+      "deadMsgQueueMissing": "死信队列不存在"
     },
     "tabs": {
       "active": "活跃告警",
@@ -275,7 +276,8 @@
       "entityDisabled": "{{entity}} · 状态为 {{status}}；请求会在客户端被拒绝，任何面板上都看不出来",
       "streamNotActive": "{{stream}} · 状态 {{status}}；在它变为 ACTIVE 之前，任何指向该流的其他调用都会以「资源占用中」被拒绝",
       "consumerNotActive": "{{consumer}}（在 {{stream}} 上）· 状态 {{status}}；此时指向它的应用会收到关于消费者（而不是流）的错误",
-      "transmissionBacklog": "{{queue}} · {{count}} 条等待中；传输队列只由一个通道清空，因此队列上有消息就说明该通道已停止、正在重试，或者从未启动"
+      "transmissionBacklog": "{{queue}} · {{count}} 条等待中；传输队列只由一个通道清空，因此队列上有消息就说明该通道已停止、正在重试，或者从未启动",
+      "deadMsgQueueMissing": "{{queue}} 会放弃投递并将消息发往 {{target}}，但该 Message VPN 中并没有这个队列——这些消息实际上被直接丢弃了。"
     },
     "duration": {
       "minutes": "持续 {{count}} 分钟",
@@ -756,6 +758,45 @@
         "browseCharacterOnly": "浏览不会取走任何东西：读完之后队列深度不变，任意多个读者都能看到同一条消息。mqweb 服务器不会返回它无法按文本解析的消息体——死信、事件消息、应用自定义结构都是如此——这些消息只会列出标识与格式，打开时会被拒绝。",
         "sendQueueOnly": "发送的目标是队列：消息 REST API 根本没有主题端点，因此这个控制台无法发布。它也只承载字符数据，其他内容一律拒绝，所以二进制消息只能由 MQ 客户端发送。"
       }
+    },
+    "solace": {
+      "name": "Solace PubSub+",
+      "terms": {
+        "destination": "队列",
+        "destinationPlural": "队列",
+        "namespace": "Message VPN",
+        "backlog": "堆积"
+      },
+      "form": {
+        "semp": "SEMP 地址",
+        "msgVpn": "Message VPN",
+        "mechanism": "认证方式",
+        "authPlain": "用户名与密码",
+        "username": "用户名",
+        "password": "密码",
+        "restUrl": "REST 消息地址",
+        "restUsername": "客户端用户名",
+        "restPassword": "客户端密码"
+      },
+      "degraded": {
+        "restUnreachable": "REST 消息端口没有响应，此连接无法发送消息。SEMP 只负责管理，不传输消息；消息接口在另一个端口上，端口号由 Message VPN 配置决定。请确认该 VPN 已开启 REST 服务，或在连接里填写它实际发布的地址。",
+        "restForbidden": "Broker 拒绝了 REST 消息接口上的这个客户端用户名。从 SEMP 读取的内容仍然可用，但在凭据修正之前无法发送。客户端用户名是 Message VPN 内部的对象，与 SEMP 管理账号不是一回事。"
+      },
+      "caveat": {
+        "browseNoPayload": "浏览不会取走任何东西：队列深度、存储占用和投递计数在之后完全相同，任意数量的读取方都可以查看同一条消息。SEMP 做不到的是返回消息本身——该 API 的任何版本都没有正文字段——因此浏览列出的是每条消息的标识、大小、投递次数与标记，读取正文需要使用消息协议上的客户端。"
+      },
+      "scope": {
+        "label": "Message VPN：{{scope}}",
+        "unscoped": "Broker 默认",
+        "unscopedHint": "连接时由 Broker 决定使用哪个 VPN",
+        "search": "筛选或输入 Message VPN",
+        "loading": "正在读取该 Broker 的 Message VPN…",
+        "empty": "该 Broker 上没有任何 Message VPN",
+        "counts": "{{destinations}} 个队列 · {{subscriptions}} 个主题端点",
+        "switched": "已切换到 {{scope}}",
+        "switchedUnscoped": "已切换到 Broker 默认的 Message VPN",
+        "switchFailed": "切换 Message VPN 失败"
+      }
     }
   },
   "shell": {
@@ -978,6 +1019,17 @@
         "messages": "消息",
         "producer": "发送",
         "dlq": "死信",
+        "alerts": "告警"
+      },
+      "solace": {
+        "overview": "总览",
+        "topics": "队列",
+        "exchanges": "路由",
+        "messages": "消息",
+        "producer": "发送",
+        "clients": "客户端",
+        "dlq": "死信消息",
+        "cluster": "Broker",
         "alerts": "告警"
       }
     }
@@ -1364,6 +1416,28 @@
           "mqwebScheme": "mqweb 地址是完整 URL——请以 https:// 或 http:// 开头。",
           "queueManagerName": "队列管理器名称最长 48 个字符，只能包含字母、数字以及 . _ / % 。",
           "messagingPairRequired": "填写了消息接口用户名就必须填写密码。两者都留空则两个接口都使用管理员账号。"
+        },
+        "solace": {
+          "mechanism": "认证方式",
+          "mechanismPlain": "用户名与密码",
+          "mechanismNone": "无",
+          "semp": "SEMP 地址",
+          "sempHint": "Broker 的管理端口，默认 8080。不是 55555，那是应用连接的端口。",
+          "msgVpn": "Message VPN",
+          "msgVpnHint": "留空则使用 default。侧边栏可以直接把此连接切换到别的 VPN，无需编辑。",
+          "adminHint": "Broker 上的管理账号，不是客户端用户名。",
+          "restUrl": "REST 消息地址",
+          "restUrlHint": "留空则使用 Message VPN 自己声明的 REST 端口。若该端口发布在别处，请在此填写。",
+          "restUsername": "客户端用户名",
+          "restPassword": "客户端密码",
+          "restHint": "该 Message VPN 内的客户端用户名。若 VPN 接受任意用户名，两项均可留空。",
+          "skipVerify": "跳过证书校验",
+          "skipVerifyHint": "未配置证书的 Broker 会使用自签名证书。",
+          "note": "SEMP 负责读取与管理；发送消息走独立端口上的 REST 消息接口。",
+          "sempRequired": "SEMP 地址不能为空。",
+          "sempScheme": "SEMP 地址需要 http:// 或 https:// 前缀。",
+          "msgVpnName": "Message VPN 名称最长 32 个字符，且不能包含 * 或 ?。",
+          "restPairRequired": "客户端用户名与密码需要同时填写或同时留空：只填密码不会被发送。"
         }
       },
       "deleteTitle": "删除连接",
@@ -1571,7 +1645,7 @@
         "aheadOfRelease": "当前 v{{current}} 新于线上 v{{latest}}",
         "upToDate": "已是最新版本 v{{version}}",
         "updateCheckFailed": "无法检查更新",
-        "blurb": "本地优先的消息队列桌面客户端，无需额外部署控制台，即可管理 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus、Amazon Kinesis 与 IBM MQ 的集群、主题、消费者与消息。"
+        "blurb": "本地优先的消息队列桌面客户端，无需额外部署控制台，即可管理 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus、Amazon Kinesis、IBM MQ 与 Solace PubSub+ 的集群、主题、消费者与消息。"
       }
     }
   },
@@ -5676,6 +5750,261 @@
         "stateTransmission": "传输队列——由通道负责清空",
         "stateOrdinary": "普通队列",
         "note": "没有速率，也没有存储用量：MQ 报告队列持有多少消息、最近何时被读写，而流速是按定时器发布到系统队列的统计消息，不是页面能直接读到的数字。也没有集群面板——这个连接对应一个队列管理器，而 MQ 集群是多个队列管理器的集合，不是它的节点。"
+      }
+    },
+    "solace": {
+      "queues": {
+        "count": "{{count}} 个队列",
+        "search": "按名称筛选",
+        "name": "队列",
+        "accessType": "访问模式",
+        "permission": "权限",
+        "owner": "所有者",
+        "spooled": "堆积",
+        "spooledTotal": "累计入队",
+        "spoolUsage": "已用存储",
+        "maxSpool": "存储配额",
+        "maxMsgSize": "最大消息",
+        "partitions": "分区数",
+        "bound": "已绑定",
+        "unacked": "未确认",
+        "redelivered": "重投递",
+        "rateIn": "入/秒",
+        "deadMsgQueue": "死信队列",
+        "dmqBadge": "DMQ",
+        "maxRedelivery": "最大重投递次数",
+        "maxTtl": "最大 TTL",
+        "seconds": "{{count}} 秒",
+        "toDmqTtl": "过期转入 DMQ",
+        "toDmqRetry": "重投递超限转入 DMQ",
+        "halted": "该队列当前不接收{{what}}。",
+        "ingress": "消息",
+        "egress": "消费者",
+        "section": {
+          "definition": "定义",
+          "runtime": "运行时",
+          "handling": "投递处理"
+        },
+        "note": "「堆积」是队列当前持有的消息数。「累计入队」是会被清除统计重置的历史计数，并不是当前深度。",
+        "create": "新建队列",
+        "createTitle": "新建队列",
+        "created": "已创建 {{name}}",
+        "nameHint": "斜杠、点和空格都可以使用——队列名通常与它订阅的主题同形。",
+        "nameProblem": {
+          "empty": "名称不能为空。",
+          "tooLong": "队列名最长 200 个字符。",
+          "characters": "队列名不能包含 * ? ' < > & 或 ;。",
+          "reserved": "以 # 开头的名称属于 Broker 自身。"
+        },
+        "accessShared": "所有绑定的消费者共同分担消息。",
+        "accessExclusive": "第一个绑定的消费者独占全部消息，其余作为备用等待。",
+        "permissionHint": "绑定到该队列的客户端可以对它做什么。",
+        "deadMsgQueueHint": "填写一个已存在的队列名。Broker 自带的默认值指向一个并不存在的队列，结果是直接丢弃。",
+        "maxRedeliveryHint": "放弃投递前的尝试次数。0 表示不限。",
+        "maxSpoolHint": "该队列可占用的存储上限（MB）。留空则使用 Broker 默认值。",
+        "ownerHint": "该队列归属的客户端用户名。留空表示无归属。",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "队列及其主题订阅都会被删除，且无法撤销。",
+        "deleteHolding": "该队列中还有 {{count}} 条消息。它们会随队列一起被丢弃——不会进入死信队列——且无法撤销。",
+        "deleted": "已删除 {{name}}",
+        "deleteFailed": "删除队列失败"
+      },
+      "messages": {
+        "title": "消息",
+        "subtitle": "浏览队列中当前的消息",
+        "pickQueue": "选择队列",
+        "read": "浏览",
+        "found": "已列出 {{count}} 条",
+        "readNote": "浏览不会取走任何东西，队列在之后完全不变。SEMP 不返回消息正文，因此这里列出的是每条消息的元数据。",
+        "startHere": "选择一个队列并浏览。",
+        "nothingThere": "该队列当前没有消息。",
+        "messageId": "消息",
+        "spooled": "入队时间",
+        "size": "正文",
+        "attachment": "附件",
+        "content": "结构化内容",
+        "redelivery": "投递次数",
+        "state": "状态",
+        "undelivered": "等待中",
+        "delivered": "已投递",
+        "dmqEligible": "可进入死信队列",
+        "dmqYes": "是——放弃投递时会转入死信队列",
+        "dmqNo": "否——除非队列另有设置，否则直接丢弃",
+        "partitionKey": "分区键",
+        "publisher": "发布者",
+        "replicationId": "复制 ID",
+        "replicationState": "复制状态",
+        "body": "正文",
+        "noBody": "SEMP 的任何版本都不返回消息正文，因此这里没有内容可展示。上方的大小说明这条消息是否带有正文。要读取正文需要使用消息协议上的客户端。",
+        "section": {
+          "properties": "其他字段"
+        }
+      },
+      "producer": {
+        "title": "发送",
+        "subtitle": "通过 REST 消息接口发布",
+        "target": "发送到",
+        "target_queue": "队列（按名称）",
+        "target_topic": "主题（按匹配）",
+        "targetQueueHint": "消息进入这一个端点。",
+        "targetTopicHint": "消息会进入所有订阅匹配的队列——如果没有任何匹配，则不会落到任何地方。",
+        "destination": "目的地",
+        "pickQueue": "选择队列",
+        "destinationQueueHint": "该 Message VPN 内的队列。",
+        "destinationTopicHint": "层级用斜杠分隔：orders/eu/created。",
+        "body": "正文",
+        "contentType": "内容类型",
+        "deliveryMode": "投递方式",
+        "deliveryModeHint": "persistent 会写入存储并在重启后保留；direct 与 non-persistent 不会。",
+        "ttl": "存活时间（毫秒）",
+        "ttlHint": "到期仍无人取走则被丢弃。留空或填 0 表示不限。",
+        "dmqEligible": "可进入死信队列",
+        "dmqEligibleHint": "Broker 默认关闭，这正是配置了死信队列的队列仍可能悄悄丢弃消息的原因：消息未被标记时不会被转移。",
+        "correlationId": "关联 ID",
+        "replyTo": "回复地址",
+        "replyToHint": "按该接口的写法填写：/QUEUE/名称，或直接写主题。",
+        "count": "份数",
+        "countHint": "最多 {{max}} 份。每一份都是一次独立请求。",
+        "send": "发送",
+        "sent": "已发送 {{count}} 条",
+        "failed": "发送失败",
+        "noId": "Broker 对已接收的消息不返回任何消息 ID。",
+        "problem": {
+          "destinationRequired": "目的地不能为空。",
+          "bodyRequired": "正文不能为空。",
+          "deliveryMode": "投递方式只能是 persistent、non-persistent 或 direct。",
+          "ttlRange": "存活时间不能为负数。",
+          "countRange": "份数必须在 1 到 100 之间。"
+        }
+      },
+      "dlq": {
+        "count": "{{count}} 个死信队列",
+        "name": "队列",
+        "depth": "堆积",
+        "consumers": "消费中",
+        "sources": "被指向",
+        "msgVpn": "Message VPN",
+        "missingBadge": "未创建",
+        "missingNote": "该 Message VPN 中没有名为 {{name}} 的队列，因此被放弃的消息会被直接丢弃而不是转移。请创建同名队列，或把下面的端点改指向一个已存在的队列。",
+        "nobodyDraining": "这里有消息在等待，但没有任何消费者绑定。",
+        "markedOnly": "仅限已标记的消息",
+        "markedOnlyNote": "下面有 {{count}} 个端点只会转移发布者标记为可进入死信队列的消息。多数客户端不会标记，因此这些端点实际上是悄悄放弃。",
+        "fromQueue": "队列",
+        "fromEndpoint": "主题端点",
+        "afterTries": "重试 {{count}} 次后",
+        "noLimit": "不限重投递次数",
+        "noSources": "已经没有任何端点指向这里。",
+        "section": {
+          "sources": "被指向"
+        },
+        "note": "该 Broker 不会把任何队列标记为死信队列。这里的每一行都只是被其他端点指向的普通队列。"
+      },
+      "routing": {
+        "count": "{{subscriptions}} 条订阅 · {{endpoints}} 个主题端点",
+        "search": "按主题或队列筛选",
+        "subscribe": "为队列添加订阅",
+        "subscribeTitle": "让队列订阅一个主题",
+        "topic": "主题",
+        "queue": "队列",
+        "queueDepth": "队列堆积",
+        "wildcard": "通配",
+        "matches": "匹配范围",
+        "matchesOne": "单个主题",
+        "matchesMany": "该模式覆盖的所有主题",
+        "pickQueue": "选择队列",
+        "queueHint": "匹配到的消息会进入这个队列。",
+        "topicHint": "* 表示一整层或一层的结尾；> 表示主题剩余部分，且只能放在最后。",
+        "topicProblem": {
+          "empty": "主题不能为空。",
+          "midLevelWildcard": "* 表示一整层或一层的结尾。写在层中间时它只是普通字符，什么也匹配不到。",
+          "trailingWildcardPlacement": "> 表示主题的剩余部分，只能作为最后一个字符。"
+        },
+        "addNote": "只对此后发布的消息生效，已经入队的消息不会移动。",
+        "added": "{{queue}} 已订阅 {{topic}}",
+        "removeTitle": "移除 {{topic}}？",
+        "removeDesc": "{{queue}} 将不再接收匹配的消息，已有的消息会保留。",
+        "removeNote": "移除订阅只影响后续消息，队列中已有的内容会保留。",
+        "removed": "已移除 {{topic}}",
+        "removeFailed": "移除订阅失败",
+        "endpointTopic": "主题端点",
+        "spooled": "堆积",
+        "accessType": "访问模式",
+        "noEndpoints": "该 Message VPN 没有主题端点。",
+        "section": {
+          "endpoints": "主题端点"
+        },
+        "note": "发布者只指定主题，从不指定队列。没有订阅的队列只能收到按名称直接发送的消息。主题端点的名称就是它的订阅。"
+      },
+      "clients": {
+        "count": "{{applications}} 个应用 · 共 {{total}} 个会话",
+        "search": "按名称、地址或用户筛选",
+        "name": "客户端",
+        "address": "地址",
+        "username": "客户端用户名",
+        "binds": "绑定数",
+        "uptime": "在线",
+        "msgVpn": "Message VPN",
+        "internalBadge": "Broker",
+        "platform": "运行平台",
+        "softwareVersion": "客户端库版本",
+        "description": "描述",
+        "clientProfile": "客户端配置",
+        "aclProfile": "ACL 配置",
+        "recv": "已接收",
+        "send": "已发送",
+        "slowNote": "Broker 已将该客户端标记为跟不上推送速度。",
+        "downgradedNote": "该会话以 TLS 建立，但被允许回退到明文。",
+        "section": {
+          "library": "客户端库",
+          "limits": "配置与流量"
+        },
+        "note": "标记为「Broker」的会话是设备自身的连接。它们占用真实资源，因此列出而不隐藏。绑定数指到端点的 flow，不是 channel：该协议没有 channel。"
+      },
+      "cluster": {
+        "nothing": "Broker 没有返回自身信息。",
+        "online": "服务中",
+        "degraded": "未服务",
+        "version": "SolOS 版本",
+        "redundancy": "冗余",
+        "redundancyOn": "已配置",
+        "redundancyOff": "关闭",
+        "rateIn": "入/秒",
+        "rateOut": "出/秒",
+        "brokerSpoolMax": "Broker 存储上限",
+        "msgVpn": "Message VPN",
+        "msgVpnState": "状态",
+        "spoolUsed": "存储占用",
+        "spoolBytes": "存储字节数",
+        "spoolMax": "存储配额",
+        "spoolMessages": "已存储消息数",
+        "maxConnections": "连接数上限",
+        "notServing": "该 Message VPN 当前为 {{state}}。Broker 本身可响应，但发往该 VPN 的消息不会被处理。",
+        "section": {
+          "broker": "Broker",
+          "msgVpn": "Message VPN"
+        },
+        "note": "这里只有一个 Broker，而且永远只有一个：冗余对共享同一个虚拟路由器，只有活动的一半会响应；组网中的其他 Broker 各自是一个独立连接。SEMP 不提供 Broker 名称，因此以连接地址作为标识。"
+      },
+      "overview": {
+        "subtitle": "{{vpn}} · {{queues}} 个队列",
+        "queues": "队列",
+        "queuesHint": "该 Message VPN 中的端点",
+        "spooled": "堆积",
+        "spooledHint": "所有队列中等待的消息总数",
+        "bound": "绑定的消费者",
+        "boundHint": "当前绑定到队列的 flow",
+        "spool": "存储占用",
+        "spoolHint": "该 VPN 的配额占用，不是磁盘",
+        "discarding": "正在丢弃",
+        "discardingHint": "会放弃投递但没有去处的队列",
+        "stopped": "已停用",
+        "stoppedHint": "关闭了入站或出站的队列",
+        "deepest": "值得关注的队列",
+        "state": "状态",
+        "stateHalted": "不接收",
+        "stateUndrained": "无人消费",
+        "stateOrdinary": "正常",
+        "note": "每个端点出厂时都指向名为 #DEAD_MSG_QUEUE 的死信队列，而 Broker 从不会创建它。一个会放弃投递、却指向不存在队列的队列会直接丢弃消息，并且没有任何其他地方会报告这一点。"
       }
     }
   }

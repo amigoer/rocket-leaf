@@ -398,6 +398,24 @@ jobs:
             up: |
               npm run e2e:ibmmq:up
               npm run e2e:ibmmq:seed
+          - family: solace
+            packages: ./internal/app/... ./internal/driver/solace/...
+            # Solace's own free edition, and the only broker environment here
+            # that needs no platform pin: the image is published for arm64 as
+            # well as amd64, so it runs natively on this runner and on an
+            # Apple Silicon workstation alike. What it does need is shared
+            # memory, a file-descriptor limit far above Docker's default and a
+            # scaling hint, all three set in the compose file - without them
+            # the container starts and shuts itself down again seconds later.
+            # The seed is required: the cross-check compares what the app
+            # computes against the raw SEMP API, comparing zero against zero
+            # proves nothing, and it is also what produces the three shapes a
+            # fresh broker cannot have - a queue that dead-letters into
+            # another, a queue fed through a topic subscription, and a second
+            # Message VPN for the scope switcher to point at.
+            up: |
+              npm run e2e:solace:up
+              npm run e2e:solace:seed
     steps:
       - uses: actions/checkout@v7
 

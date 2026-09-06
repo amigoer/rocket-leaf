@@ -213,7 +213,8 @@
       "entityDisabled": "Entity switched off",
       "streamNotActive": "Stream still settling",
       "consumerNotActive": "Consumer registration settling",
-      "transmissionBacklog": "Transmission queue not draining"
+      "transmissionBacklog": "Transmission queue not draining",
+      "deadMsgQueueMissing": "Dead message queue does not exist"
     },
     "tabs": {
       "active": "Active",
@@ -275,7 +276,8 @@
       "entityDisabled": "{{entity}} · status {{status}}; work is refused at the client and leaves no mark on any board",
       "streamNotActive": "{{stream}} · status {{status}}; every other call that names this stream is refused as \"resource in use\" until it is ACTIVE",
       "consumerNotActive": "{{consumer}} on {{stream}} · status {{status}}; an application pointed at it now fails with an error about the consumer rather than the stream",
-      "transmissionBacklog": "{{queue}} · {{count}} waiting; a transmission queue is drained by one channel, so anything on it means that channel is stopped, retrying or was never started"
+      "transmissionBacklog": "{{queue}} · {{count}} waiting; a transmission queue is drained by one channel, so anything on it means that channel is stopped, retrying or was never started",
+      "deadMsgQueueMissing": "{{queue}} gives up on messages and sends them to {{target}}, which is not a queue in this Message VPN — so they are discarded instead."
     },
     "duration": {
       "minutes": "for {{count}} min",
@@ -756,6 +758,45 @@
         "browseCharacterOnly": "Browsing takes nothing away: the queue's depth is the same afterwards, and any number of readers can look at the same message. What the mqweb server will not do is hand back a body it cannot read as text — a dead letter, an event message, an application's own structure — so those messages are listed with their identifier and format, and opening one is refused.",
         "sendQueueOnly": "A send goes to a queue: the messaging REST API has no topic endpoint at all, so this console cannot publish. It also carries character data only and refuses anything else, so a binary payload has to be sent by an MQ client rather than from here."
       }
+    },
+    "solace": {
+      "name": "Solace PubSub+",
+      "terms": {
+        "destination": "Queue",
+        "destinationPlural": "Queues",
+        "namespace": "Message VPN",
+        "backlog": "Spooled"
+      },
+      "form": {
+        "semp": "SEMP address",
+        "msgVpn": "Message VPN",
+        "mechanism": "Authentication",
+        "authPlain": "User and password",
+        "username": "User",
+        "password": "Password",
+        "restUrl": "REST messaging address",
+        "restUsername": "Client username",
+        "restPassword": "Client password"
+      },
+      "degraded": {
+        "restUnreachable": "Nothing answered on the REST messaging port, so this connection cannot send. SEMP manages the broker and carries no messages, and the messaging interface is a separate port whose number is a Message VPN setting. Check that the VPN serves REST, or give the connection the address it is published on.",
+        "restForbidden": "The broker refused this client username on the REST messaging interface. Everything read from SEMP still works; sending will not until that credential is right. Client usernames are objects inside the Message VPN and are not the SEMP management account."
+      },
+      "caveat": {
+        "browseNoPayload": "Browsing takes nothing away: the queue's depth, its spool usage and its delivery counters are all the same afterwards, and any number of readers can look at the same message. What SEMP will not do is return the message itself — there is no payload field in the API at any version — so a browse lists each message's identifier, sizes, delivery count and flags, and reading a body needs a client on the messaging protocol."
+      },
+      "scope": {
+        "label": "Message VPN: {{scope}}",
+        "unscoped": "Broker default",
+        "unscopedHint": "Whichever VPN the broker resolves at connect time",
+        "search": "Filter or type a Message VPN",
+        "loading": "Reading this broker's Message VPNs…",
+        "empty": "This broker hosts no Message VPN",
+        "counts": "{{destinations}} queues · {{subscriptions}} topic endpoints",
+        "switched": "Now reading {{scope}}",
+        "switchedUnscoped": "Now reading the broker's default Message VPN",
+        "switchFailed": "Could not switch Message VPN"
+      }
     }
   },
   "shell": {
@@ -978,6 +1019,17 @@
         "messages": "Messages",
         "producer": "Send",
         "dlq": "Dead letters",
+        "alerts": "Alerts"
+      },
+      "solace": {
+        "overview": "Overview",
+        "topics": "Queues",
+        "exchanges": "Routing",
+        "messages": "Messages",
+        "producer": "Send",
+        "clients": "Clients",
+        "dlq": "Dead messages",
+        "cluster": "Broker",
         "alerts": "Alerts"
       }
     }
@@ -1364,6 +1416,28 @@
           "mqwebScheme": "The mqweb address is a full URL — start it with https:// or http://.",
           "queueManagerName": "A queue manager name is at most 48 characters of letters, digits and . _ / %.",
           "messagingPairRequired": "A messaging user needs a password. Leave both blank to use the administrative user for both interfaces."
+        },
+        "solace": {
+          "mechanism": "Authentication",
+          "mechanismPlain": "User and password",
+          "mechanismNone": "None",
+          "semp": "SEMP address",
+          "sempHint": "The broker's management port, 8080 by default. Not 55555, which is where applications connect.",
+          "msgVpn": "Message VPN",
+          "msgVpnHint": "Leave empty for default. The sidebar can point this connection at another VPN without editing it.",
+          "adminHint": "A management account on the broker, not a client username.",
+          "restUrl": "REST messaging address",
+          "restUrlHint": "Leave empty to use the port the Message VPN says it serves REST on. Fill it in when that port is published elsewhere.",
+          "restUsername": "Client username",
+          "restPassword": "Client password",
+          "restHint": "A client username in this Message VPN. Leave both empty when the VPN takes any username.",
+          "skipVerify": "Skip certificate verification",
+          "skipVerifyHint": "A broker that has not been given a certificate presents one it made for itself.",
+          "note": "SEMP reads and manages; sending goes through the REST messaging interface on its own port.",
+          "sempRequired": "The SEMP address is required.",
+          "sempScheme": "The SEMP address needs an http:// or https:// scheme.",
+          "msgVpnName": "A Message VPN name is at most 32 characters and cannot contain * or ?.",
+          "restPairRequired": "Give both the client username and its password, or neither: a password on its own is never sent."
         }
       },
       "deleteTitle": "Delete connection",
@@ -1571,7 +1645,7 @@
         "aheadOfRelease": "Local v{{current}} is newer than published v{{latest}}",
         "upToDate": "You are on the latest version v{{version}}",
         "updateCheckFailed": "Could not check for updates",
-        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, Azure Service Bus, Amazon Kinesis, and IBM MQ without deploying a separate console."
+        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, Azure Service Bus, Amazon Kinesis, IBM MQ, and Solace PubSub+ without deploying a separate console."
       }
     }
   },
@@ -5676,6 +5750,261 @@
         "stateTransmission": "transmission queue — a channel drains it",
         "stateOrdinary": "ordinary",
         "note": "No rates and no storage figures: MQ reports what a queue holds and when it was last touched, and how fast it is moving is a statistics message published on a timer rather than a figure a page can read. There is no cluster panel either — this connection speaks to one queue manager, and an MQ cluster is a set of queue managers rather than nodes of this one."
+      }
+    },
+    "solace": {
+      "queues": {
+        "count": "{{count}} queues",
+        "search": "Filter by name",
+        "name": "Queue",
+        "accessType": "Access",
+        "permission": "Permission",
+        "owner": "Owner",
+        "spooled": "Spooled",
+        "spooledTotal": "Spooled ever",
+        "spoolUsage": "Spool used",
+        "maxSpool": "Spool quota",
+        "maxMsgSize": "Max message",
+        "partitions": "Partitions",
+        "bound": "Bound",
+        "unacked": "Unacked",
+        "redelivered": "Redelivered",
+        "rateIn": "In/s",
+        "deadMsgQueue": "Dead message queue",
+        "dmqBadge": "DMQ",
+        "maxRedelivery": "Max redeliveries",
+        "maxTtl": "Max TTL",
+        "seconds": "{{count}}s",
+        "toDmqTtl": "Expired to DMQ",
+        "toDmqRetry": "Retried out to DMQ",
+        "halted": "This queue is not accepting {{what}}.",
+        "ingress": "messages",
+        "egress": "consumers",
+        "section": {
+          "definition": "Definition",
+          "runtime": "Runtime",
+          "handling": "Delivery handling"
+        },
+        "note": "Spooled is what the queue holds now. Spooled ever is a lifetime counter the broker resets with its statistics, and it is not the depth.",
+        "create": "New queue",
+        "createTitle": "New queue",
+        "created": "Created {{name}}",
+        "nameHint": "Slashes, dots and spaces are all fine here — a queue is usually named like the topics it takes.",
+        "nameProblem": {
+          "empty": "A name is required.",
+          "tooLong": "A queue name is at most 200 characters.",
+          "characters": "A queue name cannot contain * ? ' < > & or ;.",
+          "reserved": "Names starting with # belong to the broker."
+        },
+        "accessShared": "Every bound consumer takes a share of the messages.",
+        "accessExclusive": "The first consumer to bind takes every message; the rest wait as standbys.",
+        "permissionHint": "What a client bound to this queue may do to it.",
+        "deadMsgQueueHint": "The name of an existing queue. The broker's own default points at a queue nobody has made, which discards instead.",
+        "maxRedeliveryHint": "Attempts before a message is given up on. 0 is unlimited.",
+        "maxSpoolHint": "Megabytes this queue may hold. Empty leaves the broker's default.",
+        "ownerHint": "A client username this queue belongs to. Empty leaves it unowned.",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "The queue and its topic subscriptions go. This cannot be undone.",
+        "deleteHolding": "The queue holds {{count}} messages. They are discarded with it — not moved to a dead message queue — and this cannot be undone.",
+        "deleted": "Deleted {{name}}",
+        "deleteFailed": "Could not delete the queue"
+      },
+      "messages": {
+        "title": "Messages",
+        "subtitle": "Browse what a queue is holding",
+        "pickQueue": "Choose a queue",
+        "read": "Browse",
+        "found": "{{count}} listed",
+        "readNote": "Browsing takes nothing: the queue is unchanged afterwards. SEMP carries no message payload, so what is listed is each message's metadata.",
+        "startHere": "Choose a queue and browse it.",
+        "nothingThere": "This queue is holding nothing.",
+        "messageId": "Message",
+        "spooled": "Spooled",
+        "size": "Payload",
+        "attachment": "Attachment",
+        "content": "Structured content",
+        "redelivery": "Tries",
+        "state": "State",
+        "undelivered": "waiting",
+        "delivered": "delivered",
+        "dmqEligible": "Dead-message eligible",
+        "dmqYes": "yes — moved when given up on",
+        "dmqNo": "no — discarded unless the queue overrides it",
+        "partitionKey": "Partition key",
+        "publisher": "Publisher",
+        "replicationId": "Replication id",
+        "replicationState": "Replication state",
+        "body": "Payload",
+        "noBody": "SEMP does not return message payloads at any version, so there is nothing to show here. The sizes above say whether this message carries one. Reading it needs a client on the messaging protocol.",
+        "section": {
+          "properties": "Other fields"
+        }
+      },
+      "producer": {
+        "title": "Send",
+        "subtitle": "Publish through the REST messaging interface",
+        "target": "Send to",
+        "target_queue": "A queue, by name",
+        "target_topic": "A topic, to be matched",
+        "targetQueueHint": "The message goes to this one endpoint.",
+        "targetTopicHint": "The message goes to every queue whose subscriptions match — and nowhere at all if none do.",
+        "destination": "Destination",
+        "pickQueue": "Choose a queue",
+        "destinationQueueHint": "A queue in this Message VPN.",
+        "destinationTopicHint": "Levels are separated with a slash: orders/eu/created.",
+        "body": "Body",
+        "contentType": "Content type",
+        "deliveryMode": "Delivery",
+        "deliveryModeHint": "Persistent is written to the spool and survives a restart. Direct and non-persistent do not.",
+        "ttl": "Time to live (ms)",
+        "ttlHint": "Discarded if nothing has taken it by then. Empty or 0 is unlimited.",
+        "dmqEligible": "Dead-message eligible",
+        "dmqEligibleHint": "Off is the broker's default, and it is why a queue with a dead message queue can still discard quietly: unless the message is marked, nothing is moved.",
+        "correlationId": "Correlation id",
+        "replyTo": "Reply to",
+        "replyToHint": "A destination spelled the interface's way: /QUEUE/name, or a bare topic.",
+        "count": "Copies",
+        "countHint": "Up to {{max}}. Each copy is its own request.",
+        "send": "Send",
+        "sent": "Sent {{count}}",
+        "failed": "Could not send",
+        "noId": "The broker reports no message id for a send it took.",
+        "problem": {
+          "destinationRequired": "A destination is required.",
+          "bodyRequired": "A body is required.",
+          "deliveryMode": "Delivery is persistent, non-persistent or direct.",
+          "ttlRange": "A time to live cannot be negative.",
+          "countRange": "Copies must be between 1 and 100."
+        }
+      },
+      "dlq": {
+        "count": "{{count}} dead message queues",
+        "name": "Queue",
+        "depth": "Spooled",
+        "consumers": "Draining",
+        "sources": "Pointed at by",
+        "msgVpn": "Message VPN",
+        "missingBadge": "not created",
+        "missingNote": "Nothing in this Message VPN is called {{name}}, so messages given up on are discarded rather than moved. Create a queue with that name, or point the endpoints below at one that exists.",
+        "nobodyDraining": "Messages are waiting here and nothing is bound to take them.",
+        "markedOnly": "marked messages only",
+        "markedOnlyNote": "{{count}} of the endpoints below move only messages their publisher marked as dead-message eligible. Most clients mark none, so those give up quietly instead.",
+        "fromQueue": "Queue",
+        "fromEndpoint": "Topic endpoint",
+        "afterTries": "after {{count}} tries",
+        "noLimit": "no redelivery limit",
+        "noSources": "Nothing points here any more.",
+        "section": {
+          "sources": "Pointed at by"
+        },
+        "note": "Nothing on this broker marks a queue as a dead message queue. Every row here is an ordinary queue that another endpoint names."
+      },
+      "routing": {
+        "count": "{{subscriptions}} subscriptions · {{endpoints}} topic endpoints",
+        "search": "Filter by topic or queue",
+        "subscribe": "Subscribe a queue",
+        "subscribeTitle": "Subscribe a queue to a topic",
+        "topic": "Topic",
+        "queue": "Queue",
+        "queueDepth": "Queue holds",
+        "wildcard": "wildcard",
+        "matches": "Matches",
+        "matchesOne": "one topic",
+        "matchesMany": "every topic the pattern covers",
+        "pickQueue": "Choose a queue",
+        "queueHint": "The queue that will receive whatever matches.",
+        "topicHint": "* is one level or the end of one; > is the rest of the topic and only ever last.",
+        "topicProblem": {
+          "empty": "A topic is required.",
+          "midLevelWildcard": "* stands for a whole level or the end of one. Inside a level it is a literal character and matches nothing.",
+          "trailingWildcardPlacement": "> stands for the rest of the topic and can only be the last character."
+        },
+        "addNote": "Only what is published from now on. Nothing already spooled moves.",
+        "added": "{{queue}} now subscribes to {{topic}}",
+        "removeTitle": "Remove {{topic}}?",
+        "removeDesc": "{{queue}} stops receiving what matches. What it already holds stays.",
+        "removeNote": "Removing a subscription stops new messages only. The queue keeps what it already has.",
+        "removed": "Removed {{topic}}",
+        "removeFailed": "Could not remove the subscription",
+        "endpointTopic": "Topic endpoint",
+        "spooled": "Spooled",
+        "accessType": "Access",
+        "noEndpoints": "This Message VPN has no topic endpoints.",
+        "section": {
+          "endpoints": "Topic endpoints"
+        },
+        "note": "A publisher names a topic, never a queue. A queue with no subscriptions receives only what is sent to it by name. A topic endpoint's name is its subscription."
+      },
+      "clients": {
+        "count": "{{applications}} applications · {{total}} sessions",
+        "search": "Filter by name, address or user",
+        "name": "Client",
+        "address": "Address",
+        "username": "Client username",
+        "binds": "Binds",
+        "uptime": "Up",
+        "msgVpn": "Message VPN",
+        "internalBadge": "broker",
+        "platform": "Platform",
+        "softwareVersion": "Library version",
+        "description": "Description",
+        "clientProfile": "Client profile",
+        "aclProfile": "ACL profile",
+        "recv": "Received",
+        "send": "Sent",
+        "slowNote": "The broker has marked this client as unable to keep up with what is being pushed to it.",
+        "downgradedNote": "This session started as TLS and was allowed to fall back to plain text.",
+        "section": {
+          "library": "Client library",
+          "limits": "Profiles and traffic"
+        },
+        "note": "Sessions marked \"broker\" are the appliance talking to itself. They hold real resources, so they are listed rather than hidden. Binds are flows to endpoints, not channels: this protocol has none."
+      },
+      "cluster": {
+        "nothing": "The broker did not answer for itself.",
+        "online": "serving",
+        "degraded": "not serving",
+        "version": "SolOS version",
+        "redundancy": "Redundancy",
+        "redundancyOn": "configured",
+        "redundancyOff": "off",
+        "rateIn": "In/s",
+        "rateOut": "Out/s",
+        "brokerSpoolMax": "Broker spool limit",
+        "msgVpn": "Message VPN",
+        "msgVpnState": "State",
+        "spoolUsed": "Spool used",
+        "spoolBytes": "Spool bytes",
+        "spoolMax": "Spool quota",
+        "spoolMessages": "Messages spooled",
+        "maxConnections": "Connection limit",
+        "notServing": "This Message VPN is {{state}}. The broker is answering; nothing published to this VPN is being handled.",
+        "section": {
+          "broker": "Broker",
+          "msgVpn": "Message VPN"
+        },
+        "note": "One broker, and there will never be more here: a redundancy pair shares a virtual router and only the active half answers, and a meshed broker is its own connection. SEMP reports no broker name, so the address dialled is the identifier."
+      },
+      "overview": {
+        "subtitle": "{{vpn}} · {{queues}} queues",
+        "queues": "Queues",
+        "queuesHint": "Endpoints in this Message VPN",
+        "spooled": "Spooled",
+        "spooledHint": "Messages waiting across every queue",
+        "bound": "Bound consumers",
+        "boundHint": "Flows attached to a queue right now",
+        "spool": "Spool used",
+        "spoolHint": "This VPN's share, not the disk",
+        "discarding": "Discarding",
+        "discardingHint": "Queues that give up and have nowhere to put it",
+        "stopped": "Stopped",
+        "stoppedHint": "Queues with ingress or egress switched off",
+        "deepest": "Queues worth a look",
+        "state": "State",
+        "stateHalted": "not accepting",
+        "stateUndrained": "nothing draining it",
+        "stateOrdinary": "ordinary",
+        "note": "Every endpoint ships pointing at a dead message queue called #DEAD_MSG_QUEUE, and no broker creates one. A queue that gives up on a message and names a queue that is not there discards it instead, and nothing else reports that."
       }
     }
   }
