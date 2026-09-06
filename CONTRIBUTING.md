@@ -283,6 +283,26 @@ After adding a family, update all of these:
   the precedent with four ports; ask which of the two a concept is before
   reaching for the map.
 
+- A driver that needs a client library nobody has installed is a driver
+  nobody can build. Before reaching for a vendor's SDK, check what it links
+  against: `github.com/ibm-messaging/mq-golang` is cgo over IBM's native MQ
+  libraries, and adding it would have put the redistributable client on the
+  critical path of every `go build` and every CI job in this repository. Two
+  families are reached over the vendor's own HTTP management plane instead -
+  ActiveMQ through Jolokia and IBM MQ through the mqweb server's REST APIs -
+  and both needed the standard library and nothing else. A management plane
+  that is also the data plane is worth looking for.
+
+- A family whose management plane authorises in more than one place needs the
+  credential asked for more than once. IBM MQ's mqweb server maps its
+  administrative and messaging REST interfaces to two roles, and a deployment
+  may hold them on two accounts - so the form collects an optional second pair
+  and the connection probes the second interface when it opens. The tier that
+  did not answer is degraded with a reason, the way ActiveMQ's AMQP acceptor
+  and MQTT's $SYS tree are. What must not happen is one credential silently
+  standing in for the other: half a second pair is refused rather than
+  completed from the first.
+
 Do not count the families by eye. The capability declarations settle which
 drivers answer which page:
 

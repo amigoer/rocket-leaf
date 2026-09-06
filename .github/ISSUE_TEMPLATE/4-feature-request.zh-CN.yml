@@ -55,6 +55,7 @@ body:
         - Google Pub/Sub
         - Azure Service Bus
         - Amazon Kinesis
+        - IBM MQ
     validations:
       required: true
 
