@@ -186,6 +186,36 @@ func rawText(value any) string {
  * against the same resource read independently, which is what would catch a
  * field lifted out of the wrong object or a status attached to the wrong queue.
  */
+// readersAgree re-reads a queue's reader count from both sides until they
+// match, and reports the last pair it saw if they never do.
+//
+// Only the count moves; every other figure the board cross-checks is settled
+// by the seed and stays put.
+func readersAgree(
+	t *testing.T, stack *ibmmqStack, connID int, raw *rawMQWeb, name string,
+) (board int, api int64, agreed bool) {
+	t.Helper()
+	for attempt := 0; attempt < 10; attempt++ {
+		listed, err := stack.destinations.List(ibmmqContext(t), connID, model.DestinationFilter{})
+		if err != nil {
+			t.Fatalf("List: %v", err)
+		}
+		board = -1
+		for _, entry := range listed {
+			if entry.Ref.Name == name {
+				board = entry.Subscribers
+			}
+		}
+		api = rawNumber(t, nested(t, raw.queue(t, name), "status", "openInputCount"),
+			name+" openInputCount")
+		if int64(board) == api {
+			return board, api, true
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	return board, api, false
+}
+
 func TestLiveIBMMQCrossCheckQueuesBoard(t *testing.T) {
 	requireLiveIBMMQ(t)
 	stack := newIBMMQStack(t)
@@ -216,7 +246,15 @@ func TestLiveIBMMQCrossCheckQueuesBoard(t *testing.T) {
 			t.Errorf("%s: the board shows depth %d, the API says %d", name, row.Depth, want)
 		}
 		if want := rawNumber(t, nested(t, object, "status", "openInputCount"), name+" openInputCount"); int64(row.Subscribers) != want {
-			t.Errorf("%s: the board shows %d readers, the API says %d", name, row.Subscribers, want)
+			// A transmission queue's reader is the sender channel that drains
+			// it, and the seeded one is retrying against an address that does
+			// not answer - so it attaches and lets go while this runs. The
+			// board and the API are read one after the other, which is either
+			// side of such a change. Read both again, close together, before
+			// calling it a disagreement.
+			if got, api, agreed := readersAgree(t, stack, connID, raw, name); !agreed {
+				t.Errorf("%s: the board shows %d readers, the API says %d", name, got, api)
+			}
 		}
 		if want := rawNumber(t, nested(t, object, "storage", "maximumDepth"), name+" maximumDepth"); row.Attribute(ibmmqdriver.AttrMaxDepth) != fmt.Sprint(want) {
 			t.Errorf("%s: the board shows maximum depth %q, the API says %d",
