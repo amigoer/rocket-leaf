@@ -88,6 +88,7 @@ import { MessagesGooglePubSub } from "./boards/messages/MessagesGooglePubSub";
 import { MessagesAzureServiceBus } from "./boards/messages/MessagesAzureServiceBus";
 import { ProducerSqs } from "./boards/producer/ProducerSqs";
 import { ProducerGooglePubSub } from "./boards/producer/ProducerGooglePubSub";
+import { ProducerAzureServiceBus } from "./boards/producer/ProducerAzureServiceBus";
 import { DlqSqs } from "./boards/dlq/DlqSqs";
 import { DlqGooglePubSub } from "./boards/dlq/DlqGooglePubSub";
 import { OverviewSqs } from "./boards/overview/OverviewSqs";
@@ -274,6 +275,7 @@ export function renderBoard(
        other consoles have no use for: a topic with no subscription accepts
        every publish and discards it. */
     if (protocol === "google-pubsub") return <ProducerGooglePubSub />;
+    if (protocol === "azure-servicebus") return <ProducerAzureServiceBus />;
     return <Producer protocol={protocol} nav={nav} />;
   }
   /* Alerts is one board for every family: the rules are numeric comparisons

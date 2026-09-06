@@ -1,10 +1,18 @@
 import { AzureServiceBusService } from "@bindings/bridge";
 import type {
   AzureServiceBusEntityInput,
+  AzureServiceBusSendInput,
+  AzureServiceBusSendResult,
   AzureServiceBusSubscriptionInput,
 } from "@bindings/bridge/models";
+import { required } from "./client";
 
-export type { AzureServiceBusEntityInput, AzureServiceBusSubscriptionInput };
+export type {
+  AzureServiceBusEntityInput,
+  AzureServiceBusSendInput,
+  AzureServiceBusSendResult,
+  AzureServiceBusSubscriptionInput,
+};
 
 /**
  * The Service Bus-only half of the surface.
@@ -65,3 +73,23 @@ export const updateSubscription = (
  */
 export const removeSubscription = (connID: number, topic: string, name: string): Promise<void> =>
   AzureServiceBusService.RemoveSubscription(connID, topic, name);
+
+/**
+ * Send one message, or the same one several times, to a queue or a topic.
+ *
+ * Accepted is not delivered. A queue holds what is sent to it; a topic holds
+ * nothing, copying the message into every subscription whose rules let it
+ * through and discarding it if none do - and reporting success either way.
+ */
+export const send = (
+  connID: number,
+  input: AzureServiceBusSendInput,
+): Promise<AzureServiceBusSendResult> =>
+  AzureServiceBusService.Send(connID, input).then(required);
+
+/** Take back scheduled messages that have not been enqueued yet. */
+export const cancelScheduled = (
+  connID: number,
+  entity: string,
+  sequences: number[],
+): Promise<void> => AzureServiceBusService.CancelScheduled(connID, entity, sequences);

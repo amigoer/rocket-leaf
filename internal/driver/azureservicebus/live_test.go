@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus/admin"
+
 	"github.com/amigoer/mq-studio/internal/e2e"
 	"github.com/amigoer/mq-studio/internal/model"
 )
@@ -1139,5 +1141,194 @@ func TestLivePeekRefusesAnEntityThatIsNotThere(t *testing.T) {
 		Topic: "mqs-test-absent", MaxResults: 10,
 	}); err == nil {
 		t.Error("browsed an entity that does not exist")
+	}
+}
+
+/*
+ * Sending, and what a send carries that the canonical port cannot.
+ *
+ * The subject and the named properties are the point: they are what a
+ * subscription's rules select on, so this proves the console can produce a
+ * message that a filtered subscription actually receives - which is the only
+ * way the routing page is testable from inside the app.
+ */
+func TestLiveSendReachesTheSubscriptionsItsRulesAllow(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	removeEntities(t, conn, testTopic)
+
+	if err := conn.CreateEntity(ctx, EntitySpec{Name: testTopic, Kind: EntityTopic}); err != nil {
+		t.Fatalf("CreateEntity: %v", err)
+	}
+	for _, name := range []string{"all", "red"} {
+		if err := conn.CreateSubscriptionFrom(ctx, SubscriptionSpec{
+			Topic: testTopic, Name: name,
+		}); err != nil {
+			t.Fatalf("CreateSubscriptionFrom(%s): %v", name, err)
+		}
+	}
+	// Narrow the second one: drop the default that matches everything, then
+	// add a filter over the sender's own properties.
+	if _, err := conn.management.DeleteRule(ctx, testTopic, "red", "$Default", nil); err != nil {
+		t.Fatalf("deleting the default rule: %v", err)
+	}
+	if _, err := conn.management.CreateRule(ctx, testTopic, "red", &admin.CreateRuleOptions{
+		Name:   pointer("red-only"),
+		Filter: &admin.SQLFilter{Expression: "colour = 'red'"},
+	}); err != nil {
+		t.Fatalf("creating a rule: %v", err)
+	}
+
+	for _, colour := range []string{"red", "blue", "red"} {
+		result, err := conn.Send(ctx, SendRequest{
+			Entity:     testTopic,
+			Body:       "colour=" + colour,
+			Subject:    "order",
+			Properties: map[string]string{"colour": colour},
+		})
+		if err != nil {
+			t.Fatalf("Send: %v", err)
+		}
+		if result.Sent != 1 {
+			t.Errorf("sent %d of 1", result.Sent)
+		}
+	}
+
+	for name, want := range map[string]int{"all": 3, "red": 2} {
+		held, err := conn.QueryMessages(ctx, model.MessageQueryParams{
+			Topic:      testTopic,
+			MaxResults: 20,
+			Filters:    map[string]string{FilterSubscription: name},
+		})
+		if err != nil {
+			t.Fatalf("QueryMessages(%s): %v", name, err)
+		}
+		if len(held) != want {
+			t.Errorf("%s holds %d of the 3 sent, want %d", name, len(held), want)
+		}
+		for _, message := range held {
+			if message.Tags != "order" {
+				t.Errorf("a message reached %s with subject %q", name, message.Tags)
+			}
+		}
+	}
+}
+
+/*
+ * A delayed send is a real scheduled message, and the sequence number it comes
+ * back with is a handle rather than a receipt: it is what cancelling takes.
+ *
+ * Worth its own test because it is the one thing this family's send reports
+ * that an immediate one cannot - an ordinary message is assigned its sequence
+ * on arrival and the sender is never told.
+ */
+func TestLiveScheduledSendCanBeSeenAndCancelled(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	removeEntities(t, conn, testQueue)
+
+	if err := conn.CreateEntity(ctx, EntitySpec{Name: testQueue}); err != nil {
+		t.Fatalf("CreateEntity: %v", err)
+	}
+
+	result, err := conn.Send(ctx, SendRequest{
+		Entity: testQueue, Body: "later", Delay: time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if len(result.SequenceNumbers) != 1 {
+		t.Fatalf("a scheduled send reported %d sequence numbers, want 1", len(result.SequenceNumbers))
+	}
+
+	// A peek sees it, with a state saying it is not going anywhere yet. A
+	// consumer would be offered nothing at all.
+	held, err := conn.QueryMessages(ctx, model.MessageQueryParams{Topic: testQueue, MaxResults: 10})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(held) != 1 || held[0].Properties[PropState] != StateScheduled {
+		t.Fatalf("a peek saw %d messages, first state %q", len(held),
+			map[bool]string{true: "", false: held[0].Properties[PropState]}[len(held) == 0])
+	}
+
+	if err := conn.CancelScheduled(ctx, testQueue, result.SequenceNumbers); err != nil {
+		t.Fatalf("CancelScheduled: %v", err)
+	}
+	after, err := conn.QueryMessages(ctx, model.MessageQueryParams{Topic: testQueue, MaxResults: 10})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(after) != 0 {
+		t.Errorf("%d messages survived being unscheduled", len(after))
+	}
+}
+
+/*
+ * A send to a topic with no subscription is accepted and thrown away, and the
+ * service reports success.
+ *
+ * The state the producer console warns about, asserted rather than assumed: a
+ * message sent here leaves no backlog anywhere, so nothing else in the app
+ * could tell a reader it happened.
+ */
+func TestLiveSendToATopicWithNoSubscriptionIsDiscarded(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	result, err := conn.Send(ctx, SendRequest{Entity: seedOrphaned, Body: "into the void"})
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if result.Sent != 1 {
+		t.Errorf("sent %d of 1", result.Sent)
+	}
+
+	attached, err := conn.subscriptionNames(ctx, seedOrphaned)
+	if err != nil {
+		t.Fatalf("subscriptionNames: %v", err)
+	}
+	if len(attached) != 0 {
+		e2e.Missing(t, "%s has %d subscriptions; it exists to have none", seedOrphaned, len(attached))
+	}
+}
+
+// The canonical port is RocketMQ's shape, and what each argument means here is
+// worth pinning: the tag is the subject a correlation filter matches, the key
+// is the session, and the delay level is seconds.
+func TestLiveCanonicalSendMapsRocketMQsArguments(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+	removeEntities(t, conn, testQueue)
+
+	if err := conn.CreateEntity(ctx, EntitySpec{Name: testQueue}); err != nil {
+		t.Fatalf("CreateEntity: %v", err)
+	}
+
+	id, err := conn.SendMessage(ctx, testQueue, "order", "customer-1", "hello", 0)
+	if err != nil {
+		t.Fatalf("SendMessage: %v", err)
+	}
+	// No id, and its absence is the family: nothing assigns a message id and
+	// the sequence an immediate message gets is never reported to the sender.
+	if id != "" {
+		t.Errorf("SendMessage returned an id %q, and Service Bus assigns none", id)
+	}
+	if _, err := conn.SendMessage(ctx, testQueue, "", "", "hello", -1); err == nil {
+		t.Error("accepted a negative delay")
+	}
+
+	held, err := conn.QueryMessages(ctx, model.MessageQueryParams{Topic: testQueue, MaxResults: 10})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(held) != 1 {
+		t.Fatalf("the queue holds %d messages, want 1", len(held))
+	}
+	if held[0].Tags != "order" {
+		t.Errorf("tags = %q, want the subject that was sent", held[0].Tags)
+	}
+	if held[0].Keys != "customer-1" {
+		t.Errorf("keys = %q, want the session that was sent", held[0].Keys)
 	}
 }

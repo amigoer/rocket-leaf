@@ -5058,6 +5058,39 @@
         "section": {
           "properties": "发送方属性"
         }
+      },
+      "producer": {
+        "title": "发送消息",
+        "subtitle": "队列会保存收到的消息；主题一条也不保存，而是把每条消息复制进规则放行的订阅",
+        "entity": "队列或主题",
+        "entityHint": "消息发往哪里。不能直接发给订阅——订阅收到的是主题复制进去的副本。",
+        "body": "消息体",
+        "bodyHint": "原样发送。Service Bus 允许空消息体，这正是用来验证只按属性匹配的规则。",
+        "count": "份数",
+        "countHint": "把同一条消息发送这么多次，最多 {{max}} 条。",
+        "subject": "主题标签",
+        "subjectHint": "也叫 label。关联过滤器就是按这个名字匹配它，所以它决定消息能否进入带过滤的订阅。",
+        "correlationId": "关联 ID",
+        "correlationIdHint": "关联过滤器按相等匹配的另一个字段。",
+        "sessionId": "会话 ID",
+        "sessionIdHint": "在同一会话内保证投递顺序；开启了会话的实体必须填。其他情况下会被携带但忽略。",
+        "delay": "延迟（秒）",
+        "delayHint": "改为排程而不是立即发送。消息会留在实体里直到时间到达——期间不会交给任何消费者，可以在消息页面看到它在等待。",
+        "properties": "属性",
+        "propertiesHint": "发送方自己的属性，也是 SQL 规则的判断依据。按 colour = 'red' 过滤的订阅，收不到任何没设这个属性的消息。",
+        "propertyName": "名称",
+        "propertyValue": "值",
+        "addProperty": "添加属性",
+        "send": "发送",
+        "sent": "已发送 {{count}} 条",
+        "sentCount": "已发送 {{count}} 条。Service Bus 在消息到达时才分配序号，并不会告知发送方——可以到消息页面查看。",
+        "scheduledAs": "已排程 {{count}} 条，序号 {{sequences}}，到时间前一直保留。",
+        "failed": "发送失败",
+        "entityRequired": "请选择队列或主题。",
+        "countRange": "份数需在 1 到 {{max}} 之间。",
+        "propertyNameRequired": "填了值的属性必须有名称。",
+        "delayNegative": "延迟不能为负数。",
+        "noSubscriberWarning": "没有任何订阅读取这个主题，消息会被接收后立刻丢弃，任何地方都不会留下积压。"
       }
     }
   }

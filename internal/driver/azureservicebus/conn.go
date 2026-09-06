@@ -113,6 +113,9 @@ func capabilities() []model.Capability {
 		model.CapSubscriptionLag,
 
 		model.CapMessageQuery,
+
+		model.CapPublish,
+		model.CapDelayedDelivery,
 	}
 }
 

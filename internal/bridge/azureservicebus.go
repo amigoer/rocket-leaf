@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"context"
+	"time"
 
 	servicebusdriver "github.com/amigoer/mq-studio/internal/driver/azureservicebus"
 	servicebusservice "github.com/amigoer/mq-studio/internal/service/azureservicebus"
@@ -164,4 +165,91 @@ func (s *AzureServiceBusService) UpdateSubscription(
 // delivered. Those messages were never the topic's to hand out again.
 func (s *AzureServiceBusService) RemoveSubscription(connID int, topic, name string) error {
 	return s.service.RemoveSubscription(context.Background(), connID, topic, name)
+}
+
+// AzureServiceBusSendInput is a send as the Service Bus console collects it.
+//
+// Deliberately not MessageService.Send's shape. That one takes a topic, tags,
+// keys and a delay level - RocketMQ's vocabulary - and a Service Bus message
+// carries rather more: a subject, a correlation id, a session or partition
+// key, a content type, and a table of named properties.
+//
+// Those last two are not decoration here. A subscription's rules select on
+// them: a SQL filter reads the properties by name and a correlation filter
+// matches the subject and correlation id by equality, so a console that could
+// not set them would make the routing page untestable from the app.
+type AzureServiceBusSendInput struct {
+	// Entity is a queue or a topic. A subscription cannot be sent to: it
+	// receives what its topic copies into it.
+	Entity string `json:"entity"`
+	Body   string `json:"body"`
+	// Count sends the same message more than once. One when left at zero.
+	Count int `json:"count"`
+
+	Subject       string `json:"subject"`
+	CorrelationID string `json:"correlationId"`
+	ContentType   string `json:"contentType"`
+	SessionID     string `json:"sessionId"`
+	PartitionKey  string `json:"partitionKey"`
+
+	Properties map[string]string `json:"properties"`
+
+	// DelaySec schedules the message for later instead of sending it now. It
+	// becomes a real scheduled message: it sits in the entity until its time
+	// comes, which the messages page shows and no consumer is offered.
+	DelaySec int `json:"delaySec"`
+	// TTLSec overrides the entity's own time to live for these messages only.
+	TTLSec int `json:"ttlSec"`
+}
+
+// AzureServiceBusSendResult is what the send did.
+//
+// No message id, and its absence is the family: Service Bus's MessageId is the
+// sender's own field, nothing assigns one and nothing indexes it. What
+// addresses a message is its sequence number, and the service reports one only
+// for a scheduled send - an immediate message is given its sequence on arrival
+// and the sender is never told.
+type AzureServiceBusSendResult struct {
+	Sent int `json:"sent"`
+	// SequenceNumbers are the scheduled messages' handles, which do address
+	// something: cancelling a scheduled message takes one. Empty on an
+	// immediate send.
+	SequenceNumbers []int64 `json:"sequenceNumbers"`
+}
+
+// Send publishes to one entity and reports how many the service accepted.
+//
+// Accepted is not delivered. A queue holds what is sent to it; a topic holds
+// nothing, copying the message into every subscription whose rules let it
+// through and discarding it if none do - and reporting success either way.
+func (s *AzureServiceBusService) Send(
+	connID int, input AzureServiceBusSendInput,
+) (*AzureServiceBusSendResult, error) {
+	result, err := s.service.Send(context.Background(), connID, servicebusdriver.SendRequest{
+		Entity:        input.Entity,
+		Body:          input.Body,
+		Count:         input.Count,
+		Subject:       input.Subject,
+		CorrelationID: input.CorrelationID,
+		ContentType:   input.ContentType,
+		SessionID:     input.SessionID,
+		PartitionKey:  input.PartitionKey,
+		Properties:    input.Properties,
+		Delay:         time.Duration(input.DelaySec) * time.Second,
+		TimeToLive:    time.Duration(input.TTLSec) * time.Second,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &AzureServiceBusSendResult{
+		Sent:            result.Sent,
+		SequenceNumbers: result.SequenceNumbers,
+	}, nil
+}
+
+// CancelScheduled takes back messages that have not been enqueued yet.
+func (s *AzureServiceBusService) CancelScheduled(
+	connID int, entity string, sequences []int64,
+) error {
+	return s.service.CancelScheduled(context.Background(), connID, entity, sequences)
 }

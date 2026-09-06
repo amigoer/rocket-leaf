@@ -64,6 +64,8 @@ export {
     ActiveMQSubscriptionInput,
     AutoClaimInput,
     AzureServiceBusEntityInput,
+    AzureServiceBusSendInput,
+    AzureServiceBusSendResult,
     AzureServiceBusSubscriptionInput,
     BindingInput,
     ClaimInput,

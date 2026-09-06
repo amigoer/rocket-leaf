@@ -160,3 +160,39 @@ func (s *Service) RemoveSubscription(ctx context.Context, connID int, topic, nam
 	defer cancel()
 	return api.RemoveSubscription(ctx, model.SubscriptionRef{Namespace: topic, Name: name})
 }
+
+// Send publishes one message, or the same one several times, to one entity.
+//
+// Beside the canonical send rather than through it: MessageService.Send
+// collects a topic, tags, keys and a delay level - RocketMQ's vocabulary, of
+// which a Service Bus message has the body and little else. What it has that
+// the canonical shape cannot carry is a table of named properties and a
+// subject, which together are what a subscription's rules select on.
+func (s *Service) Send(
+	ctx context.Context, connID int, request servicebusdriver.SendRequest,
+) (*servicebusdriver.SendResult, error) {
+	api, err := s.serviceBusConn(connID, model.CapPublish)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.Send(ctx, request)
+}
+
+// CancelScheduled takes back messages that have not been enqueued yet.
+//
+// Gated on the delay capability rather than on the send, because that is what
+// produced the sequence numbers it takes: without scheduling there is nothing
+// to cancel.
+func (s *Service) CancelScheduled(
+	ctx context.Context, connID int, entity string, sequences []int64,
+) error {
+	api, err := s.serviceBusConn(connID, model.CapDelayedDelivery)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.CancelScheduled(ctx, entity, sequences)
+}

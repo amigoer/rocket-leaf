@@ -17,6 +17,13 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 /**
+ * CancelScheduled takes back messages that have not been enqueued yet.
+ */
+export function CancelScheduled(connID: number, entity: string, sequences: number[]): $CancellablePromise<void> {
+    return $Call.ByID(3093429996, connID, entity, sequences);
+}
+
+/**
  * CreateEntity declares a queue or a topic in the connection's namespace.
  */
 export function CreateEntity(connID: number, input: $models.AzureServiceBusEntityInput): $CancellablePromise<void> {
@@ -47,6 +54,19 @@ export function RemoveSubscription(connID: number, topic: string, name: string):
 }
 
 /**
+ * Send publishes to one entity and reports how many the service accepted.
+ * 
+ * Accepted is not delivered. A queue holds what is sent to it; a topic holds
+ * nothing, copying the message into every subscription whose rules let it
+ * through and discarding it if none do - and reporting success either way.
+ */
+export function Send(connID: number, input: $models.AzureServiceBusSendInput): $CancellablePromise<$models.AzureServiceBusSendResult | null> {
+    return $Call.ByID(4039833377, connID, input).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
+/**
  * UpdateEntity changes an existing entity's settings. Sessions, duplicate
  * detection and partitioning are fixed at creation and are not among them.
  */
@@ -61,3 +81,7 @@ export function UpdateEntity(connID: number, input: $models.AzureServiceBusEntit
 export function UpdateSubscription(connID: number, input: $models.AzureServiceBusSubscriptionInput): $CancellablePromise<void> {
     return $Call.ByID(149240795, connID, input);
 }
+
+// Private type creation functions
+const $$createType0 = $models.AzureServiceBusSendResult.createFrom;
+const $$createType1 = $Create.Nullable($$createType0);

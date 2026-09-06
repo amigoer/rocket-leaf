@@ -5058,6 +5058,39 @@
         "section": {
           "properties": "Sender properties"
         }
+      },
+      "producer": {
+        "title": "Send a message",
+        "subtitle": "A queue keeps what it is sent; a topic keeps none of it and copies each message into the subscriptions whose rules let it through",
+        "entity": "Queue or topic",
+        "entityHint": "Where the message goes. A subscription cannot be sent to — it receives what its topic copies into it.",
+        "body": "Body",
+        "bodyHint": "Sent as it stands. A Service Bus message may be empty, which is how a rule that matches on properties alone is exercised.",
+        "count": "Copies",
+        "countHint": "Send the same message this many times, up to {{max}}.",
+        "subject": "Subject",
+        "subjectHint": "Also called the label. A correlation filter matches on it by that name, so this is what reaches a filtered subscription.",
+        "correlationId": "Correlation id",
+        "correlationIdHint": "Another field a correlation filter matches by equality.",
+        "sessionId": "Session id",
+        "sessionIdHint": "Orders delivery within a session, and is required on an entity created with sessions on. Carried and ignored anywhere else.",
+        "delay": "Delay (seconds)",
+        "delayHint": "Schedules the message instead of sending it now. It sits in the entity until its time comes — no consumer is offered it, and the messages page is where it can be seen waiting.",
+        "properties": "Properties",
+        "propertiesHint": "The sender's own, and what a SQL rule selects on. A subscription filtering on colour = 'red' receives nothing that does not set it.",
+        "propertyName": "name",
+        "propertyValue": "value",
+        "addProperty": "Add a property",
+        "send": "Send",
+        "sent": "Sent {{count}}",
+        "sentCount": "Sent {{count}}. Service Bus assigns a sequence number on arrival and does not report it to the sender — the messages page is where they can be read.",
+        "scheduledAs": "Scheduled {{count}}, holding sequence {{sequences}} until their time comes.",
+        "failed": "Could not send",
+        "entityRequired": "Choose a queue or a topic.",
+        "countRange": "Send between 1 and {{max}} copies.",
+        "propertyNameRequired": "A property with a value needs a name.",
+        "delayNegative": "A delay cannot be negative.",
+        "noSubscriberWarning": "Nothing subscribes to this topic, so the message will be accepted and discarded on arrival. It will leave no backlog anywhere."
       }
     }
   }
