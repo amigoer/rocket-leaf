@@ -21,6 +21,7 @@ ARCH ?=
 	e2e-activemq-up e2e-activemq-seed e2e-activemq-down \
 	e2e-activemq-classic-up e2e-activemq-classic-down \
 	e2e-nsq-up e2e-nsq-seed e2e-nsq-down \
+	e2e-sqs-up e2e-sqs-seed e2e-sqs-down \
 	check ci clean \
 	website-dev website-build
 
@@ -179,6 +180,15 @@ e2e-nsq-seed: ## Fill the NSQ cluster with topics and channels for the cross-che
 
 e2e-nsq-down: ## Stop the NSQ environment and remove its volumes
 	npm run e2e:nsq:down
+
+e2e-sqs-up: ## Start the LocalStack SQS environment the live tests use
+	npm run e2e:sqs:up
+
+e2e-sqs-seed: ## Fill the SQS region with queues for the cross-check
+	npm run e2e:sqs:seed
+
+e2e-sqs-down: ## Stop the SQS environment and remove its volumes
+	npm run e2e:sqs:down
 
 e2e: ## Run the live tests against a running, seeded RocketMQ E2E environment
 	npm run test:e2e

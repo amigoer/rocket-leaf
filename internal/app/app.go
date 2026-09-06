@@ -16,6 +16,7 @@ import (
 	"github.com/amigoer/mq-studio/internal/driver/rabbitmq"
 	"github.com/amigoer/mq-studio/internal/driver/redisstream"
 	"github.com/amigoer/mq-studio/internal/driver/rocketmq"
+	sqsdriver "github.com/amigoer/mq-studio/internal/driver/sqs"
 	"github.com/amigoer/mq-studio/internal/service/access"
 	activemqservice "github.com/amigoer/mq-studio/internal/service/activemq"
 	"github.com/amigoer/mq-studio/internal/service/cluster"
@@ -90,6 +91,7 @@ func New() (*Services, error) {
 	driver.Register(natsdriver.New())
 	driver.Register(activemq.New())
 	driver.Register(nsqdriver.New())
+	driver.Register(sqsdriver.New())
 
 	registry := driver.NewRegistry()
 	settingsService := settings.New(paths.SettingsFile)
