@@ -51,7 +51,18 @@ import {
 } from "./connectionDraft";
 import { draftInvalidReason } from "./connectionValidation";
 
-/** Version ranges printed under each tile in the 3a protocol picker. */
+/*
+ * The second line under each tile in the protocol picker.
+ *
+ * It says one thing: which releases this driver targets. Not how it reaches
+ * them - IBM MQ's mqweb REST and Solace's SEMP v2 are named in their own
+ * forms, where the address that uses them is typed, and repeating them here
+ * only made those two tiles twice the length of the rest.
+ *
+ * Three exceptions, each because the version alone would be a lie: ActiveMQ
+ * covers two products, and the four hosted services have no version a reader
+ * could act on. Keep it under ~17 characters; the first eight set the shape.
+ */
 const TILE: Record<ProtocolId, { name: string; versions: string }> = {
   rocketmq: { name: "RocketMQ", versions: "4.x / 5.x" },
   kafka: { name: "Kafka", versions: "3.x / 4.x" },
@@ -62,7 +73,7 @@ const TILE: Record<ProtocolId, { name: string; versions: string }> = {
   nats: { name: "NATS", versions: "2.x" },
   // One tile for two products. Which one is behind the console is the
   // driver's to work out, so asking here would only let a user get it wrong.
-  activemq: { name: "ActiveMQ", versions: "Classic 5/6 · Artemis 2.x" },
+  activemq: { name: "ActiveMQ", versions: "Classic · Artemis" },
   nsq: { name: "NSQ", versions: "1.x" },
   // No version to print: SQS is a managed service with one, whichever AWS
   // is running. What varies is the region, and that is a form field.
@@ -80,11 +91,11 @@ const TILE: Record<ProtocolId, { name: string; versions: string }> = {
   // Not managed: this one is a queue manager somebody runs, reached through
   // the web server beside it. The version printed is the mqweb server's REST
   // API rather than the product's, because that is what the driver speaks.
-  ibmmq: { name: "IBM MQ", versions: "9.1+ (mqweb REST)" },
+  ibmmq: { name: "IBM MQ", versions: "9.1+" },
   // Not managed either, and the version printed is SEMP's rather than the
   // broker's: v2 is what the driver speaks, and it is the half of the API
   // that has a config and a monitor tree instead of an XML RPC.
-  solace: { name: "Solace PubSub+", versions: "9.4+ (SEMP v2)" },
+  solace: { name: "Solace PubSub+", versions: "9.4+" },
 };
 
 /** What the probe last reported, drawn in the footer beside the test button. */
