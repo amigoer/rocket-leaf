@@ -1645,7 +1645,7 @@
         "aheadOfRelease": "Local v{{current}} is newer than published v{{latest}}",
         "upToDate": "You are on the latest version v{{version}}",
         "updateCheckFailed": "Could not check for updates",
-        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, Azure Service Bus, Amazon Kinesis, and IBM MQ without deploying a separate console."
+        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, Azure Service Bus, Amazon Kinesis, IBM MQ, and Solace PubSub+ without deploying a separate console."
       }
     }
   },

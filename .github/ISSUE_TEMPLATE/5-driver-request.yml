@@ -27,7 +27,6 @@ body:
     attributes:
       label: Which broker
       options:
-        - Solace
         - Something else
     validations:
       required: true
@@ -42,7 +41,7 @@ body:
     id: deployment
     attributes:
       label: Version and how you run it
-      placeholder: Solace PubSub+ 10.x, one broker, reached through SEMP v2
+      placeholder: Apache Artemis 2.x, one broker, reached through the Jolokia console
     validations:
       required: true
 

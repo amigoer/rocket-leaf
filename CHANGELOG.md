@@ -22,6 +22,63 @@ was open now redials instead of going on with the old one in silence.
 
 ### Added
 
+- Solace PubSub+ is the fifteenth driver, the second enterprise one, and the
+  last on the roadmap — every family the plan named now has one. It is reached
+  entirely over SEMP v2, which is plain HTTP with JSON, so no build of this app
+  needs Solace's native client any more than IBM MQ's or ActiveMQ's did.
+
+  A Message VPN is a scope rather than part of the address, and that decision is
+  the phase's whole shape. One broker hosts many of them; they share its
+  process, its message spool, its disk and its listeners; the broker answers for
+  itself with no VPN named at all; and it enumerates them on request. So the
+  sidebar's scope switcher re-points a whole connection at another VPN without
+  editing the profile and without dialling anything new — the same control a
+  RocketMQ namespace has had since 0.0.9, and the reason this phase needed no
+  new port. IBM MQ decided the opposite way for its queue manager, and rightly:
+  that is a separate process with its own storage, its own log and its own
+  listener, and a second one is a second broker.
+
+  Two figures on this broker are not what they look like, and both are the ones
+  an operator opens the app to check. `spooledMsgCount` on a queue reads exactly
+  like a current depth and is a lifetime statistic — `clearStats` sets it to
+  zero on a queue holding a quarter of a million messages, and a drained queue
+  keeps reporting its high-water mark — so the depth is read from the message
+  collection's own count instead, and the lifetime figure is shown beside it
+  under a name that says what it is. And a Message VPN reports its spool usage
+  in bytes beside a quota in megabytes, on the same object, with names three
+  letters apart: dividing them unscaled reports a full broker as using nothing.
+
+  Browsing takes nothing at all. The queue is byte-for-byte the same after ten
+  browses — depth, spool usage, unacknowledged count and delivery counters all
+  identical — which puts this family beside Azure Service Bus rather than beside
+  the three that pay for a look. What it cannot do is hand back the message:
+  there is no payload field anywhere in SEMP, at any version, so a browse lists
+  each message's id, sizes, delivery count and flags, and the panel says why
+  there is nothing under the payload heading rather than drawing an empty box.
+
+  Routing gets a page, and this family has the strongest claim to one of the
+  three that draw it: a Solace publisher never names a queue. It names a topic,
+  and where the message lands is decided entirely by what has subscribed — so a
+  queue with no subscriptions receives nothing while looking healthy everywhere
+  else. Topic subscriptions are the bindings, added and removed on a queue; topic
+  endpoints are the objects whose name is their own subscription.
+
+  Sending goes through the REST messaging interface, which is a different port
+  on the same broker and is probed when the connection opens: unreachable or
+  refused, the send console is drawn disabled with the reason rather than
+  silently broken. Its credential is its own and does not fall back to the SEMP
+  one — a management user and a client-username are objects in different
+  directories — and the target is a choice rather than a guess, because a queue
+  and a topic here are routinely called the same thing and the two sends do
+  different things.
+
+  Dead messages are found by inverting every endpoint's pointer, which includes
+  the pointer every endpoint ships with: `#DEAD_MSG_QUEUE`, a name no broker ever
+  creates a queue for. So the ordinary state of an unconfigured Message VPN is
+  that everything given up on is discarded, and the page says so — those rows are
+  listed with no depth rather than dropped, and an alert fires for any queue that
+  will actually give up and has nowhere to put it.
+
 - IBM MQ is the fourteenth driver, the first enterprise one, and the second
   after ActiveMQ reached entirely through a vendor's own HTTP management plane.
   The obvious client for this family is cgo over IBM's native MQ libraries,

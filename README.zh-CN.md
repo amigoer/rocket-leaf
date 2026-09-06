@@ -1,7 +1,7 @@
 <div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.zh-CN.svg">
-    <img src="docs/images/hero-light.zh-CN.svg" width="100%" alt="MQ Studio — 本地优先的消息队列桌面客户端。一套界面连接 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus、Amazon Kinesis 与 IBM MQ，更多驱动陆续接入，无需部署 Web 控制台。">
+    <img src="docs/images/hero-light.zh-CN.svg" width="100%" alt="MQ Studio — 本地优先的消息队列桌面客户端。一套界面连接 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus、Amazon Kinesis、IBM MQ 与 Solace PubSub+，更多驱动陆续接入，无需部署 Web 控制台。">
   </picture>
 </div>
 
@@ -45,7 +45,7 @@ MQ Studio 是它们共同的客户端。每一种消息中间件都通过一个�
 - **数据留在本机** — 配置保存在当前设备，凭证加密存储
 - **跨平台与双语** — 支持 macOS、Windows、Linux，提供中英文界面
 
-目前可以连接的驱动是 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus、Amazon Kinesis 和 IBM MQ，其余进度见[驱动支持](#驱动支持)。
+目前可以连接的驱动是 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ、NSQ、Amazon SQS、Google Pub/Sub、Azure Service Bus、Amazon Kinesis、IBM MQ 和 Solace PubSub+，其余进度见[驱动支持](#驱动支持)。
 
 ## 功能
 
@@ -129,7 +129,8 @@ MQ Studio 通过可插拔驱动对接各类消息中间件。每个驱动声明�
 | **Azure Service Bus** | ✅ 已支持 | 第三个托管家族，也是其中第一个需要真正拨号的：命名空间就是一个真实地址，所以它有地址栏，而 SQS 填区域、Pub/Sub 填项目。队列和主题放在同一个面板，因为创建、配置、删除它们是同一件事——队列自己保存消息，主题一条也不留，只把每次发送复制进规则放行的订阅。订阅带着完整的投递约定；规则则放在路由页面：它们是有名字的对象，一个订阅可以挂多条，每条是一个 SQL 或关联过滤器，还可以附一个在消息进入时改写它的动作。浏览用的是 peek，所以这是本应用里唯一一个不带任何注意事项的消息页面——不取走、不锁定、投递计数不变，连消费者根本看不到的已排程和已延期消息也能看见。发送支持主题标签、属性、会话键和真正的延迟；死信直接读每个队列和订阅自带的 $DeadLetterQueue，也可以一条条放回去 |
 | **Amazon Kinesis** | ✅ 已支持 | 第四个托管家族，又回到只填区域和 AWS 凭据、没有地址可填。它也是唯一一个核心对象放不进规范页面的家族：shard 不是分区编号，所以它有了自己的页面——一个流的全部分片，无论开放还是已关闭，带上决定记录落点的哈希键区间、它被拆分出来的父分片或被合并的两个父分片；已关闭的分片仍留在列表里，因为它们还保留着记录直到过期。流面板显示开放分片数、容量模式和保留时长；可以按预置或按需创建、调整容量和删除。浏览完全不拿走任何东西——记录不会被隐藏、消费或标记，任意多个读者都能读到同一条——它带的注意事项是另一回事：读取会消耗该分片上所有消费者共享的读取额度。发送时可填决定落点的分区键，以及把记录指向具体分片的显式哈希键。消费者页面列出注册的扇出消费者，它们是流唯一知道的读者。没有积压，因为服务里没有任何地方保存读者的位点 |
 | **IBM MQ** | ✅ 已支持 | 第一个企业级家族，也是继 ActiveMQ 之后第二个只通过厂商自带 HTTP 管理面访问的家族——所有操作都走 mqweb 服务器承载的两个 REST 接口，因此本项目的任何一次构建都不需要 IBM 的原生客户端库。通道单独占一页，因为规范词汇里没有与之对应的概念：通道是一份定义，即使无人连接也存在，它决定了应用能否连进来，而且一个定义会带着若干个运行实例。队列与主题同在一页，包括消息在途中会经过的别名与远程定义；两者都可创建与删除。浏览真正不取走任何东西——读完之后深度不变——它带的注意事项是另一回事：服务器只返回字符数据，所以死信能被列出却打不开。发送到队列时可填写 MQ 消息真正携带的描述符。订阅的积压量取自它投递到的那个队列的深度；死信则通过反向遍历队列管理器自身的 DEADQ 和每个队列的退回队列找到 |
-| Solace 等 | 📋 计划中 | 完整矩阵见下方折叠内容 |
+| **Solace PubSub+** 10.x | ✅ 已支持 | 第二个企业级家族，也是路线图上的最后一个驱动，完全通过 SEMP v2 访问——纯 HTTP 加 JSON，因此本项目的任何一次构建都不需要 Solace 的原生客户端。Message VPN 是作用域而不是地址：一个 Broker 承载多个 VPN，所有对象都在某一个之内，侧边栏可以在不编辑配置的前提下把整个连接切换过去。队列显示的是它当前真正持有的消息数，而这个数并不来自那个看起来像深度的字段——spooledMsgCount 是历史累计统计，当前深度取自消息集合自身的计数；创建与删除队列时要选择访问模式，它决定一个消费者独占全部消息还是多个消费者分担。路由拿到了独立页面，而且这个家族对它的诉求最强：发布者从不指定队列，消息落到哪里完全由订阅决定——队列上可增删的主题订阅，以及名称即订阅的主题端点。浏览不取走任何东西——读完之后队列逐字节相同——但带一条注意事项：SEMP 的任何版本都不返回消息正文，因此消息只能列出大小与投递次数，没有正文可以打开。发送走独立端口上的 REST 消息接口，可以按名称发往队列，也可以发往主题由 Broker 匹配，并可设置决定被放弃的消息是转移还是丢弃的死信标记。死信通过反向遍历每个端点的指针得到——包括每个端点出厂时就指向、而 Broker 从不会创建的那个队列，正是它让未经配置的 Message VPN 悄悄丢弃消息。此外还有 Broker 的版本与该 VPN 的存储占用，以及当前连接的客户端 |
+| 更多驱动 | 📋 计划中 | 完整矩阵见下方折叠内容 |
 
 <details>
 <summary><strong>计划中的驱动、协议兼容系统与范围边界</strong></summary>
@@ -137,7 +138,7 @@ MQ Studio 通过可插拔驱动对接各类消息中间件。每个驱动声明�
 
 | 驱动 | 状态 | 说明 |
 | --- | --- | --- |
-| **Solace PubSub+** | 📋 计划中 | 通过 SEMP 访问队列与主题端点 |
+| _暂无_ | 📋 计划中 | 路线图上的驱动都已落地。下一个由[驱动申请](https://github.com/amigoer/mq-studio/issues/new?template=6-driver-request.zh-CN.yml)表单里的诉求决定 |
 
 **由已有驱动覆盖。** 协议兼容的实现不单独占用一个驱动：Redpanda、AutoMQ、WarpStream、
 Confluent、Amazon MSK 与 Azure Event Hubs 按 Kafka 连接；EMQX、Mosquitto、HiveMQ 与
@@ -173,14 +174,15 @@ ACL 与部分高级操作是否可用，取决于 Broker 版本和配置。表�
 | 12 | Azure Service Bus | ✅ 已完成 |
 | 13 | Amazon Kinesis | ✅ 已完成 |
 | 14 | IBM MQ | ✅ 已完成 |
-| 15 | 其余驱动，按「驱动支持」中列出的顺序推进 | 📋 计划中 |
-| 16 | Agent 相关功能 | 📋 计划中 |
+| 15 | Solace PubSub+ | ✅ 已完成 |
+| 16 | Agent 相关功能 | 📋 下一步 |
 
-Agent 相关的功能会等驱动接入完成之后再开始，不会提前。每个驱动都会声明所连中间件真正支持
-的能力，这套能力模型正是 Agent 跨中间件工作的前提 —— 不会给出中间件本身做不到的操作。
-具体范围会在其余驱动接入完成后在这里公布。
+路线图上列出的驱动都已落地，Agent 相关的功能从这里开始。每个驱动都已经声明所连中间件真正
+支持的能力，这套能力模型正是 Agent 跨中间件工作的前提 —— 不会给出中间件本身做不到的操作。
+具体范围会在确定后在这里公布。
 
-这是一个顺序，不是排期：没有绑定时间点；Pulsar 之后的顺序也可能因为呼声调整。
+再加驱动现在是诉求驱动而不是计划驱动。[驱动申请](https://github.com/amigoer/mq-studio/issues/new?template=6-driver-request.zh-CN.yml)
+表单只问一个问题，而它决定了一个驱动是否可能存在：桌面端能够到什么，以及怎么够到。
 
 ## 下载
 
