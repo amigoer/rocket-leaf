@@ -53,6 +53,7 @@ const PROTOCOL_BY_KIND: Partial<Record<MQKind, ProtocolId>> = {
   [MQKind.KindGooglePubSub]: "google-pubsub",
   [MQKind.KindAzureServiceBus]: "azure-servicebus",
   [MQKind.KindKinesis]: "kinesis",
+  [MQKind.KindIBMMQ]: "ibmmq",
 };
 
 export function protocolOfKind(kind: MQKind): ProtocolId | null {
@@ -78,13 +79,34 @@ export function protocolOfKind(kind: MQKind): ProtocolId | null {
  * the sb:// URL out of a connection string. The row shows the host the driver
  * actually dials rather than whichever of the three was typed, which is what
  * internal/driver/azureservicebus's namespaceOf does with the same value.
+ *
+ * IBM MQ is here for a third reason: its address is real and it is not the
+ * whole of what identifies the connection. One mqweb server can front several
+ * queue managers, they share nothing, and two profiles pointed at two of them
+ * would otherwise print the same row. So the queue manager is appended as the
+ * path segment it actually is in every REST call the driver makes.
  */
 function addressOf(profile: ConnectionProfile): string {
   if (profile.kind === MQKind.KindSQS) return profile.options?.region ?? "";
   if (profile.kind === MQKind.KindKinesis) return profile.options?.region ?? "";
   if (profile.kind === MQKind.KindGooglePubSub) return profile.options?.projectId ?? "";
   if (profile.kind === MQKind.KindAzureServiceBus) return namespaceOf(profile.endpoints);
+  if (profile.kind === MQKind.KindIBMMQ) return queueManagerAddress(profile);
   return profile.endpoints;
+}
+
+/**
+ * The mqweb address with the queue manager on it, when the profile names one.
+ *
+ * It may not: a profile that left the field blank is asking the driver to
+ * discover the only queue manager the server fronts, and printing a guess here
+ * would be printing something the profile does not say.
+ */
+function queueManagerAddress(profile: ConnectionProfile): string {
+  const server = profile.endpoints.trim().replace(/\/+$/, "");
+  const qmgr = (profile.options?.queueManager ?? "").trim();
+  if (server === "" || qmgr === "") return server;
+  return `${server}/${qmgr}`;
 }
 
 /**

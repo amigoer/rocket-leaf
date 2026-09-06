@@ -77,6 +77,13 @@ const REASONS: Record<string, string[]> = {
   // either - a classic consumer keeps its position in a DynamoDB table the
   // KCL owns, and an enhanced fan-out consumer keeps none at all.
   kinesis: ["positionInDynamo"],
+  // internal/driver/ibmmq/conn.go
+  //
+  // Two, and both about one tier: the messaging REST API is authorised
+  // separately from the administrative one, and it can be unavailable two ways
+  // that lead two different places - the mqweb server's role mapping, and the
+  // connection form's second credential.
+  ibmmq: ["messagingForbidden", "messagingRefused"],
 };
 
 /**
@@ -105,6 +112,11 @@ const CAVEATS: Record<string, string[]> = {
   // three above it. A Kinesis read takes nothing; what it spends is the
   // shard's read allowance, which every consumer on that shard shares.
   kinesis: ["readQuota"],
+  // internal/driver/ibmmq/conn.go - two, and neither is about consuming: an MQ
+  // browse leaves the depth alone. What the mqweb server will not do is return
+  // a body it cannot read as text, and on the way in it refuses one outright
+  // and has no topic endpoint to send to at all.
+  ibmmq: ["browseCharacterOnly", "sendQueueOnly"],
 };
 
 type Bundle = Record<string, unknown>;

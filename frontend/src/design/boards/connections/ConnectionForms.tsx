@@ -3436,3 +3436,258 @@ export function KinesisForm({
     </>
   );
 }
+
+/** Option keys the IBM MQ driver reads back off a stored profile. */
+export const OPTION_IBMMQ_QUEUE_MANAGER = "queueManager";
+export const OPTION_IBMMQ_TLS_SKIP_VERIFY = "tlsSkipVerify";
+
+/**
+ * Two mechanisms, because the mqweb server has two.
+ *
+ * The queue manager's own authentication is a CONNAUTH object applied to its
+ * channels, and it has no bearing on reaching the web server - which is the
+ * whole management plane here, so these credentials are mqweb's rather than
+ * the queue manager's.
+ */
+export type IbmMqMechanism = "none" | "plain";
+
+export interface IbmMqDraft {
+  name: string;
+  /** The mqweb server's URL. For this family the endpoint is HTTPS. */
+  endpoints: string;
+  mechanism: IbmMqMechanism;
+  username: string;
+  password: string;
+  /** Which queue manager behind that server; discovered when there is one. */
+  queueManager: string;
+  /** The messaging interface's own account. Blank reuses the pair above. */
+  messagingUsername: string;
+  messagingPassword: string;
+  /** mqweb signs its own certificate unless it has been given a real one. */
+  tlsSkipVerify: boolean;
+  group: string;
+  remark: string;
+  timeoutSec: number;
+  /** A stored secret never comes back, so blank means "keep it". */
+  credentialsStored: boolean;
+  clearCredentials: boolean;
+}
+
+export function emptyIbmMqDraft(): IbmMqDraft {
+  return {
+    name: "",
+    endpoints: "",
+    mechanism: "plain",
+    username: "",
+    password: "",
+    queueManager: "",
+    messagingUsername: "",
+    messagingPassword: "",
+    tlsSkipVerify: false,
+    group: "",
+    remark: "",
+    timeoutSec: DEFAULT_TIMEOUT_SEC,
+    credentialsStored: false,
+    clearCredentials: false,
+  };
+}
+
+/**
+ * IBM MQ, addressed by its web server rather than by its listener.
+ *
+ * The address is the mqweb server's URL and not the queue manager's port 1414,
+ * which is unlike every other family with a broker to dial and is not a
+ * simplification: mqweb hosts both REST interfaces, and between them they are
+ * the whole of what this app needs. 1414 belongs to applications.
+ *
+ * The queue manager is a field rather than part of the address because it is a
+ * path segment on that server, and it is optional because most installations
+ * front exactly one - the driver asks and takes the answer. Filling it in is
+ * for a server fronting several, and for a profile that should say out loud
+ * which one it is for.
+ *
+ * Two credential blocks, as ActiveMQ, MQTT and NATS have. The second is
+ * optional: mqweb maps the administrative interface and the messaging one to
+ * two roles, most deployments give one account both, and IBM's developer image
+ * gives one account each - which is exactly when this pair is needed.
+ */
+export function IbmMqForm({
+  value,
+  onChange,
+}: {
+  value: IbmMqDraft;
+  onChange: (next: IbmMqDraft) => void;
+}) {
+  const { t } = useTranslation();
+  const set = <K extends keyof IbmMqDraft>(key: K, next: IbmMqDraft[K]) =>
+    onChange({ ...value, [key]: next });
+  const [advancedOpen, setAdvancedOpen] = useState(
+    value.timeoutSec !== DEFAULT_TIMEOUT_SEC ||
+      value.remark !== "" ||
+      value.messagingUsername !== "" ||
+      value.tlsSkipVerify,
+  );
+  const stored = value.credentialsStored && !value.clearCredentials;
+
+  return (
+    <>
+      <div style={GRID}>
+        <Fld label={t("page.connections.form.name")}>
+          <Input
+            value={value.name}
+            placeholder="ibmmq-prod"
+            onChange={(event) => set("name", event.target.value)}
+          />
+        </Fld>
+        <Fld label={t("page.connections.form.ibmmq.mechanism")}>
+          <SelectField<IbmMqMechanism>
+            value={value.mechanism}
+            options={[
+              { value: "plain", label: t("page.connections.form.ibmmq.mechanismPlain") },
+              { value: "none", label: t("page.connections.form.ibmmq.mechanismNone") },
+            ]}
+            onValueChange={(next) =>
+              onChange({
+                ...value,
+                mechanism: next,
+                username: next === "plain" ? value.username : "",
+                password: next === "plain" ? value.password : "",
+              })
+            }
+          />
+        </Fld>
+        <Fld
+          span
+          label={t("page.connections.form.ibmmq.mqweb")}
+          hint={t("page.connections.form.ibmmq.mqwebHint")}
+        >
+          <Input
+            className="mono3"
+            style={MONO}
+            value={value.endpoints}
+            placeholder="https://mq.example.com:9443"
+            onChange={(event) => set("endpoints", event.target.value)}
+          />
+        </Fld>
+        <Fld
+          span
+          label={t("page.connections.form.ibmmq.queueManager")}
+          hint={t("page.connections.form.ibmmq.queueManagerHint")}
+        >
+          <Input
+            className="mono3"
+            style={MONO}
+            value={value.queueManager}
+            placeholder="QM1"
+            onChange={(event) => set("queueManager", event.target.value)}
+          />
+        </Fld>
+        {value.mechanism === "plain" && (
+          <>
+            <Fld
+              label={t("page.connections.form.username")}
+              hint={
+                stored ? (
+                  <button
+                    type="button"
+                    className="mqs-linkbtn"
+                    onClick={() => set("clearCredentials", true)}
+                  >
+                    {t("page.connections.form.clearCredentials")}
+                  </button>
+                ) : (
+                  t("page.connections.form.ibmmq.adminHint")
+                )
+              }
+            >
+              <Input
+                value={value.username}
+                placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+                onChange={(event) => set("username", event.target.value)}
+              />
+            </Fld>
+            <Fld label={t("page.connections.form.password")}>
+              <Input
+                type="password"
+                value={value.password}
+                placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+                onChange={(event) => set("password", event.target.value)}
+              />
+            </Fld>
+          </>
+        )}
+      </div>
+
+      <FormNote
+        advanced={
+          <button
+            type="button"
+            className="mqs-disclosure"
+            aria-expanded={advancedOpen}
+            onClick={() => setAdvancedOpen((open) => !open)}
+          >
+            <ChevronRight size={12} aria-hidden />
+            {t("page.connections.form.rocketmq.advanced")}
+          </button>
+        }
+        note={t("page.connections.form.ibmmq.note")}
+      />
+      {advancedOpen && (
+        <div style={GRID}>
+          <Fld
+            label={t("page.connections.form.ibmmq.messagingUsername")}
+            hint={t("page.connections.form.ibmmq.messagingHint")}
+          >
+            <Input
+              value={value.messagingUsername}
+              placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+              onChange={(event) => set("messagingUsername", event.target.value)}
+            />
+          </Fld>
+          <Fld label={t("page.connections.form.ibmmq.messagingPassword")}>
+            <Input
+              type="password"
+              value={value.messagingPassword}
+              placeholder={stored ? t("page.connections.form.secretStored") : undefined}
+              onChange={(event) => set("messagingPassword", event.target.value)}
+            />
+          </Fld>
+          <Fld
+            label={t("page.connections.form.rocketmq.timeout")}
+            hint={t("page.connections.form.rocketmq.timeoutHint")}
+          >
+            <Input
+              type="number"
+              value={value.timeoutSec > 0 ? String(value.timeoutSec) : ""}
+              onChange={(event) => {
+                const seconds = Number.parseInt(event.target.value, 10);
+                set("timeoutSec", Number.isNaN(seconds) ? 0 : seconds);
+              }}
+            />
+          </Fld>
+          <Fld
+            label={t("page.connections.form.remark")}
+            hint={t("page.connections.form.remarkHint")}
+          >
+            <Input value={value.remark} onChange={(event) => set("remark", event.target.value)} />
+          </Fld>
+          <Fld
+            span
+            label={t("page.connections.form.ibmmq.skipVerify")}
+            hint={t("page.connections.form.ibmmq.skipVerifyHint")}
+          >
+            <div style={SWITCH_ROW}>
+              <Switch
+                checked={value.tlsSkipVerify}
+                onCheckedChange={(next: boolean) => set("tlsSkipVerify", next)}
+              />
+              <span style={{ color: "var(--c-muted)" }}>
+                {t("page.connections.form.kafka.skipVerifyNote")}
+              </span>
+            </div>
+          </Fld>
+        </div>
+      )}
+    </>
+  );
+}

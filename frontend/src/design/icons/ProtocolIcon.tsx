@@ -134,6 +134,33 @@ function KinesisGlyph({ size = 14, color = "currentColor", ...rest }: IconBasePr
   );
 }
 
+/**
+ * Two ends joined by a link, which is the object IBM MQ is arranged around and
+ * the one no other family here has: nothing reaches a queue manager except
+ * through a channel somebody defined, whether that is an application, another
+ * queue manager or a cluster.
+ */
+function IbmMqGlyph({ size = 14, color = "currentColor", ...rest }: IconBaseProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...rest}
+    >
+      <rect x="2" y="7" width="6" height="10" rx="1.5" />
+      <rect x="16" y="7" width="6" height="10" rx="1.5" />
+      <path d="M8 12h8" />
+      <path d="M13 9.5 16 12l-3 2.5" />
+    </svg>
+  );
+}
+
 const GLYPH: Record<ProtocolId, { icon: IconType; color: string }> = {
   rocketmq: { icon: SiApacherocketmq, color: "#D77310" },
   kafka: { icon: SiApachekafka, color: "var(--c-brand-kafka)" },
@@ -149,6 +176,7 @@ const GLYPH: Record<ProtocolId, { icon: IconType; color: string }> = {
   nsq: { icon: NsqGlyph, color: "var(--c-brand-nsq)" },
   sqs: { icon: SqsGlyph, color: "var(--c-brand-sqs)" },
   kinesis: { icon: KinesisGlyph, color: "var(--c-brand-kinesis)" },
+  ibmmq: { icon: IbmMqGlyph, color: "var(--c-brand-ibmmq)" },
   // Simple Icons does carry this one, in a pale blue meant for a dark
   // ground, so the token is what keeps it legible on a light one.
   "google-pubsub": { icon: SiGooglepubsub, color: "var(--c-brand-google-pubsub)" },

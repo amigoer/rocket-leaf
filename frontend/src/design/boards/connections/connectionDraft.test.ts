@@ -9,6 +9,7 @@ import {
   emptyRedisDraft,
   emptyRocketMQDraft,
   emptyKinesisDraft,
+  emptyIbmMqDraft,
   emptySqsDraft,
   emptyGooglePubSubDraft,
   emptyAzureServiceBusDraft,
@@ -815,6 +816,7 @@ describe("the draft registry", () => {
       "google-pubsub",
       "azure-servicebus",
       "kinesis",
+      "ibmmq",
     ] as const) {
       expect(isDraftable(protocol)).toBe(true);
       expect(emptyDraft(protocol).protocol).toBe(protocol);
@@ -826,13 +828,13 @@ describe("the draft registry", () => {
   // has a form now, so the list of exceptions is empty and a loop over it
   // would pass vacuously. What is pinned instead is that every tile has one,
   // and that the gate still refuses a name that is not a protocol here at all
-  // - ibmmq is next on the roadmap and has no driver, which is what makes it
+  // - solace is next on the roadmap and has no driver, which is what makes it
   // the honest stand-in.
   it("has a form for every protocol the picker can draw", () => {
     for (const protocol of Object.values(PROTOCOLS)) {
       expect(isDraftable(protocol.id)).toBe(true);
     }
-    expect(isDraftable("ibmmq" as unknown as ProtocolId)).toBe(false);
+    expect(isDraftable("solace" as unknown as ProtocolId)).toBe(false);
   });
 });
 
@@ -1064,6 +1066,126 @@ describe("the Kinesis connection draft", () => {
     expect(draft.value.credentialsStored).toBe(true);
     expect(draft.value.accessKeyId).toBe("");
     expect(draft.value.secretAccessKey).toBe("");
+  });
+});
+
+/**
+ * The first form since ActiveMQ's with two credential pairs and an address,
+ * and it is pinned separately for the reason every other family's is: each has
+ * its own submission function and its own copy of the secret names, and
+ * nothing but a test keeps them in step.
+ */
+describe("the IBM MQ connection draft", () => {
+  const filled = () => ({
+    ...emptyIbmMqDraft(),
+    name: "  mq-orders  ",
+    endpoints: "  https://mq.example:9443  ",
+    username: "  mqadmin  ",
+    password: "  adminpw  ",
+    queueManager: "  QM1  ",
+    messagingUsername: "  mqapp  ",
+    messagingPassword: "  apppw  ",
+    tlsSkipVerify: true,
+  });
+
+  it("submits the web server as the address and the queue manager as an option", () => {
+    const { draft, credentialsMode } = toSubmission({ protocol: "ibmmq", value: filled() });
+
+    expect(draft.kind).toBe(MQKind.KindIBMMQ);
+    expect(draft.name).toBe("mq-orders");
+    expect(draft.endpoints).toBe("https://mq.example:9443");
+    expect(draft.options).toEqual({ queueManager: "QM1", tlsSkipVerify: "true" });
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthPlain);
+    expect(credentialsMode).toBe("replace");
+  });
+
+  // The names matter more than they look. accessKey and secretKey are
+  // reserved for RocketMQ's ACL and are cleared on save for any other family,
+  // so a rename here loses the credential silently.
+  it("stores both credential pairs under names of its own", () => {
+    const { draft } = toSubmission({ protocol: "ibmmq", value: filled() });
+
+    expect(draft.secrets).toEqual({
+      username: "mqadmin",
+      password: "adminpw",
+      messagingUsername: "mqapp",
+      messagingPassword: "apppw",
+    });
+    expect(draft.secrets).not.toHaveProperty("accessKey");
+    expect(draft.secrets).not.toHaveProperty("secretKey");
+  });
+
+  // An empty messaging pair is not an unfinished form: it is what tells the
+  // driver to reach both interfaces with the administrative account, which is
+  // the ordinary deployment.
+  it("submits an empty messaging pair when the same account serves both interfaces", () => {
+    const { draft } = toSubmission({
+      protocol: "ibmmq",
+      value: {
+        ...emptyIbmMqDraft(),
+        name: "mq-orders",
+        endpoints: "https://mq.example:9443",
+        username: "mqadmin",
+        password: "adminpw",
+      },
+    });
+
+    expect(draft.secrets?.messagingUsername).toBe("");
+    expect(draft.secrets?.messagingPassword).toBe("");
+  });
+
+  it("drops both pairs when the connection authenticates nobody", () => {
+    const { draft } = toSubmission({
+      protocol: "ibmmq",
+      value: { ...filled(), mechanism: "none" },
+    });
+
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthNone);
+    expect(draft.secrets).toEqual({
+      username: "",
+      password: "",
+      messagingUsername: "",
+      messagingPassword: "",
+    });
+  });
+
+  it("keeps a stored credential when the form is reopened and nothing retyped", () => {
+    const { draft, credentialsMode } = toSubmission({
+      protocol: "ibmmq",
+      value: {
+        ...emptyIbmMqDraft(),
+        name: "mq-orders",
+        endpoints: "https://mq.example:9443",
+        credentialsStored: true,
+      },
+    });
+
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthPlain);
+    expect(credentialsMode).toBe("preserve");
+  });
+
+  it("reads a stored profile back without inventing a credential", () => {
+    const profile = {
+      id: 12,
+      name: "mq-orders",
+      group: "",
+      kind: MQKind.KindIBMMQ,
+      endpoints: "https://mq.example:9443",
+      timeoutSec: 10,
+      authMechanism: AuthMechanism.AuthPlain,
+      options: { queueManager: "QM1", tlsSkipVerify: "true" },
+      secretsConfigured: ["username", "password"],
+      remark: "",
+    } as unknown as ConnectionProfile;
+
+    const draft = toDraft(profile);
+    if (draft.protocol !== "ibmmq") throw new Error("expected an ibmmq draft");
+    expect(draft.value.endpoints).toBe("https://mq.example:9443");
+    expect(draft.value.queueManager).toBe("QM1");
+    expect(draft.value.tlsSkipVerify).toBe(true);
+    expect(draft.value.credentialsStored).toBe(true);
+    expect(draft.value.username).toBe("");
+    expect(draft.value.messagingPassword).toBe("");
   });
 });
 

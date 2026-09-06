@@ -725,6 +725,34 @@
       "degraded": {
         "positionInDynamo": "Kinesis 流只记录某个消费者已注册，完全不记录它读到了哪里。经典消费者把位点存在 KCL 自己的 DynamoDB 表里，增强扇出消费者则根本不保存位点——所以任何连接都报不出积压，而一次读取返回的 millisBehindLatest 是本应用自己的滞后量，不是任何消费者的。"
       }
+    },
+    "ibmmq": {
+      "name": "IBM MQ",
+      "terms": {
+        "destination": "队列",
+        "destinationPlural": "队列",
+        "subscription": "订阅",
+        "subscriptionPlural": "订阅",
+        "backlog": "深度"
+      },
+      "form": {
+        "mqweb": "mqweb 服务器",
+        "mechanism": "认证方式",
+        "authPlain": "用户名与密码",
+        "username": "用户名",
+        "password": "密码",
+        "queueManager": "队列管理器",
+        "messagingUsername": "消息接口用户名",
+        "messagingPassword": "消息接口密码"
+      },
+      "degraded": {
+        "messagingForbidden": "该用户能访问管理 REST API，但没有映射到 MQWebUser 角色，因此消息 REST API 拒绝了它。浏览和发送都走这第二个接口。请在 mqweb 服务器配置中映射该角色，或为此连接单独填写一个已具备该角色的消息接口用户。",
+        "messagingRefused": "mqweb 服务器拒绝了消息接口用户的密码。管理接口仍能应答，所以其余页面照常工作；但在凭据修正之前，浏览和发送不可用。"
+      },
+      "caveat": {
+        "browseCharacterOnly": "浏览不会取走任何东西：读完之后队列深度不变，任意多个读者都能看到同一条消息。mqweb 服务器不会返回它无法按文本解析的消息体——死信、事件消息、应用自定义结构都是如此——这些消息只会列出标识与格式，打开时会被拒绝。",
+        "sendQueueOnly": "发送的目标是队列：消息 REST API 根本没有主题端点，因此这个控制台无法发布。它也只承载字符数据，其他内容一律拒绝，所以二进制消息只能由 MQ 客户端发送。"
+      }
     }
   },
   "shell": {
@@ -937,6 +965,16 @@
         "consumers": "消费者",
         "messages": "记录",
         "producer": "发送",
+        "alerts": "告警"
+      },
+      "ibmmq": {
+        "overview": "总览",
+        "topics": "队列",
+        "channels": "通道",
+        "consumers": "订阅",
+        "messages": "消息",
+        "producer": "发送",
+        "dlq": "死信",
         "alerts": "告警"
       }
     }
@@ -1303,6 +1341,26 @@
           "regionRequired": "请填写 AWS 区域——它说明流在哪里，请求也用它签名。",
           "credentialPairRequired": "AWS 凭据需要成对填写。两者都留空则改用本机自身的身份。",
           "endpointScheme": "端点覆盖要填完整 URL——请以 https:// 或 http:// 开头。"
+        },
+        "ibmmq": {
+          "mechanism": "认证方式",
+          "mechanismPlain": "用户名与密码",
+          "mechanismNone": "无",
+          "mqweb": "mqweb 服务器地址",
+          "mqwebHint": "队列管理器旁边的 Web 服务器，而不是它监听的 1414 端口。本应用使用的两个 REST 接口都由它承载，默认启用 TLS。",
+          "queueManager": "队列管理器（可选）",
+          "queueManagerHint": "服务器只承载一个队列管理器时可以留空，驱动会自动发现。承载多个时请填写：它们之间互不相通，每一个都是独立的连接。",
+          "adminHint": "具备 MQWebAdmin 角色的 mqweb 账号。除消息与发送外的所有页面都通过它读取。",
+          "messagingUsername": "消息接口用户名（可选）",
+          "messagingPassword": "消息接口密码（可选）",
+          "messagingHint": "只有当 MQWebUser 角色落在另一个账号上时才需要填写——IBM 官方开发镜像就是这样，每个角色一个账号。留空则两个接口都使用上面的用户。",
+          "skipVerify": "跳过 TLS 证书校验",
+          "skipVerifyHint": "除非配置了正式证书，mqweb 会使用自签名证书，开发环境需要打开此项。证书可信的环境请保持关闭。",
+          "note": "一个 Web 服务器地址加一个队列管理器——1414 端口是留给应用的",
+          "mqwebRequired": "请填写 mqweb 服务器地址——这是本连接实际访问的地址。",
+          "mqwebScheme": "mqweb 地址是完整 URL——请以 https:// 或 http:// 开头。",
+          "queueManagerName": "队列管理器名称最长 48 个字符，只能包含字母、数字以及 . _ / % 。",
+          "messagingPairRequired": "填写了消息接口用户名就必须填写密码。两者都留空则两个接口都使用管理员账号。"
         }
       },
       "deleteTitle": "删除连接",

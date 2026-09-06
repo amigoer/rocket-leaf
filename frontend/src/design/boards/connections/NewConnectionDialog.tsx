@@ -30,6 +30,7 @@ import {
   RocketMQForm,
   SqsForm,
   GooglePubSubForm,
+  IbmMqForm,
   KinesisForm,
   AzureServiceBusForm,
 } from "./ConnectionForms";
@@ -68,6 +69,10 @@ const TILE: Record<ProtocolId, { name: string; versions: string }> = {
   // Managed, and back to a region: Kinesis is the second AWS family here and
   // is reached exactly the way SQS is.
   kinesis: { name: "Amazon Kinesis", versions: "managed" },
+  // Not managed: this one is a queue manager somebody runs, reached through
+  // the web server beside it. The version printed is the mqweb server's REST
+  // API rather than the product's, because that is what the driver speaks.
+  ibmmq: { name: "IBM MQ", versions: "9.1+ (mqweb REST)" },
 };
 
 /** What the probe last reported, drawn in the footer beside the test button. */
@@ -270,6 +275,11 @@ export function NewConnectionDialog({
         <KinesisForm
           value={draft.value}
           onChange={(next) => setDraft({ protocol: "kinesis", value: next })}
+        />
+      ) : draft.protocol === "ibmmq" ? (
+        <IbmMqForm
+          value={draft.value}
+          onChange={(next) => setDraft({ protocol: "ibmmq", value: next })}
         />
       ) : (
         <RocketMQForm

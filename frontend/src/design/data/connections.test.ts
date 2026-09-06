@@ -45,8 +45,8 @@ describe("the kind-to-protocol map", () => {
 });
 
 /**
- * What the address column shows for the four hosted families, which do not
- * agree with each other.
+ * What the address column shows for the families whose row is not simply
+ * their endpoints, which do not agree with each other.
  *
  * Every other protocol's row prints the profile's endpoints, and an SQS,
  * Kinesis or Pub/Sub profile's is deliberately empty - there is nothing to
@@ -89,6 +89,32 @@ describe("the address a connection row shows", () => {
     );
     expect(row.address).toBe("us-east-1");
     expect(row.protocol).toBe("kinesis");
+  });
+
+  /*
+   * IBM MQ has a real address and it is still not enough on its own: one mqweb
+   * server can front several queue managers, they share nothing, and two
+   * profiles pointed at two of them would otherwise print the same row.
+   */
+  it("shows the mqweb server with the queue manager for IBM MQ", () => {
+    const row = toShellConnection(
+      profileOf({
+        kind: MQKind.KindIBMMQ,
+        endpoints: "https://mq.example:9443",
+        options: { queueManager: "QM1" },
+      }),
+    );
+    expect(row.address).toBe("https://mq.example:9443/QM1");
+    expect(row.protocol).toBe("ibmmq");
+  });
+
+  // A profile that named none is asking the driver to discover the only one
+  // the server fronts, so the row prints what the profile says and no more.
+  it("shows only the server when an IBM MQ profile names no queue manager", () => {
+    const row = toShellConnection(
+      profileOf({ kind: MQKind.KindIBMMQ, endpoints: "https://mq.example:9443" }),
+    );
+    expect(row.address).toBe("https://mq.example:9443");
   });
 
   it("shows the project for Pub/Sub, which has no address either", () => {

@@ -24,6 +24,7 @@ import {
   emptyGooglePubSubDraft,
   emptyAzureServiceBusDraft,
   emptyKinesisDraft,
+  emptyIbmMqDraft,
 } from "./ConnectionForms";
 import { emptyDraft, toSubmission, type ProtocolDraft } from "./connectionDraft";
 import { countAddresses, draftInvalidReason } from "./connectionValidation";
@@ -183,6 +184,20 @@ const RULES: Record<ProtocolDraft["protocol"], Rules> = {
     bare: { protocol: "kinesis", value: { ...emptyKinesisDraft(), name: NAME } },
     firstAsk: "page.connections.form.kinesis.regionRequired",
   },
+  /*
+   * The first draft since ActiveMQ's with an address and two credential pairs.
+   * Its first refusal is the address, because that is the only field with
+   * nothing to fall back on: the queue manager is discovered when the server
+   * fronts one, and the messaging pair is reused from the administrative one.
+   */
+  ibmmq: {
+    saveable: {
+      protocol: "ibmmq",
+      value: { ...emptyIbmMqDraft(), name: NAME, endpoints: "https://mq.example:9443" },
+    },
+    bare: { protocol: "ibmmq", value: { ...emptyIbmMqDraft(), name: NAME } },
+    firstAsk: "page.connections.form.ibmmq.mqwebRequired",
+  },
 };
 
 const PROTOCOLS = Object.keys(RULES) as ProtocolDraft["protocol"][];
@@ -310,6 +325,48 @@ describe("the connection draft's validity", () => {
     expect(draftInvalidReason(draft, key)).toBeNull();
     expect(toSubmission(draft).draft.endpoints).toBe("");
     expect(toSubmission(draft).draft.options?.region).toBe("eu-west-1");
+  });
+
+  /*
+   * IBM MQ's three, and they are its own rather than a neighbour's: the
+   * address is a URL because every REST path is built on it, the queue
+   * manager is an MQ object name, and half a messaging credential would
+   * silently send the administrative password with the username that was
+   * typed.
+   */
+  it("refuses an mqweb address with no scheme", () => {
+    const base = { ...emptyIbmMqDraft(), name: NAME, endpoints: "https://mq.example:9443" };
+    expect(draftInvalidReason({ protocol: "ibmmq", value: base }, key)).toBeNull();
+    expect(
+      draftInvalidReason({ protocol: "ibmmq", value: { ...base, endpoints: "mq.example:9443" } }, key),
+    ).toBe("page.connections.form.ibmmq.mqwebScheme");
+  });
+
+  it("refuses a queue manager name IBM MQ could not have", () => {
+    const base = { ...emptyIbmMqDraft(), name: NAME, endpoints: "https://mq.example:9443" };
+    expect(
+      draftInvalidReason({ protocol: "ibmmq", value: { ...base, queueManager: "QM1" } }, key),
+    ).toBeNull();
+    expect(
+      draftInvalidReason({ protocol: "ibmmq", value: { ...base, queueManager: "QM 1" } }, key),
+    ).toBe("page.connections.form.ibmmq.queueManagerName");
+    expect(
+      draftInvalidReason({ protocol: "ibmmq", value: { ...base, queueManager: "Q".repeat(49) } }, key),
+    ).toBe("page.connections.form.ibmmq.queueManagerName");
+  });
+
+  it("refuses half a messaging credential, which would authenticate as somebody else", () => {
+    const base = { ...emptyIbmMqDraft(), name: NAME, endpoints: "https://mq.example:9443" };
+    expect(draftInvalidReason({ protocol: "ibmmq", value: base }, key)).toBeNull();
+    expect(
+      draftInvalidReason({ protocol: "ibmmq", value: { ...base, messagingUsername: "app" } }, key),
+    ).toBe("page.connections.form.ibmmq.messagingPairRequired");
+    expect(
+      draftInvalidReason(
+        { protocol: "ibmmq", value: { ...base, messagingUsername: "app", messagingPassword: "pw" } },
+        key,
+      ),
+    ).toBeNull();
   });
 
   it("refuses half an AWS credential on the Kinesis form too", () => {

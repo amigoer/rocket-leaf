@@ -725,6 +725,34 @@
       "degraded": {
         "positionInDynamo": "A Kinesis stream records that a consumer is registered and nothing about where it has read to. A classic consumer keeps its position in a DynamoDB table the KCL owns, and an enhanced fan-out consumer keeps none at all — so no connection anywhere can report a backlog, and the millisBehindLatest on a read is this app's own lag rather than any consumer's."
       }
+    },
+    "ibmmq": {
+      "name": "IBM MQ",
+      "terms": {
+        "destination": "Queue",
+        "destinationPlural": "Queues",
+        "subscription": "Subscription",
+        "subscriptionPlural": "Subscriptions",
+        "backlog": "Depth"
+      },
+      "form": {
+        "mqweb": "mqweb server",
+        "mechanism": "Authentication",
+        "authPlain": "User and password",
+        "username": "User",
+        "password": "Password",
+        "queueManager": "Queue manager",
+        "messagingUsername": "Messaging user",
+        "messagingPassword": "Messaging password"
+      },
+      "degraded": {
+        "messagingForbidden": "This user reaches the administrative REST API but is not mapped to the MQWebUser role, so the messaging REST API refuses it. Browsing and sending go through that second interface. Map the role in the mqweb server's configuration, or give this connection a messaging user that already holds it.",
+        "messagingRefused": "The mqweb server rejected the messaging user's password. The administrative interface is answering, so the rest of the app works; browsing and sending will not until that credential is right."
+      },
+      "caveat": {
+        "browseCharacterOnly": "Browsing takes nothing away: the queue's depth is the same afterwards, and any number of readers can look at the same message. What the mqweb server will not do is hand back a body it cannot read as text — a dead letter, an event message, an application's own structure — so those messages are listed with their identifier and format, and opening one is refused.",
+        "sendQueueOnly": "A send goes to a queue: the messaging REST API has no topic endpoint at all, so this console cannot publish. It also carries character data only and refuses anything else, so a binary payload has to be sent by an MQ client rather than from here."
+      }
     }
   },
   "shell": {
@@ -937,6 +965,16 @@
         "consumers": "Consumers",
         "messages": "Records",
         "producer": "Send",
+        "alerts": "Alerts"
+      },
+      "ibmmq": {
+        "overview": "Overview",
+        "topics": "Queues",
+        "channels": "Channels",
+        "consumers": "Subscriptions",
+        "messages": "Messages",
+        "producer": "Send",
+        "dlq": "Dead letters",
         "alerts": "Alerts"
       }
     }
@@ -1303,6 +1341,26 @@
           "regionRequired": "Name an AWS region — it is what says where the streams are, and the request is signed with it.",
           "credentialPairRequired": "An AWS credential needs both halves. Leave both blank to use this machine's own identity instead.",
           "endpointScheme": "The endpoint override is a full URL — start it with https:// or http://."
+        },
+        "ibmmq": {
+          "mechanism": "Authentication",
+          "mechanismPlain": "User and password",
+          "mechanismNone": "None",
+          "mqweb": "mqweb server URL",
+          "mqwebHint": "The web server beside the queue manager, not its listener on 1414. It hosts both REST interfaces this app uses, and it is TLS by default.",
+          "queueManager": "Queue manager (optional)",
+          "queueManagerHint": "Leave blank when the server fronts one queue manager and it will be discovered. Name it when the server fronts several — they share nothing, so each one is its own connection.",
+          "adminHint": "The mqweb account that holds the MQWebAdmin role. Every board except messages and send reads through it.",
+          "messagingUsername": "Messaging user (optional)",
+          "messagingPassword": "Messaging password (optional)",
+          "messagingHint": "Only needed where the MQWebUser role sits on a different account — IBM's developer image is one such, with one account per role. Left blank the user above is used for both.",
+          "skipVerify": "Skip TLS verification",
+          "skipVerifyHint": "mqweb signs its own certificate unless it has been given a real one, so a development server needs this. Leave it off anywhere the certificate is trusted.",
+          "note": "A web server URL and a queue manager — the listener on 1414 is for applications",
+          "mqwebRequired": "Give the mqweb server's URL — it is what this connection dials.",
+          "mqwebScheme": "The mqweb address is a full URL — start it with https:// or http://.",
+          "queueManagerName": "A queue manager name is at most 48 characters of letters, digits and . _ / %.",
+          "messagingPairRequired": "A messaging user needs a password. Leave both blank to use the administrative user for both interfaces."
         }
       },
       "deleteTitle": "Delete connection",
