@@ -150,6 +150,8 @@ func capabilities() []model.Capability {
 		model.CapDestinationList,
 		model.CapDestinationCreate,
 		model.CapDestinationDelete,
+
+		model.CapChannels,
 	}
 }
 

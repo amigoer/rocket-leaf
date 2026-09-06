@@ -27,6 +27,11 @@ const requires: Record<string, Capability | Capability[]> = {
   // hash space, and a parent it was split from, and a family that reported a
   // count would have nothing to draw here.
   shards: Capability.CapShards,
+  // Only IBM MQ, and deliberately not CapClientInspect. That capability's page
+  // lists the connections open right now; a channel is the definition they
+  // have to come through, it is there with nothing connected, and one of them
+  // carries many connections at once.
+  channels: Capability.CapChannels,
   consumers: Capability.CapSubscriptionList,
   // Only RabbitMQ has exchanges, and the sidebar is where that shows: a
   // family without them must not draw the entry at all.

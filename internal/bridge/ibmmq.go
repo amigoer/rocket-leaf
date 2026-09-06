@@ -80,3 +80,14 @@ func (s *IBMMQService) CreateDestination(connID int, input IBMMQDestinationInput
 func (s *IBMMQService) RemoveDestination(connID int, name string, purge bool) error {
 	return s.service.RemoveDestination(context.Background(), connID, name, purge)
 }
+
+// Channels lists every channel definition and what is running on it.
+//
+// Definitions rather than connections, and the difference is the page: a
+// channel is listed whether or not anything is using it, because it is what
+// decides whether anything may - so a queue manager whose applications are all
+// idle still has rows here, which is exactly when somebody is looking for why
+// they cannot connect.
+func (s *IBMMQService) Channels(connID int) ([]*model.Channel, error) {
+	return s.service.Channels(context.Background(), connID)
+}

@@ -1,5 +1,7 @@
 import { IBMMQService } from "@bindings/bridge";
 import type { IBMMQDestinationInput } from "@bindings/bridge/models";
+import type { Channel } from "@bindings/model/models";
+import { present } from "./client";
 
 export type { IBMMQDestinationInput };
 
@@ -35,3 +37,12 @@ export const createDestination = (connID: number, input: IBMMQDestinationInput):
  */
 export const removeDestination = (connID: number, name: string, purge: boolean): Promise<void> =>
   IBMMQService.RemoveDestination(connID, name, purge);
+
+/**
+ * Every channel definition, with what is running folded in.
+ *
+ * Definitions rather than connections: a channel is listed whether or not
+ * anything is using it, because it is what decides whether anything may.
+ */
+export const channels = async (connID: number): Promise<Channel[]> =>
+  present(await IBMMQService.Channels(connID));

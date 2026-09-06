@@ -5514,6 +5514,39 @@
         "deleteDesc": "The definition is removed. A queue an application currently has open is refused by the queue manager.",
         "deleteHolding": "This queue holds {{count}} messages and they go with it. They are discarded rather than moved to the dead-letter queue, and there is no undo.",
         "deleteFailed": "Could not delete"
+      },
+      "channels": {
+        "count": "{{count}} channels",
+        "search": "Search by name or connection",
+        "name": "Channel",
+        "type": "Type",
+        "status": "Status",
+        "substate": "Waiting on",
+        "instances": "Running",
+        "messages": "Messages",
+        "bytesSent": "Bytes sent",
+        "bytesReceived": "Bytes received",
+        "connectionName": "Connection",
+        "transmissionQueue": "Transmission queue",
+        "description": "Description",
+        "remoteQueueManager": "Partner queue manager",
+        "startedAt": "Started",
+        "lastMessageAt": "Last message",
+        "neverStarted": "never started",
+        "notRunHere": "not run here",
+        "inDoubtBadge": "In doubt",
+        "inDoubtNote": "This channel sent a batch and never learned whether the other end kept it. The messages are neither delivered nor resendable until somebody resolves the channel.",
+        "stopRequestedNote": "An operator has asked this channel to stop. It will do so at the end of its current batch, so it can still look busy for a while.",
+        "group": {
+          "client": "client",
+          "message": "message",
+          "cluster": "cluster"
+        },
+        "section": {
+          "definition": "Definition",
+          "runtime": "Runtime"
+        },
+        "note": "Definitions, not connections: a channel is listed whether or not anything is using it, because it is what decides whether anything may. An empty status is a real answer — a channel nobody has started has none, and a client-connection definition is one this queue manager holds on behalf of clients and never runs. The counters are one instance's totals since it started and reset when it restarts."
       }
     }
   }

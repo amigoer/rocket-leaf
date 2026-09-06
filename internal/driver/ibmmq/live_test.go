@@ -645,3 +645,131 @@ func c8put(t *testing.T, conn *Conn, queue, body string) error {
 		"text/plain;charset=utf-8", []byte(body), nil)
 	return err
 }
+
+/*
+ * The channels page, and the reason it is not the clients page.
+ *
+ * Every channel the queue manager has is a definition somebody made: it is
+ * listed whether or not anything is using it, and the SVRCONN definitions -
+ * how every client application reaches the queue manager at all - are the ones
+ * the REST channel resource does not return, which is why this driver reads
+ * MQSC instead. A listing that missed them would be missing the row anybody
+ * opens the page for.
+ */
+func TestLiveListChannelsIncludesTheOnesClientsArriveOn(t *testing.T) {
+	conn := liveConn(t)
+
+	channels, err := conn.ListChannels(liveContext(t))
+	if err != nil {
+		t.Fatalf("ListChannels: %v", err)
+	}
+	if len(channels) == 0 {
+		t.Fatal("no channels at all; a fresh queue manager defines a dozen")
+	}
+
+	byName := make(map[string]*model.Channel, len(channels))
+	types := make(map[model.ChannelType]int, 8)
+	for _, channel := range channels {
+		byName[channel.Name] = channel
+		types[channel.Type]++
+	}
+
+	// The developer image's own, and the type the REST resource omits.
+	client := byName["DEV.APP.SVRCONN"]
+	if client == nil {
+		t.Fatal("DEV.APP.SVRCONN is missing; the REST channel resource returns no " +
+			"server-connection channel, which is why this reads MQSC")
+	}
+	if client.Type != model.ChannelServerConnection {
+		t.Errorf("DEV.APP.SVRCONN is a %q", client.Type)
+	}
+	if types[model.ChannelServerConnection] == 0 || types[model.ChannelSender] == 0 {
+		t.Errorf("the listing holds %v; both a client-facing and a message channel are defined",
+			types)
+	}
+}
+
+/*
+ * A channel that is not running is what the page exists to show, and a fresh
+ * queue manager cannot produce one: every channel it ships is defined and has
+ * never been started. The seed starts one against an unroutable address, which
+ * is the state an operator actually goes looking for.
+ */
+func TestLiveAChannelThatCannotConnectSaysSo(t *testing.T) {
+	conn := liveConn(t)
+
+	channels, err := conn.ListChannels(liveContext(t))
+	if err != nil {
+		t.Fatalf("ListChannels: %v", err)
+	}
+
+	var started *model.Channel
+	for _, channel := range channels {
+		if channel.Name == seedChannel {
+			started = channel
+		}
+	}
+	if started == nil {
+		e2e.Missing(t, "%s is not defined; run: npm run e2e:ibmmq:seed", seedChannel)
+		return
+	}
+
+	if started.Status == "" {
+		t.Fatalf("%s reports no status at all; the seed started it", seedChannel)
+	}
+	if started.Status == model.ChannelRunning {
+		t.Errorf("%s is running, and it points at an address in TEST-NET-1", seedChannel)
+	}
+	if started.Instances < 1 {
+		t.Errorf("%s reports %d instances while carrying a status", seedChannel, started.Instances)
+	}
+	// The configured address survives onto the row: without it a reader cannot
+	// tell a channel that is retrying from one that was never given a partner.
+	if !strings.Contains(started.ConnectionName, "192.0.2.10") {
+		t.Errorf("%s reports connection name %q, want the seed's unroutable address",
+			seedChannel, started.ConnectionName)
+	}
+	if started.TransmissionQueue == "" {
+		t.Errorf("%s names no transmission queue, and a sender without one is misconfigured",
+			seedChannel)
+	}
+}
+
+/*
+ * A definition with nothing running reports no status, and that is not the
+ * same as stopped.
+ *
+ * It is the distinction the whole page turns on: "inactive" is the normal
+ * state of a channel nobody uses, and the same channel reporting "retrying"
+ * means something is wrong. A driver that defaulted the empty case to a word
+ * would erase the difference.
+ */
+func TestLiveAChannelNobodyHasStartedReportsNoStatus(t *testing.T) {
+	conn := liveConn(t)
+
+	channels, err := conn.ListChannels(liveContext(t))
+	if err != nil {
+		t.Fatalf("ListChannels: %v", err)
+	}
+
+	for _, channel := range channels {
+		if channel.Name != "SYSTEM.DEF.SENDER" {
+			continue
+		}
+		if channel.Status != "" {
+			t.Errorf("SYSTEM.DEF.SENDER reports status %q, and nothing has ever started it",
+				channel.Status)
+		}
+		if channel.Instances != 0 {
+			t.Errorf("SYSTEM.DEF.SENDER reports %d instances", channel.Instances)
+		}
+		// A count of zero would read as "has carried nothing", which is a
+		// different statement from "has never run".
+		if channel.Messages != model.UnknownMetric {
+			t.Errorf("SYSTEM.DEF.SENDER reports %d messages rather than none at all",
+				channel.Messages)
+		}
+		return
+	}
+	t.Error("SYSTEM.DEF.SENDER is missing; every queue manager defines it")
+}

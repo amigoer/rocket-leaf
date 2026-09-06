@@ -380,21 +380,8 @@ func isInternal(name string) bool {
 	return strings.HasPrefix(name, "SYSTEM.")
 }
 
-// mqscTimestamp joins the two fields MQSC splits a time across.
-//
-// ALTDATE and ALTTIME are separate attributes and neither is useful alone. The
-// result is passed through as text rather than parsed: MQ prints the queue
-// manager's own local date and clock with no zone at all, and turning that
-// into an instant would be claiming an offset nobody stated.
+// mqscTimestamp is when an object was last altered, out of the two attributes
+// MQSC splits every time across.
 func mqscTimestamp(object map[string]json.RawMessage) string {
-	date := mqscString(object, "altdate")
-	clock := strings.ReplaceAll(mqscString(object, "alttime"), ".", ":")
-	switch {
-	case date == "":
-		return clock
-	case clock == "":
-		return date
-	default:
-		return date + " " + clock
-	}
+	return joinDateAndTime(mqscString(object, "altdate"), mqscString(object, "alttime"))
 }

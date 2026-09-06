@@ -14,7 +14,26 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as model$0 from "../model/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
+
+/**
+ * Channels lists every channel definition and what is running on it.
+ * 
+ * Definitions rather than connections, and the difference is the page: a
+ * channel is listed whether or not anything is using it, because it is what
+ * decides whether anything may - so a queue manager whose applications are all
+ * idle still has rows here, which is exactly when somebody is looking for why
+ * they cannot connect.
+ */
+export function Channels(connID: number): $CancellablePromise<(model$0.Channel | null)[]> {
+    return $Call.ByID(3149656599, connID).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
 
 /**
  * CreateDestination declares a queue or a topic on the queue manager.
@@ -40,3 +59,8 @@ export function QueueManager(connID: number): $CancellablePromise<string> {
 export function RemoveDestination(connID: number, name: string, purge: boolean): $CancellablePromise<void> {
     return $Call.ByID(647201913, connID, name, purge);
 }
+
+// Private type creation functions
+const $$createType0 = model$0.Channel.createFrom;
+const $$createType1 = $Create.Nullable($$createType0);
+const $$createType2 = $Create.Array($$createType1);

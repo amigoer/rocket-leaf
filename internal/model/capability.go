@@ -27,6 +27,23 @@ const (
 	// a number would drop exactly that.
 	CapShards Capability = "destination.shards"
 
+	// CapChannels is a family whose clients and peers reach it only through a
+	// named, configured object that exists whether or not anything is using
+	// it.
+	//
+	// Distinct from CapClientInspect, and the distinction is not a shade of
+	// meaning. That capability's page lists the transport connections open
+	// right now: each appears when an application connects, disappears when it
+	// goes, and is addressed by a peer address. An IBM MQ channel is a
+	// definition an administrator made. It exists with nothing connected, it
+	// is what decides whether a connection is allowed at all, one definition
+	// can have hundreds of running instances, and a message channel can sit in
+	// doubt over a batch with no client anywhere near it. A page built for
+	// connections would be empty on a queue manager whose applications are all
+	// idle, which is exactly when somebody is looking for why they cannot
+	// connect.
+	CapChannels Capability = "channel.list"
+
 	// CapDestinationPurge empties a destination without deleting it, and
 	// CapDestinationMove drains one into another. Separate capabilities
 	// because they are separate buttons with very different blast radii: one

@@ -5514,6 +5514,39 @@
         "deleteDesc": "对象定义将被移除。如果队列正被应用打开，队列管理器会拒绝删除。",
         "deleteHolding": "该队列还有 {{count}} 条消息，会随之一起删除。这些消息是被丢弃而不是转入死信队列，且无法恢复。",
         "deleteFailed": "删除失败"
+      },
+      "channels": {
+        "count": "{{count}} 个通道",
+        "search": "按名称或连接地址搜索",
+        "name": "通道",
+        "type": "类型",
+        "status": "状态",
+        "substate": "当前等待",
+        "instances": "运行实例",
+        "messages": "消息数",
+        "bytesSent": "已发送字节",
+        "bytesReceived": "已接收字节",
+        "connectionName": "连接地址",
+        "transmissionQueue": "传输队列",
+        "description": "描述",
+        "remoteQueueManager": "对端队列管理器",
+        "startedAt": "启动时间",
+        "lastMessageAt": "最近一条消息",
+        "neverStarted": "从未启动",
+        "notRunHere": "不在本端运行",
+        "inDoubtBadge": "存疑",
+        "inDoubtNote": "该通道发出了一批消息，但始终没有得知对端是否收下。在有人手动处理之前，这批消息既没有送达，也无法重发。",
+        "stopRequestedNote": "操作员已请求停止该通道。它会在当前批次结束后停止，因此这段时间里看起来仍在工作。",
+        "group": {
+          "client": "客户端",
+          "message": "消息",
+          "cluster": "集群"
+        },
+        "section": {
+          "definition": "定义",
+          "runtime": "运行状态"
+        },
+        "note": "这里列出的是定义而不是连接：不管有没有人在用，通道都会列出来，因为它决定了谁可以连进来。状态为空是有意义的答案——从未启动过的通道没有状态，而客户端连接定义是队列管理器代客户端保存的、本端从不运行。计数是单个实例自启动以来的累计值，实例重启即清零。"
       }
     }
   }

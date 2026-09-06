@@ -117,3 +117,23 @@ func (s *Service) RemoveDestination(ctx context.Context, connID int, name string
 	}
 	return api.RemoveDestination(ctx, ref)
 }
+
+/*
+ * Channels lists the objects clients and peers reach this queue manager
+ * through.
+ *
+ * Beside the canonical services because no canonical service owns this. The
+ * closest is the client service, which answers CapClientInspect with the
+ * transport connections open right now - a channel is the definition those
+ * connections have to come through, it exists with nothing connected, and one
+ * definition carries many connections at once.
+ */
+func (s *Service) Channels(ctx context.Context, connID int) ([]*model.Channel, error) {
+	api, err := s.ibmmqConn(connID, model.CapChannels)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return api.ListChannels(ctx)
+}
