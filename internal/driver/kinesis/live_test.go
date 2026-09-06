@@ -180,3 +180,140 @@ func TestLiveStreamARNResolvesANameAndRefusesAnUnknownOne(t *testing.T) {
 		t.Errorf("error does not name the stream that is missing: %v", err)
 	}
 }
+
+/*
+ * The listing, against the seeded region.
+ *
+ * Two calls per board and neither is optional: ListStreams answers with names,
+ * and every figure a row shows is on DescribeStreamSummary. What this asserts
+ * is that the fold produces one row per stream with the figures the board
+ * reads, rather than that the two calls happened.
+ */
+func TestLiveListDestinationsDescribesEveryStream(t *testing.T) {
+	conn := liveConn(t)
+
+	listed, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("ListDestinations: %v", err)
+	}
+	byName := make(map[string]*model.Destination, len(listed))
+	for _, destination := range listed {
+		byName[destination.Ref.Name] = destination
+	}
+	for _, name := range []string{seedOrders, seedSplit, seedEmpty, seedOnDemand} {
+		if byName[name] == nil {
+			e2e.Missing(t, "%s is not seeded; run `npm run e2e:kinesis:seed`", name)
+		}
+	}
+
+	orders := byName[seedOrders]
+	if orders.Partitions != 3 {
+		t.Errorf("%s reports %d open shards, want the 3 the seed created",
+			seedOrders, orders.Partitions)
+	}
+	if orders.Attribute(AttrRetentionHours) != "48" {
+		t.Errorf("retention = %q, want the 48 hours the seed set",
+			orders.Attribute(AttrRetentionHours))
+	}
+	if orders.Attribute(AttrStatus) != "ACTIVE" {
+		t.Errorf("status = %q, want ACTIVE", orders.Attribute(AttrStatus))
+	}
+	if orders.Attribute(AttrMode) != "PROVISIONED" {
+		t.Errorf("mode = %q, want PROVISIONED", orders.Attribute(AttrMode))
+	}
+	if !strings.HasSuffix(orders.Attribute(AttrARN), ":stream/"+seedOrders) {
+		t.Errorf("arn = %q, which does not name the stream", orders.Attribute(AttrARN))
+	}
+
+	// The on-demand stream is the one whose capacity nobody here chose, and
+	// the assertion is that it is not a second kind of object: it lists like
+	// any other, with a shard count the service picked.
+	onDemand := byName[seedOnDemand]
+	if onDemand.Attribute(AttrMode) != "ON_DEMAND" {
+		t.Errorf("%s mode = %q, want ON_DEMAND", seedOnDemand, onDemand.Attribute(AttrMode))
+	}
+	if onDemand.Partitions <= 0 {
+		t.Errorf("%s reports %d open shards; an on-demand stream still has some",
+			seedOnDemand, onDemand.Partitions)
+	}
+}
+
+/*
+ * The three figures this family cannot report, asserted as absent.
+ *
+ * A zero and an unknown look identical on a board that renders both as a
+ * number, and the difference is the whole reason UnknownMetric exists: a
+ * stream holding nothing and a stream whose depth nobody can measure are not
+ * the same thing. Kinesis measures none of the three.
+ */
+func TestLiveListDestinationsReportsNoDepthOrRates(t *testing.T) {
+	conn := liveConn(t)
+
+	listed, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("ListDestinations: %v", err)
+	}
+	if len(listed) == 0 {
+		e2e.Missing(t, "the region holds no streams; run `npm run e2e:kinesis:seed`")
+	}
+	for _, destination := range listed {
+		if destination.Depth != model.UnknownMetric {
+			t.Errorf("%s reports a depth of %d, and nothing in Kinesis counts stored records",
+				destination.Ref.Name, destination.Depth)
+		}
+		if destination.RateIn != model.UnknownMetric || destination.RateOut != model.UnknownMetric {
+			t.Errorf("%s reports rates (%d in, %d out), which live in CloudWatch",
+				destination.Ref.Name, destination.RateIn, destination.RateOut)
+		}
+	}
+}
+
+// The prefix narrows the listing, and it is applied here rather than by the
+// service - ListStreams has no filter of its own, unlike ListQueues.
+func TestLiveListDestinationsHonoursTheStreamPrefix(t *testing.T) {
+	requireRegion(t)
+
+	profile := liveProfile()
+	profile.Options[OptionStreamPrefix] = "MQS-SEED-o"
+	conn, err := open(liveContext(t), profile)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
+	listed, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+	if err != nil {
+		t.Fatalf("ListDestinations: %v", err)
+	}
+	if len(listed) == 0 {
+		e2e.Missing(t, "nothing matched MQS-SEED-o; run `npm run e2e:kinesis:seed`")
+	}
+	for _, destination := range listed {
+		if !strings.HasPrefix(destination.Ref.Name, "MQS-SEED-o") {
+			t.Errorf("prefix MQS-SEED-o let %q through", destination.Ref.Name)
+		}
+	}
+}
+
+// Describing one stream is one call, not a walk of the listing: an account
+// with a thousand streams must not answer for all of them to draw one row.
+func TestLiveDestinationDetailReadsOneStream(t *testing.T) {
+	conn := liveConn(t)
+
+	detail, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: seedSplit})
+	if err != nil {
+		e2e.Missing(t, "%s is not seeded; run `npm run e2e:kinesis:seed` (%v)", seedSplit, err)
+	}
+	// Two open children after the seed's split, and the closed parent is not
+	// among them - which is the whole reason the count is the open one.
+	if detail.Partitions != 2 {
+		t.Errorf("%s reports %d open shards, want the 2 the split left",
+			seedSplit, detail.Partitions)
+	}
+
+	if _, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: "MQS-TEST-absent"}); err == nil {
+		t.Fatal("described a stream that does not exist")
+	} else if !strings.Contains(err.Error(), "MQS-TEST-absent") {
+		t.Errorf("error does not name the missing stream: %v", err)
+	}
+}

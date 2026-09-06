@@ -5227,6 +5227,31 @@
         "busiest": "按订阅数排列的主题",
         "note": "这里没有集群面板，也没有吞吐曲线：服务由微软运行，速率数据在 Azure Monitor 里，需要另一套凭据。这些卡片统计的是路由在哪里断了，因为那些故障没有别的表现。"
       }
+    },
+    "kinesis": {
+      "streams": {
+        "count": "{{count}} 个流",
+        "search": "搜索流",
+        "name": "流",
+        "status": "状态",
+        "mode": "容量模式",
+        "openShards": "开放分片",
+        "consumers": "消费者",
+        "retention": "保留时长",
+        "encryption": "加密",
+        "kmsKey": "KMS 密钥",
+        "arn": "ARN",
+        "created": "创建于",
+        "shardMetrics": "分片指标",
+        "shardMetricsNone": "未发布",
+        "onDemandBadge": "按需",
+        "section": {
+          "capacity": "容量",
+          "identity": "标识"
+        },
+        "settling": "该流当前为 {{status}}。在它变为 ACTIVE 之前，任何指向它的调用都会被拒绝，而服务把这种拒绝写作「资源占用中」。",
+        "note": "没有深度也没有速率：Kinesis 既不统计流中存了多少记录，也不统计流动得多快。消费者指的是注册的扇出消费者——经典消费者把位点存在 DynamoDB 里，流本身并不知道它的存在。"
+      }
     }
   }
 }

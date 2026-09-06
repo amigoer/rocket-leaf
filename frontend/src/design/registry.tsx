@@ -81,6 +81,7 @@ import { ActiveMQWorkbench } from "./boards/activemq/ActiveMQWorkbench";
 import { QueuesSqs } from "./boards/topics/QueuesSqs";
 import { TopicsGooglePubSub } from "./boards/topics/TopicsGooglePubSub";
 import { EntitiesAzureServiceBus } from "./boards/topics/EntitiesAzureServiceBus";
+import { StreamsKinesis } from "./boards/topics/StreamsKinesis";
 import { RulesAzureServiceBus } from "./boards/topics/RulesAzureServiceBus";
 import { SubscriptionsGooglePubSub } from "./boards/consumers/SubscriptionsGooglePubSub";
 import { SubscriptionsAzureServiceBus } from "./boards/consumers/SubscriptionsAzureServiceBus";
@@ -169,6 +170,7 @@ const BOARDS: Partial<
     sqs: QueuesSqs,
     "google-pubsub": TopicsGooglePubSub,
     "azure-servicebus": EntitiesAzureServiceBus,
+    kinesis: StreamsKinesis,
   },
   exchanges: {
     rabbitmq: ExchangesRabbitMQ,

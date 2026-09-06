@@ -5227,6 +5227,31 @@
         "busiest": "Topics by subscription",
         "note": "There is no cluster panel and no throughput here: Microsoft runs the service, and the rates live in Azure Monitor under a different credential. What the tiles count instead is where routing is broken, because those are the faults with no other symptom."
       }
+    },
+    "kinesis": {
+      "streams": {
+        "count": "{{count}} streams",
+        "search": "Search streams",
+        "name": "Stream",
+        "status": "Status",
+        "mode": "Capacity mode",
+        "openShards": "Open shards",
+        "consumers": "Consumers",
+        "retention": "Retention",
+        "encryption": "Encryption",
+        "kmsKey": "KMS key",
+        "arn": "ARN",
+        "created": "Created",
+        "shardMetrics": "Shard metrics",
+        "shardMetricsNone": "None published",
+        "onDemandBadge": "On demand",
+        "section": {
+          "capacity": "Capacity",
+          "identity": "Identity"
+        },
+        "settling": "This stream is {{status}}. Every call that names it is refused until it is ACTIVE, and the service words that refusal as \"resource in use\".",
+        "note": "No depth and no rates: Kinesis counts neither what a stream holds nor how fast it moves. Consumers are the registered fan-out kind — a classic consumer keeps its position in DynamoDB and the stream never learns of it."
+      }
     }
   }
 }

@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awskinesis "github.com/aws/aws-sdk-go-v2/service/kinesis"
+	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
 
 	"github.com/amigoer/mq-studio/internal/model"
 )
@@ -87,7 +89,9 @@ func (c *Conn) live() error {
 // interface behind it, so each one arrives in the commit that implements it
 // rather than as a promise the connection cannot keep.
 func capabilities() []model.Capability {
-	return nil
+	return []model.Capability{
+		model.CapDestinationList,
+	}
 }
 
 // open builds the client and proves the credential reaches Kinesis.
@@ -173,6 +177,54 @@ func (c *Conn) rememberARN(name, arn string) {
 	if c.arns != nil && arn != "" {
 		c.arns[name] = arn
 	}
+}
+
+// activePoll is how often awaitActive asks again. Every settling operation
+// here takes seconds rather than milliseconds, so a tighter loop would only
+// spend request quota to learn the same thing.
+const activePoll = 500 * time.Millisecond
+
+/*
+ * awaitActive blocks until the stream is ACTIVE, or the context is done.
+ *
+ * Every operation that changes a stream is asynchronous: the call returns and
+ * the stream goes to CREATING or UPDATING, and the next call that names it is
+ * refused with ResourceInUseException while it is there. So an update that
+ * changes two settings has to wait between them, and the wait is here rather
+ * than in each caller.
+ *
+ * Not the SDK's own StreamExistsWaiter, which polls DescribeStream: that
+ * returns every shard of the stream on every attempt, and the answer wanted
+ * here is one field.
+ */
+func (c *Conn) awaitActive(ctx context.Context, name string) error {
+	for {
+		out, err := c.client.DescribeStreamSummary(ctx, &awskinesis.DescribeStreamSummaryInput{
+			StreamName: aws.String(name),
+		})
+		if err != nil {
+			return err
+		}
+		if out.StreamDescriptionSummary.StreamStatus == types.StreamStatusActive {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("%s was still %s when the request timed out: %w",
+				name, out.StreamDescriptionSummary.StreamStatus, ctx.Err())
+		case <-c.closed:
+			return errConnectionDown
+		case <-time.After(activePoll):
+		}
+	}
+}
+
+// forgetARN drops a cached ARN, which a delete has to do: the next call under
+// this name must ask again rather than address a stream that is on its way out.
+func (c *Conn) forgetARN(name string) {
+	c.arnsMu.Lock()
+	defer c.arnsMu.Unlock()
+	delete(c.arns, name)
 }
 
 // streamNameOf reads the name back out of a stream ARN.
