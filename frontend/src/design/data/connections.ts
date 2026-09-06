@@ -52,6 +52,7 @@ const PROTOCOL_BY_KIND: Partial<Record<MQKind, ProtocolId>> = {
   [MQKind.KindSQS]: "sqs",
   [MQKind.KindGooglePubSub]: "google-pubsub",
   [MQKind.KindAzureServiceBus]: "azure-servicebus",
+  [MQKind.KindKinesis]: "kinesis",
 };
 
 export function protocolOfKind(kind: MQKind): ProtocolId | null {
@@ -62,11 +63,11 @@ export function protocolOfKind(kind: MQKind): ProtocolId | null {
  * What the address column shows, which is not always an address.
  *
  * Most families here are reached by dialling something, so the profile's
- * endpoints field is what identifies it. Two of the three hosted ones are not:
- * SQS is reached by naming a region and signing a request, Pub/Sub by naming a
- * project and authenticating, and both leave endpoints deliberately empty - so
- * a row that printed it would leave the column blank on a perfectly good
- * connection, and two of them would look identical.
+ * endpoints field is what identifies it. Three of the four hosted ones are not:
+ * SQS and Kinesis are reached by naming a region and signing a request, Pub/Sub
+ * by naming a project and authenticating, and all three leave endpoints
+ * deliberately empty - so a row that printed it would leave the column blank on
+ * a perfectly good connection, and three of them would look identical.
  *
  * What goes there instead is whichever field says where the objects are, which
  * is the same field each form makes required.
@@ -80,6 +81,7 @@ export function protocolOfKind(kind: MQKind): ProtocolId | null {
  */
 function addressOf(profile: ConnectionProfile): string {
   if (profile.kind === MQKind.KindSQS) return profile.options?.region ?? "";
+  if (profile.kind === MQKind.KindKinesis) return profile.options?.region ?? "";
   if (profile.kind === MQKind.KindGooglePubSub) return profile.options?.projectId ?? "";
   if (profile.kind === MQKind.KindAzureServiceBus) return namespaceOf(profile.endpoints);
   return profile.endpoints;

@@ -8,6 +8,7 @@ import {
   emptyRabbitMQDraft,
   emptyRedisDraft,
   emptyRocketMQDraft,
+  emptyKinesisDraft,
   emptySqsDraft,
   emptyGooglePubSubDraft,
   emptyAzureServiceBusDraft,
@@ -813,6 +814,7 @@ describe("the draft registry", () => {
       "sqs",
       "google-pubsub",
       "azure-servicebus",
+      "kinesis",
     ] as const) {
       expect(isDraftable(protocol)).toBe(true);
       expect(emptyDraft(protocol).protocol).toBe(protocol);
@@ -824,13 +826,13 @@ describe("the draft registry", () => {
   // has a form now, so the list of exceptions is empty and a loop over it
   // would pass vacuously. What is pinned instead is that every tile has one,
   // and that the gate still refuses a name that is not a protocol here at all
-  // - kinesis is next on the roadmap and has no driver, which is what makes it
+  // - ibmmq is next on the roadmap and has no driver, which is what makes it
   // the honest stand-in.
   it("has a form for every protocol the picker can draw", () => {
     for (const protocol of Object.values(PROTOCOLS)) {
       expect(isDraftable(protocol.id)).toBe(true);
     }
-    expect(isDraftable("kinesis" as unknown as ProtocolId)).toBe(false);
+    expect(isDraftable("ibmmq" as unknown as ProtocolId)).toBe(false);
   });
 });
 
@@ -966,6 +968,102 @@ describe("the SQS connection draft", () => {
     const draft = toDraft(profile);
     if (draft.protocol !== "sqs") throw new Error("expected an sqs draft");
     expect(draft.value.credentialsStored).toBe(false);
+  });
+});
+
+/**
+ * The second addressless AWS draft, and it is pinned separately rather than
+ * folded into SQS's because nothing but review keeps the two in step: the
+ * secret names are shared strings, the mechanism rule is repeated per family,
+ * and either could be changed here alone.
+ */
+describe("the Kinesis connection draft", () => {
+  const filled = () => ({
+    ...emptyKinesisDraft(),
+    name: "  kinesis-orders  ",
+    region: "  eu-west-1  ",
+    accessKeyId: "  AKIA-example  ",
+    secretAccessKey: "  s3cret  ",
+    streamPrefix: "  team-orders-  ",
+    endpointUrl: "  https://vpce-0abc.example  ",
+  });
+
+  it("submits a region and no address", () => {
+    const { draft, credentialsMode } = toSubmission({ protocol: "kinesis", value: filled() });
+
+    expect(draft.kind).toBe(MQKind.KindKinesis);
+    expect(draft.name).toBe("kinesis-orders");
+    expect(draft.endpoints).toBe("");
+    expect(draft.options).toEqual({
+      region: "eu-west-1",
+      streamPrefix: "team-orders-",
+      endpointUrl: "https://vpce-0abc.example",
+    });
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthPlain);
+    expect(credentialsMode).toBe("replace");
+  });
+
+  // The names matter more than they look. accessKey and secretKey are
+  // reserved for RocketMQ's ACL and are cleared on save for any other family,
+  // so a rename here loses the credential silently.
+  it("stores its credentials under names of its own", () => {
+    const { draft } = toSubmission({ protocol: "kinesis", value: filled() });
+
+    expect(draft.secrets).toEqual({
+      awsAccessKeyId: "AKIA-example",
+      awsSecretAccessKey: "s3cret",
+      awsSessionToken: "",
+    });
+    expect(draft.secrets).not.toHaveProperty("accessKey");
+    expect(draft.secrets).not.toHaveProperty("secretKey");
+  });
+
+  // A blank pair is not an unfinished form: it is the SDK's default chain.
+  it("submits no mechanism when it will use the machine's own identity", () => {
+    const { draft } = toSubmission({
+      protocol: "kinesis",
+      value: { ...emptyKinesisDraft(), name: "kinesis-role", region: "eu-west-1" },
+    });
+
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthNone);
+  });
+
+  it("keeps a stored credential when the form is reopened and nothing retyped", () => {
+    const { draft, credentialsMode } = toSubmission({
+      protocol: "kinesis",
+      value: {
+        ...emptyKinesisDraft(),
+        name: "kinesis-orders",
+        region: "eu-west-1",
+        credentialsStored: true,
+      },
+    });
+
+    expect(draft.authMechanism).toBe(AuthMechanism.AuthPlain);
+    expect(credentialsMode).toBe("preserve");
+  });
+
+  it("reads a stored profile back without inventing an address", () => {
+    const profile = {
+      id: 11,
+      name: "kinesis-orders",
+      group: "",
+      kind: MQKind.KindKinesis,
+      endpoints: "",
+      timeoutSec: 10,
+      authMechanism: AuthMechanism.AuthPlain,
+      options: { region: "eu-west-1", streamPrefix: "team-orders-", endpointUrl: "" },
+      secretsConfigured: ["awsAccessKeyId", "awsSecretAccessKey"],
+      remark: "",
+    } as unknown as ConnectionProfile;
+
+    const draft = toDraft(profile);
+    if (draft.protocol !== "kinesis") throw new Error("expected a kinesis draft");
+    expect(draft.value.region).toBe("eu-west-1");
+    expect(draft.value.streamPrefix).toBe("team-orders-");
+    expect(draft.value.credentialsStored).toBe(true);
+    expect(draft.value.accessKeyId).toBe("");
+    expect(draft.value.secretAccessKey).toBe("");
   });
 });
 

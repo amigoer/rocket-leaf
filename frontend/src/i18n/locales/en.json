@@ -697,6 +697,24 @@
       "degraded": {
         "countsNotInEmulator": "The Service Bus emulator reports no message counts: a queue's and a topic's description carry no CountDetails element at all, and a subscription's carries one the SDK cannot read. Depths and backlogs are blank here and only here — a real namespace reports both."
       }
+    },
+    "kinesis": {
+      "name": "Amazon Kinesis",
+      "terms": {
+        "destination": "Stream",
+        "destinationPlural": "Streams",
+        "subscription": "Consumer",
+        "subscriptionPlural": "Consumers",
+        "backlog": "Records"
+      },
+      "form": {
+        "region": "AWS region",
+        "accessKeyId": "Access key ID",
+        "secretAccessKey": "Secret access key",
+        "sessionToken": "Session token",
+        "streamPrefix": "Stream name prefix",
+        "endpointUrl": "Endpoint override"
+      }
     }
   },
   "shell": {
@@ -899,6 +917,15 @@
         "exchanges": "Rules",
         "messages": "Messages",
         "dlq": "Dead letters",
+        "producer": "Send",
+        "alerts": "Alerts"
+      },
+      "kinesis": {
+        "overview": "Overview",
+        "topics": "Streams",
+        "shards": "Shards",
+        "consumers": "Consumers",
+        "messages": "Records",
         "producer": "Send",
         "alerts": "Alerts"
       }
@@ -1249,6 +1276,23 @@
           "credentialRequired": "Give a shared access key, or paste a connection string. Service Bus signs every call and has no ambient credential to fall back on.",
           "connectionStringMalformed": "That is not a connection string — a Service Bus one starts with Endpoint=sb:// and carries SharedAccessKeyName and SharedAccessKey.",
           "emulatorManagementNoScheme": "The emulator management host is a host and a port, with no http:// in front — 127.0.0.1:5300."
+        },
+        "kinesis": {
+          "region": "AWS region",
+          "regionHint": "Where the streams are. There is no address to type: the SDK resolves kinesis.<region>.amazonaws.com, and the request is signed for this region — one signed for another is refused.",
+          "accessKeyId": "Access key ID",
+          "secretAccessKey": "Secret access key",
+          "credentialsHint": "Leave both blank to use this machine's own AWS credentials — environment variables, the shared config file, or an instance or container role.",
+          "sessionToken": "Session token (optional)",
+          "sessionTokenHint": "Only temporary credentials carry one, and it expires with the session. A connection using STS keys stops working when they do.",
+          "streamPrefix": "Stream name prefix (optional)",
+          "streamPrefixHint": "Narrows every listing to streams whose name starts with this. ListStreams has no filter of its own, so the prefix is applied after the listing rather than by the service.",
+          "endpointUrl": "Endpoint override (optional)",
+          "endpointUrlHint": "A VPC interface endpoint, or a local emulator. The full URL, scheme included — it is still signed for the region above.",
+          "note": "A region and a credential — there is no broker to address",
+          "regionRequired": "Name an AWS region — it is what says where the streams are, and the request is signed with it.",
+          "credentialPairRequired": "An AWS credential needs both halves. Leave both blank to use this machine's own identity instead.",
+          "endpointScheme": "The endpoint override is a full URL — start it with https:// or http://."
         }
       },
       "deleteTitle": "Delete connection",

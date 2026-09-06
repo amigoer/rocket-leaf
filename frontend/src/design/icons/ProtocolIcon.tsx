@@ -107,6 +107,33 @@ function ServiceBusGlyph({ size = 14, color = "currentColor", ...rest }: IconBas
   );
 }
 
+/**
+ * A line splitting into two, which is the whole of what a Kinesis stream is
+ * and the one thing no other family here does: capacity is changed by cutting
+ * a shard in half rather than by resizing it, and the shard that was cut stays
+ * where it is holding its records.
+ */
+function KinesisGlyph({ size = 14, color = "currentColor", ...rest }: IconBaseProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...rest}
+    >
+      <path d="M2 12h6" />
+      <path d="M8 12c4 0 4-6 8-6h6" />
+      <path d="M8 12c4 0 4 6 8 6h6" />
+      <circle cx="8" cy="12" r="1.6" fill={color} stroke="none" />
+    </svg>
+  );
+}
+
 const GLYPH: Record<ProtocolId, { icon: IconType; color: string }> = {
   rocketmq: { icon: SiApacherocketmq, color: "#D77310" },
   kafka: { icon: SiApachekafka, color: "var(--c-brand-kafka)" },
@@ -121,6 +148,7 @@ const GLYPH: Record<ProtocolId, { icon: IconType; color: string }> = {
   activemq: { icon: SiApache, color: "#D22128" },
   nsq: { icon: NsqGlyph, color: "var(--c-brand-nsq)" },
   sqs: { icon: SqsGlyph, color: "var(--c-brand-sqs)" },
+  kinesis: { icon: KinesisGlyph, color: "var(--c-brand-kinesis)" },
   // Simple Icons does carry this one, in a pale blue meant for a dark
   // ground, so the token is what keeps it legible on a light one.
   "google-pubsub": { icon: SiGooglepubsub, color: "var(--c-brand-google-pubsub)" },

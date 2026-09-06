@@ -45,13 +45,14 @@ describe("the kind-to-protocol map", () => {
 });
 
 /**
- * What the address column shows for the three hosted families, which do not
+ * What the address column shows for the four hosted families, which do not
  * agree with each other.
  *
- * Every other protocol's row prints the profile's endpoints, and an SQS or
- * Pub/Sub profile's is deliberately empty - there is nothing to dial. Printed
- * as-is that leaves the column blank on a perfectly good connection, and two
- * connections to different regions, or different projects, look identical.
+ * Every other protocol's row prints the profile's endpoints, and an SQS,
+ * Kinesis or Pub/Sub profile's is deliberately empty - there is nothing to
+ * dial. Printed as-is that leaves the column blank on a perfectly good
+ * connection, and two connections to different regions, or different projects,
+ * look identical.
  *
  * Service Bus is the hosted family that does dial something, so its row prints
  * endpoints like any other - normalised, because the field takes three
@@ -80,6 +81,14 @@ describe("the address a connection row shows", () => {
     );
     expect(row.address).toBe("eu-west-1");
     expect(row.protocol).toBe("sqs");
+  });
+
+  it("shows the region for Kinesis, the second family with no address", () => {
+    const row = toShellConnection(
+      profileOf({ kind: MQKind.KindKinesis, options: { region: "us-east-1" } }),
+    );
+    expect(row.address).toBe("us-east-1");
+    expect(row.protocol).toBe("kinesis");
   });
 
   it("shows the project for Pub/Sub, which has no address either", () => {

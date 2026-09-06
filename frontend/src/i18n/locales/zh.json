@@ -697,6 +697,24 @@
       "degraded": {
         "countsNotInEmulator": "Service Bus 模拟器不报告消息数量：队列和主题的描述里根本没有 CountDetails 元素，订阅的那个 SDK 也读不了。因此这里——也只有这里——深度和积压是空的；真实命名空间两者都会报告。"
       }
+    },
+    "kinesis": {
+      "name": "Amazon Kinesis",
+      "terms": {
+        "destination": "流",
+        "destinationPlural": "流",
+        "subscription": "消费者",
+        "subscriptionPlural": "消费者",
+        "backlog": "记录"
+      },
+      "form": {
+        "region": "AWS 区域",
+        "accessKeyId": "Access key ID",
+        "secretAccessKey": "Secret access key",
+        "sessionToken": "会话令牌",
+        "streamPrefix": "流名称前缀",
+        "endpointUrl": "端点覆盖"
+      }
     }
   },
   "shell": {
@@ -899,6 +917,15 @@
         "exchanges": "规则",
         "messages": "消息",
         "dlq": "死信",
+        "producer": "发送",
+        "alerts": "告警"
+      },
+      "kinesis": {
+        "overview": "概览",
+        "topics": "流",
+        "shards": "分片",
+        "consumers": "消费者",
+        "messages": "记录",
         "producer": "发送",
         "alerts": "告警"
       }
@@ -1249,6 +1276,23 @@
           "credentialRequired": "请填写共享访问密钥，或粘贴连接字符串。Service Bus 每次调用都要签名，没有可回退的环境凭据。",
           "connectionStringMalformed": "这不是连接字符串——Service Bus 的连接字符串以 Endpoint=sb:// 开头，并带有 SharedAccessKeyName 和 SharedAccessKey。",
           "emulatorManagementNoScheme": "模拟器管理地址是 host 加端口，前面不要写 http://，例如 127.0.0.1:5300。"
+        },
+        "kinesis": {
+          "region": "AWS 区域",
+          "regionHint": "流所在的位置。这里没有地址可填：SDK 会解析 kinesis.<region>.amazonaws.com，请求按该区域签名——按其他区域签名的请求会被拒绝。",
+          "accessKeyId": "Access key ID",
+          "secretAccessKey": "Secret access key",
+          "credentialsHint": "两者都留空即使用本机自身的 AWS 凭据——环境变量、共享配置文件，或实例、容器角色。",
+          "sessionToken": "会话令牌（可选）",
+          "sessionTokenHint": "只有临时凭据才带它，且会随会话过期。使用 STS 密钥的连接会在密钥失效时停止工作。",
+          "streamPrefix": "流名称前缀（可选）",
+          "streamPrefixHint": "把每次列表都收窄到以此开头的流。ListStreams 自身没有过滤条件，所以前缀是在列出之后应用的，而不是由服务应用。",
+          "endpointUrl": "端点覆盖（可选）",
+          "endpointUrlHint": "VPC 接口端点，或本地模拟器。要填完整 URL（含协议）——它仍按上面的区域签名。",
+          "note": "一个区域加一份凭据——这里没有 broker 地址",
+          "regionRequired": "请填写 AWS 区域——它说明流在哪里，请求也用它签名。",
+          "credentialPairRequired": "AWS 凭据需要成对填写。两者都留空则改用本机自身的身份。",
+          "endpointScheme": "端点覆盖要填完整 URL——请以 https:// 或 http:// 开头。"
         }
       },
       "deleteTitle": "删除连接",

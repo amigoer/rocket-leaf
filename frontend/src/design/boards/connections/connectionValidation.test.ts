@@ -23,6 +23,7 @@ import {
   emptySqsDraft,
   emptyGooglePubSubDraft,
   emptyAzureServiceBusDraft,
+  emptyKinesisDraft,
 } from "./ConnectionForms";
 import { emptyDraft, toSubmission, type ProtocolDraft } from "./connectionDraft";
 import { countAddresses, draftInvalidReason } from "./connectionValidation";
@@ -169,6 +170,19 @@ const RULES: Record<ProtocolDraft["protocol"], Rules> = {
     bare: { protocol: "azure-servicebus", value: { ...emptyAzureServiceBusDraft(), name: NAME } },
     firstAsk: "page.connections.form.azure-servicebus.namespaceRequired",
   },
+  /*
+   * The fourth hosted draft and the second whose address is a region. Its
+   * first refusal is the region rather than a credential, because a blank
+   * credential is a real choice here - the machine's own AWS identity.
+   */
+  kinesis: {
+    saveable: {
+      protocol: "kinesis",
+      value: { ...emptyKinesisDraft(), name: NAME, region: "eu-west-1" },
+    },
+    bare: { protocol: "kinesis", value: { ...emptyKinesisDraft(), name: NAME } },
+    firstAsk: "page.connections.form.kinesis.regionRequired",
+  },
 };
 
 const PROTOCOLS = Object.keys(RULES) as ProtocolDraft["protocol"][];
@@ -277,6 +291,46 @@ describe("the connection draft's validity", () => {
     expect(
       draftInvalidReason(
         { protocol: "sqs", value: { ...base, endpointUrl: "https://vpce-0abc.example" } },
+        key,
+      ),
+    ).toBeNull();
+  });
+
+  /*
+   * The same three assertions for the second AWS family. They are repeated
+   * rather than shared because nothing but this test keeps the two drafts in
+   * step: each has its own submission function, its own validation branch and
+   * its own copy of the secret names.
+   */
+  it("saves a Kinesis draft that names no address at all", () => {
+    const draft: ProtocolDraft = {
+      protocol: "kinesis",
+      value: { ...emptyKinesisDraft(), name: NAME, region: "eu-west-1" },
+    };
+    expect(draftInvalidReason(draft, key)).toBeNull();
+    expect(toSubmission(draft).draft.endpoints).toBe("");
+    expect(toSubmission(draft).draft.options?.region).toBe("eu-west-1");
+  });
+
+  it("refuses half an AWS credential on the Kinesis form too", () => {
+    const base = { ...emptyKinesisDraft(), name: NAME, region: "eu-west-1" };
+    expect(draftInvalidReason({ protocol: "kinesis", value: base }, key)).toBeNull();
+    expect(
+      draftInvalidReason({ protocol: "kinesis", value: { ...base, accessKeyId: "AKIA" } }, key),
+    ).toBe("page.connections.form.kinesis.credentialPairRequired");
+    expect(
+      draftInvalidReason({ protocol: "kinesis", value: { ...base, secretAccessKey: "s3cret" } }, key),
+    ).toBe("page.connections.form.kinesis.credentialPairRequired");
+  });
+
+  it("holds the Kinesis endpoint override to a full URL", () => {
+    const base = { ...emptyKinesisDraft(), name: NAME, region: "eu-west-1" };
+    expect(
+      draftInvalidReason({ protocol: "kinesis", value: { ...base, endpointUrl: "vpce-0abc" } }, key),
+    ).toBe("page.connections.form.kinesis.endpointScheme");
+    expect(
+      draftInvalidReason(
+        { protocol: "kinesis", value: { ...base, endpointUrl: "https://vpce-0abc.example" } },
         key,
       ),
     ).toBeNull();

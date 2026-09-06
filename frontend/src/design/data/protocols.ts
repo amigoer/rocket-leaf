@@ -27,6 +27,7 @@ import {
   Send,
   Server,
   Shield,
+  Split,
   TriangleAlert,
   Users,
   Waypoints,
@@ -45,11 +46,17 @@ export type ProtocolId =
   | "nsq"
   | "sqs"
   | "google-pubsub"
-  | "azure-servicebus";
+  | "azure-servicebus"
+  | "kinesis";
 
 export type PageId =
   | "overview"
   | "topics"
+  /* Only Kinesis has them, and the sidebar is where that shows. A shard is
+     not a partition number: it has an id, a hash key range, a read quota of
+     its own and - because shards are split and merged rather than resized - a
+     parent and an end. None of that fits a count on the streams page. */
+  | "shards"
   | "exchanges"
   | "vhosts"
   | "policies"
@@ -501,6 +508,46 @@ export const PROTOCOLS: Record<ProtocolId, Protocol> = {
       },
     ],
   },
+  kinesis: {
+    id: "kinesis",
+    name: "Amazon Kinesis",
+    badge: "KDS",
+    badgeClass: "pKDS",
+    /* Seven entries, and the second one in Browse is the family's own. Every
+       other partitioned family here reports a count and nothing else, which
+       the streams page can carry in a column. A shard cannot be carried that
+       way: it is named, it owns a range of the hash space, it is split and
+       merged rather than resized, and a shard closed by a split still holds
+       its records until retention expires. So the detail gets a page, and the
+       streams page keeps the count.
+
+       Consumers are the enhanced fan-out kind, which are the only readers a
+       stream knows about at all - a classic consumer keeps its position in a
+       DynamoDB table this connection never sees.
+
+       There is no cluster page, because AWS runs the service and shows no
+       node. There is no dead-letter page, because nothing is ever moved: a
+       record stays where it was written until retention expires, whether or
+       not anybody read it. And there is no access page, because who may call
+       what is IAM's, one service further out. */
+    nav: [
+      { items: [{ id: "overview", icon: House, label: "shell.nav.kinesis.overview" }] },
+      {
+        label: BROWSE,
+        items: [
+          { id: "topics", icon: Layers, label: "shell.nav.kinesis.topics" },
+          { id: "shards", icon: Split, label: "shell.nav.kinesis.shards" },
+          { id: "consumers", icon: Users, label: "shell.nav.kinesis.consumers" },
+          { id: "messages", icon: Mail, label: "shell.nav.kinesis.messages" },
+          { id: "producer", icon: Send, label: "shell.nav.kinesis.producer" },
+        ],
+      },
+      {
+        label: OPS,
+        items: [{ id: "alerts", icon: BellRing, label: "shell.nav.kinesis.alerts" }],
+      },
+    ],
+  },
 };
 
 export const PROTOCOL_ORDER: ProtocolId[] = [
@@ -516,6 +563,7 @@ export const PROTOCOL_ORDER: ProtocolId[] = [
   "sqs",
   "google-pubsub",
   "azure-servicebus",
+  "kinesis",
 ];
 
 /** Every page the protocol's sidebar can reach, flattened. */
@@ -551,6 +599,7 @@ const READY: ReadonlySet<ProtocolId> = new Set<ProtocolId>([
   "sqs",
   "google-pubsub",
   "azure-servicebus",
+  "kinesis",
 ]);
 
 export function isProtocolReady(protocol: ProtocolId): boolean {
