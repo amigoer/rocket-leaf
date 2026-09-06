@@ -88,7 +88,9 @@ func (c *Conn) live() error {
 // interface behind it, so each one arrives in the commit that implements it
 // rather than as a promise the connection cannot keep.
 func capabilities() []model.Capability {
-	return nil
+	return []model.Capability{
+		model.CapDestinationList,
+	}
 }
 
 // open builds the client and proves the credential reaches SQS.

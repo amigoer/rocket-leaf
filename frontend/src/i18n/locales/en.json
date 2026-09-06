@@ -4478,6 +4478,40 @@
         "nothingWaiting": "Nothing is waiting on any channel.",
         "note": "No rate anywhere, and no throughput chart: nsqd counts messages since it started and reports no rate at all. What the tiles separate instead is where the messages are — a backlog with consumers attached is a slow consumer, one with none is a consumer that is not running, and anything held by a topic reached no channel at all."
       }
+    },
+    "sqs": {
+      "queues": {
+        "count": "{{count}} queues",
+        "search": "Search queues",
+        "name": "Queue",
+        "visible": "Available",
+        "inFlight": "In flight",
+        "delayed": "Delayed",
+        "depth": "Held",
+        "fifoBadge": "FIFO",
+        "deadLetterQueue": "Dead-letter queue",
+        "maxReceiveCount": "Receives before dead-lettering",
+        "visibilityTimeout": "Visibility timeout",
+        "deliveryDelay": "Delivery delay",
+        "retention": "Retention",
+        "receiveWait": "Receive wait",
+        "maxMessageBytes": "Maximum message size",
+        "encrypted": "Encrypted at rest",
+        "contentDedup": "Content-based deduplication",
+        "dedupScope": "Deduplication scope",
+        "throughputLimit": "Throughput limit",
+        "arn": "ARN",
+        "created": "Created",
+        "modified": "Last changed",
+        "section": {
+          "messages": "Messages",
+          "settings": "Settings",
+          "fifo": "FIFO",
+          "identity": "Identity"
+        },
+        "allInFlight": "All {{count}} messages are in flight and none are available — something took them and has finished none of them. They come back when the visibility timeout expires.",
+        "note": "Every count is approximate: SQS reports what its servers last agreed on. Rates live in CloudWatch, not here."
+      }
     }
   }
 }

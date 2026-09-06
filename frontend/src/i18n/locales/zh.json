@@ -4478,6 +4478,40 @@
         "nothingWaiting": "所有通道都没有积压。",
         "note": "这里没有任何速率，也没有吞吐曲线：nsqd 只统计自启动以来的累计消息数，本身不上报速率。指标卡区分的是消息滞留在哪里——有消费者连着的堆积是消费慢，没有消费者的堆积是消费者没在跑，而滞留在主题里的则根本没进入任何通道。"
       }
+    },
+    "sqs": {
+      "queues": {
+        "count": "{{count}} 个队列",
+        "search": "搜索队列",
+        "name": "队列",
+        "visible": "可取",
+        "inFlight": "处理中",
+        "delayed": "延迟中",
+        "depth": "总持有",
+        "fifoBadge": "FIFO",
+        "deadLetterQueue": "死信队列",
+        "maxReceiveCount": "进死信前的接收次数",
+        "visibilityTimeout": "可见性超时",
+        "deliveryDelay": "投递延迟",
+        "retention": "保留时长",
+        "receiveWait": "接收等待",
+        "maxMessageBytes": "单条消息上限",
+        "encrypted": "静态加密",
+        "contentDedup": "基于内容去重",
+        "dedupScope": "去重范围",
+        "throughputLimit": "吞吐限制",
+        "arn": "ARN",
+        "created": "创建时间",
+        "modified": "最后修改",
+        "section": {
+          "messages": "消息",
+          "settings": "配置",
+          "fifo": "FIFO",
+          "identity": "标识"
+        },
+        "allInFlight": "全部 {{count}} 条都在处理中、没有一条可取——有消费者把它们取走了却一条都没处理完。等可见性超时到期后它们会重新出现。",
+        "note": "所有计数都是近似值：SQS 返回的是它各台服务器最近达成一致的数字。速率在 CloudWatch，不在这里。"
+      }
     }
   }
 }

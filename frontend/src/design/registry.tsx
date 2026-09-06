@@ -78,6 +78,7 @@ import { ServersNats } from "./boards/cluster/ServersNats";
 import { MqttWorkbench } from "./boards/mqtt/MqttWorkbench";
 import { NatsWorkbench } from "./boards/nats/NatsWorkbench";
 import { ActiveMQWorkbench } from "./boards/activemq/ActiveMQWorkbench";
+import { QueuesSqs } from "./boards/topics/QueuesSqs";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
 import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
@@ -145,6 +146,7 @@ const BOARDS: Partial<
     nats: StreamsNats,
     activemq: DestinationsActiveMQ,
     nsq: TopicsNsq,
+    sqs: QueuesSqs,
   },
   exchanges: { rabbitmq: ExchangesRabbitMQ },
   vhosts: { rabbitmq: VhostsRabbitMQ, pulsar: NamespacesPulsar, nats: AccountsNats },
