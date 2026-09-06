@@ -112,6 +112,7 @@ import { OverviewSqs } from "./boards/overview/OverviewSqs";
 import { OverviewGooglePubSub } from "./boards/overview/OverviewGooglePubSub";
 import { OverviewAzureServiceBus } from "./boards/overview/OverviewAzureServiceBus";
 import { OverviewKinesis } from "./boards/overview/OverviewKinesis";
+import { OverviewSolace } from "./boards/overview/OverviewSolace";
 import { OverviewIbmMq } from "./boards/overview/OverviewIbmMq";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
@@ -177,6 +178,7 @@ const BOARDS: Partial<
     "azure-servicebus": OverviewAzureServiceBus,
     kinesis: OverviewKinesis,
     ibmmq: OverviewIbmMq,
+    solace: OverviewSolace,
   },
   topics: {
     rocketmq: TopicsRocketMQ,

@@ -76,6 +76,12 @@ const RULE_SEVERITY: Record<AlertRuleKey, AlertSeverity> = {
   // half a second from connecting, and a snapshot cannot tell that from a
   // channel that has been retrying for an hour.
   transmissionBacklog: "warn",
+  // Solace's own, and a warning rather than critical because nothing is
+  // failing yet: the queue is working and the messages it gives up on are
+  // being discarded instead of moved. It is the shape of a fault that is
+  // invisible until somebody goes looking for a dead letter that never
+  // arrived.
+  deadMsgQueueMissing: "warn",
   slowConsumer: "warn",
 };
 

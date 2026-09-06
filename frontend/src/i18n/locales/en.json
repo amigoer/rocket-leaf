@@ -213,7 +213,8 @@
       "entityDisabled": "Entity switched off",
       "streamNotActive": "Stream still settling",
       "consumerNotActive": "Consumer registration settling",
-      "transmissionBacklog": "Transmission queue not draining"
+      "transmissionBacklog": "Transmission queue not draining",
+      "deadMsgQueueMissing": "Dead message queue does not exist"
     },
     "tabs": {
       "active": "Active",
@@ -275,7 +276,8 @@
       "entityDisabled": "{{entity}} · status {{status}}; work is refused at the client and leaves no mark on any board",
       "streamNotActive": "{{stream}} · status {{status}}; every other call that names this stream is refused as \"resource in use\" until it is ACTIVE",
       "consumerNotActive": "{{consumer}} on {{stream}} · status {{status}}; an application pointed at it now fails with an error about the consumer rather than the stream",
-      "transmissionBacklog": "{{queue}} · {{count}} waiting; a transmission queue is drained by one channel, so anything on it means that channel is stopped, retrying or was never started"
+      "transmissionBacklog": "{{queue}} · {{count}} waiting; a transmission queue is drained by one channel, so anything on it means that channel is stopped, retrying or was never started",
+      "deadMsgQueueMissing": "{{queue}} gives up on messages and sends them to {{target}}, which is not a queue in this Message VPN — so they are discarded instead."
     },
     "duration": {
       "minutes": "for {{count}} min",
@@ -5982,6 +5984,27 @@
           "msgVpn": "Message VPN"
         },
         "note": "One broker, and there will never be more here: a redundancy pair shares a virtual router and only the active half answers, and a meshed broker is its own connection. SEMP reports no broker name, so the address dialled is the identifier."
+      },
+      "overview": {
+        "subtitle": "{{vpn}} · {{queues}} queues",
+        "queues": "Queues",
+        "queuesHint": "Endpoints in this Message VPN",
+        "spooled": "Spooled",
+        "spooledHint": "Messages waiting across every queue",
+        "bound": "Bound consumers",
+        "boundHint": "Flows attached to a queue right now",
+        "spool": "Spool used",
+        "spoolHint": "This VPN's share, not the disk",
+        "discarding": "Discarding",
+        "discardingHint": "Queues that give up and have nowhere to put it",
+        "stopped": "Stopped",
+        "stoppedHint": "Queues with ingress or egress switched off",
+        "deepest": "Queues worth a look",
+        "state": "State",
+        "stateHalted": "not accepting",
+        "stateUndrained": "nothing draining it",
+        "stateOrdinary": "ordinary",
+        "note": "Every endpoint ships pointing at a dead message queue called #DEAD_MSG_QUEUE, and no broker creates one. A queue that gives up on a message and names a queue that is not there discards it instead, and nothing else reports that."
       }
     }
   }

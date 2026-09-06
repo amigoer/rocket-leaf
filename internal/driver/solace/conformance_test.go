@@ -369,3 +369,54 @@ func TestRESTReasonsAreDegradedRatherThanCaveats(t *testing.T) {
 		}
 	}
 }
+
+/*
+ * The other half of the sidebar contract, whose first half is
+ * frontend/src/mq/navigation.solace.test.ts.
+ *
+ * Neither half is worth much alone. A capability dropped here takes a finished
+ * page out of the sidebar and nothing else notices; a page added to the nav
+ * with no capability behind it is drawn and fails when it is opened. This is a
+ * hand-copied list on purpose - nothing ties a Go constant to a TypeScript
+ * enum member, so a rename has to be made in both places and be seen to be.
+ */
+func TestCapabilitiesMatchTheSidebarContract(t *testing.T) {
+	sidebar := []string{
+		"destination.list",
+		"destination.create",
+		"destination.delete",
+		"connection.scope",
+		"message.query",
+		"message.byId",
+		"message.publish",
+		"message.dlqTopology",
+		"routing.exchanges",
+		"routing.admin",
+		"cluster.topology",
+		"cluster.metrics",
+		"client.inspect",
+	}
+
+	declared := make(map[string]bool, len(capabilities()))
+	for _, capability := range capabilities() {
+		declared[string(capability)] = true
+	}
+	expected := make(map[string]bool, len(sidebar))
+	for _, capability := range sidebar {
+		expected[capability] = true
+	}
+
+	for _, capability := range sidebar {
+		if !declared[capability] {
+			t.Errorf("the sidebar expects %s and the driver no longer declares it; "+
+				"restore it or drop the page, and update navigation.solace.test.ts in the same commit",
+				capability)
+		}
+	}
+	for capability := range declared {
+		if !expected[capability] {
+			t.Errorf("the driver declares %s and the sidebar contract does not list it; "+
+				"add it to navigation.solace.test.ts in the same commit", capability)
+		}
+	}
+}

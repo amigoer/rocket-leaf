@@ -213,7 +213,8 @@
       "entityDisabled": "实体已停用",
       "streamNotActive": "流仍在变更中",
       "consumerNotActive": "消费者注册仍在变更中",
-      "transmissionBacklog": "传输队列未被清空"
+      "transmissionBacklog": "传输队列未被清空",
+      "deadMsgQueueMissing": "死信队列不存在"
     },
     "tabs": {
       "active": "活跃告警",
@@ -275,7 +276,8 @@
       "entityDisabled": "{{entity}} · 状态为 {{status}}；请求会在客户端被拒绝，任何面板上都看不出来",
       "streamNotActive": "{{stream}} · 状态 {{status}}；在它变为 ACTIVE 之前，任何指向该流的其他调用都会以「资源占用中」被拒绝",
       "consumerNotActive": "{{consumer}}（在 {{stream}} 上）· 状态 {{status}}；此时指向它的应用会收到关于消费者（而不是流）的错误",
-      "transmissionBacklog": "{{queue}} · {{count}} 条等待中；传输队列只由一个通道清空，因此队列上有消息就说明该通道已停止、正在重试，或者从未启动"
+      "transmissionBacklog": "{{queue}} · {{count}} 条等待中；传输队列只由一个通道清空，因此队列上有消息就说明该通道已停止、正在重试，或者从未启动",
+      "deadMsgQueueMissing": "{{queue}} 会放弃投递并将消息发往 {{target}}，但该 Message VPN 中并没有这个队列——这些消息实际上被直接丢弃了。"
     },
     "duration": {
       "minutes": "持续 {{count}} 分钟",
@@ -5982,6 +5984,27 @@
           "msgVpn": "Message VPN"
         },
         "note": "这里只有一个 Broker，而且永远只有一个：冗余对共享同一个虚拟路由器，只有活动的一半会响应；组网中的其他 Broker 各自是一个独立连接。SEMP 不提供 Broker 名称，因此以连接地址作为标识。"
+      },
+      "overview": {
+        "subtitle": "{{vpn}} · {{queues}} 个队列",
+        "queues": "队列",
+        "queuesHint": "该 Message VPN 中的端点",
+        "spooled": "堆积",
+        "spooledHint": "所有队列中等待的消息总数",
+        "bound": "绑定的消费者",
+        "boundHint": "当前绑定到队列的 flow",
+        "spool": "存储占用",
+        "spoolHint": "该 VPN 的配额占用，不是磁盘",
+        "discarding": "正在丢弃",
+        "discardingHint": "会放弃投递但没有去处的队列",
+        "stopped": "已停用",
+        "stoppedHint": "关闭了入站或出站的队列",
+        "deepest": "值得关注的队列",
+        "state": "状态",
+        "stateHalted": "不接收",
+        "stateUndrained": "无人消费",
+        "stateOrdinary": "正常",
+        "note": "每个端点出厂时都指向名为 #DEAD_MSG_QUEUE 的死信队列，而 Broker 从不会创建它。一个会放弃投递、却指向不存在队列的队列会直接丢弃消息，并且没有任何其他地方会报告这一点。"
       }
     }
   }
