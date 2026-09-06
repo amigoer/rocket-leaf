@@ -4600,6 +4600,17 @@
         "fifoNoDelay": "A FIFO queue takes no per-message delay — set a delivery delay on the queue instead.",
         "attributeNameRequired": "An attribute value needs a name to be sent under.",
         "fifoRepeatNote": "SQS deduplicates a FIFO send on its body for five minutes, so each copy is given its own deduplication id — otherwise all of them would arrive as one message."
+      },
+      "dlq": {
+        "count": "{{count}} dead-letter queues",
+        "name": "Queue",
+        "depth": "Held",
+        "sources": "Redriven from",
+        "sourceCount": "Sources",
+        "noSources": "nothing",
+        "redrivesHere": "redrives here",
+        "orphaned": "Nothing redrives into this queue any more. Whatever is in it will stay there: the queues that pointed here were deleted or reconfigured, and no consumer of theirs is coming back for it.",
+        "note": "Nothing marks a dead-letter queue in SQS — it is an ordinary queue another queue's redrive policy points at, so these were found by walking backwards from the queues this connection can see. Read one on the messages page; the receive limit that fills it is on the queue's own row."
       }
     }
   }

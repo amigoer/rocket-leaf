@@ -14,6 +14,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as model$0 from "../model/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 /**
@@ -24,11 +28,27 @@ export function CreateQueue(connID: number, input: $models.SQSQueueInput): $Canc
 }
 
 /**
+ * DeadLetterQueues finds the queues other queues redrive into, and which
+ * queues point at each of them.
+ * 
+ * A dead-letter queue in SQS is an ordinary queue with a redrive policy aimed
+ * at it. Nothing marks one, so this is a walk backwards through the topology -
+ * and a queue every one of whose sources sits outside the connection's queue
+ * prefix is not found, because the walk starts from what the prefix let
+ * through.
+ */
+export function DeadLetterQueues(connID: number): $CancellablePromise<(model$0.DeadLetterQueue | null)[]> {
+    return $Call.ByID(2106811128, connID).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
+
+/**
  * Publish sends to one queue and reports how many the service accepted.
  */
 export function Publish(connID: number, input: $models.SQSPublishInput): $CancellablePromise<$models.SQSPublishResult | null> {
     return $Call.ByID(2574354685, connID, input).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType4($result);
     });
 }
 
@@ -60,5 +80,8 @@ export function UpdateQueue(connID: number, input: $models.SQSQueueInput): $Canc
 }
 
 // Private type creation functions
-const $$createType0 = $models.SQSPublishResult.createFrom;
+const $$createType0 = model$0.DeadLetterQueue.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
+const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = $models.SQSPublishResult.createFrom;
+const $$createType4 = $Create.Nullable($$createType3);

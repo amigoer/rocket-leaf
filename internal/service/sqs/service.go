@@ -138,3 +138,21 @@ func (s *Service) Publish(
 	defer cancel()
 	return api.Publish(ctx, request)
 }
+
+// DeadLetterQueues finds the queues other queues redrive into.
+//
+// Beside the canonical services because no canonical service owns this: the
+// dead-letter page is answered three different ways across this app, and SQS's
+// is the topology walk - a dead-letter queue here is an ordinary queue another
+// queue's redrive policy points at.
+func (s *Service) DeadLetterQueues(ctx context.Context, connID int) ([]*model.DeadLetterQueue, error) {
+	api, err := s.sqsConn(connID, model.CapDeadLetterTopology)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	// No namespace: a queue name is flat and unique within an account and
+	// region, and SQS has nothing inside it for one to belong to.
+	return api.DeadLetterQueues(ctx, "")
+}

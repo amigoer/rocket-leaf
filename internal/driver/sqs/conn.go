@@ -109,6 +109,8 @@ func capabilities() []model.Capability {
 
 		model.CapPublish,
 		model.CapDelayedDelivery,
+
+		model.CapDeadLetterTopology,
 	}
 }
 

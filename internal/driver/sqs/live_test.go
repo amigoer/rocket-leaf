@@ -3,6 +3,7 @@ package sqs
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -1018,5 +1019,109 @@ func TestLiveSendMessageMapsTheCanonicalPort(t *testing.T) {
 	makeQueue(t, conn, QueueSpec{Name: fifo, FIFO: true})
 	if _, err := conn.SendMessage(liveContext(t), fifo, "", "acme", "ordered", 0); err != nil {
 		t.Errorf("the canonical send did not carry the group id through keys: %v", err)
+	}
+}
+
+/*
+ * A dead-letter queue is found by walking backwards, because nothing marks
+ * one: it is an ordinary queue another queue's redrive policy points at.
+ *
+ * The sources are read from the service rather than inverted from the listing,
+ * so this asserts both halves - the queue appears, and it names what feeds it.
+ */
+func TestLiveDeadLetterQueuesWalkTheRedrivePolicies(t *testing.T) {
+	conn := liveConn(t)
+
+	queues, err := conn.DeadLetterQueues(liveContext(t), "")
+	if err != nil {
+		t.Fatalf("dead letters: %v", err)
+	}
+
+	var seeded *model.DeadLetterQueue
+	for _, queue := range queues {
+		if queue.Name == seedDLQ {
+			seeded = queue
+		}
+	}
+	if seeded == nil {
+		e2e.Missing(t, "%s is not among the dead-letter queues; run `npm run e2e:sqs:seed`", seedDLQ)
+	}
+	if seeded.Depth != 4 {
+		t.Errorf("%s depth = %d, want the 4 the seed sent", seedDLQ, seeded.Depth)
+	}
+	// SQS keeps no record of who reads a queue, so zero would read as "nothing
+	// is draining this backlog" - the one thing this page exists to say, and
+	// the one thing the service cannot support.
+	if seeded.Consumers != model.UnknownMetric {
+		t.Errorf("%s reports %d consumers, and SQS knows of none", seedDLQ, seeded.Consumers)
+	}
+
+	sources := make([]string, 0, len(seeded.Sources))
+	for _, source := range seeded.Sources {
+		sources = append(sources, source.Queue)
+	}
+	if !slices.Contains(sources, seedOrders) {
+		t.Errorf("%s names sources %v, and %s redrives into it", seedDLQ, sources, seedOrders)
+	}
+	for _, source := range seeded.Sources {
+		// A redrive policy belongs to the queue rather than to a reader of it,
+		// and a message is moved rather than re-published - so none of the
+		// fields a RabbitMQ source carries has a counterpart here.
+		if source.Subscription != "" || source.Exchange != "" || source.RoutingKey != "" {
+			t.Errorf("%s invents a subscription, exchange or routing key: %#v", seedDLQ, source)
+		}
+	}
+
+	// A queue nothing points at is not a dead-letter queue, however full it is.
+	for _, queue := range queues {
+		if queue.Name == seedDelayed || queue.Name == seedEmpty {
+			t.Errorf("%s is not a dead-letter queue and is listed as one", queue.Name)
+		}
+	}
+}
+
+// A dead-letter queue with a backlog and no sources left is the state this
+// page exists to surface: its producers were deleted, so it will never
+// receive anything again and will never drain.
+func TestLiveDeadLetterQueuesReportsAnOrphanedOne(t *testing.T) {
+	conn := liveConn(t)
+	dlq := testName(t, "-dlq")
+	source := testName(t, "-src")
+	makeQueue(t, conn, QueueSpec{Name: dlq})
+	makeQueue(t, conn, QueueSpec{Name: source, DeadLetterQueue: dlq, MaxReceiveCount: 2})
+
+	found := func() *model.DeadLetterQueue {
+		queues, err := conn.DeadLetterQueues(liveContext(t), "")
+		if err != nil {
+			t.Fatalf("dead letters: %v", err)
+		}
+		for _, queue := range queues {
+			if queue.Name == dlq {
+				return queue
+			}
+		}
+		return nil
+	}
+
+	withSource := found()
+	if withSource == nil {
+		t.Fatalf("%s is pointed at by %s and was not found", dlq, source)
+	}
+	if len(withSource.Sources) != 1 || withSource.Sources[0].Queue != source {
+		t.Errorf("%s names sources %#v, want only %s", dlq, withSource.Sources, source)
+	}
+
+	// Taking the policy off the source has to take the queue out of the
+	// listing: it is not a dead-letter queue any more, and nothing about the
+	// queue itself changed.
+	if err := conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: source}); err != nil {
+		t.Fatalf("remove source: %v", err)
+	}
+	deadline := time.Now().Add(20 * time.Second)
+	for found() != nil {
+		if time.Now().After(deadline) {
+			t.Fatalf("%s is still listed as a dead-letter queue 20s after its only source went", dlq)
+		}
+		time.Sleep(time.Second)
 	}
 }

@@ -81,6 +81,7 @@ import { ActiveMQWorkbench } from "./boards/activemq/ActiveMQWorkbench";
 import { QueuesSqs } from "./boards/topics/QueuesSqs";
 import { MessagesSqs } from "./boards/messages/MessagesSqs";
 import { ProducerSqs } from "./boards/producer/ProducerSqs";
+import { DlqSqs } from "./boards/dlq/DlqSqs";
 import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
 import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
@@ -190,6 +191,7 @@ const BOARDS: Partial<
     pulsar: DlqPulsar,
     redis: PelRedis,
     activemq: DlqActiveMQ,
+    sqs: DlqSqs,
   },
   cluster: {
     rocketmq: ClusterRocketMQ,

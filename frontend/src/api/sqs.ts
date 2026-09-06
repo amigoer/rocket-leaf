@@ -4,7 +4,8 @@ import type {
   SQSPublishResult,
   SQSQueueInput,
 } from "@bindings/bridge/models";
-import { required } from "./client";
+import type { DeadLetterQueue } from "@bindings/model/models";
+import { present, required } from "./client";
 
 export type { SQSPublishInput, SQSPublishResult, SQSQueueInput };
 
@@ -67,3 +68,15 @@ export const purgeQueue = (connID: number, name: string): Promise<void> =>
  */
 export const publish = (connID: number, input: SQSPublishInput): Promise<SQSPublishResult> =>
   SQSService.Publish(connID, input).then(required);
+
+/**
+ * Find the queues other queues redrive into, and what points at each.
+ *
+ * A walk backwards rather than a lookup: nothing marks a dead-letter queue in
+ * SQS, it is an ordinary queue with another queue's redrive policy aimed at
+ * it. The walk starts from what the connection's queue prefix let through, so
+ * a dead-letter queue every one of whose sources sits outside that prefix is
+ * not found - widening the prefix is what makes it appear.
+ */
+export const deadLetterQueues = (connID: number): Promise<DeadLetterQueue[]> =>
+  SQSService.DeadLetterQueues(connID).then(present);

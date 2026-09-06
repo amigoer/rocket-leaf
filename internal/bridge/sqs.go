@@ -5,6 +5,7 @@ import (
 	"time"
 
 	sqsdriver "github.com/amigoer/mq-studio/internal/driver/sqs"
+	"github.com/amigoer/mq-studio/internal/model"
 	sqsservice "github.com/amigoer/mq-studio/internal/service/sqs"
 )
 
@@ -146,4 +147,16 @@ func (s *SQSService) Publish(connID int, input SQSPublishInput) (*SQSPublishResu
 		return nil, err
 	}
 	return &SQSPublishResult{Sent: result.Sent, MessageID: result.MessageID}, nil
+}
+
+// DeadLetterQueues finds the queues other queues redrive into, and which
+// queues point at each of them.
+//
+// A dead-letter queue in SQS is an ordinary queue with a redrive policy aimed
+// at it. Nothing marks one, so this is a walk backwards through the topology -
+// and a queue every one of whose sources sits outside the connection's queue
+// prefix is not found, because the walk starts from what the prefix let
+// through.
+func (s *SQSService) DeadLetterQueues(connID int) ([]*model.DeadLetterQueue, error) {
+	return s.service.DeadLetterQueues(context.Background(), connID)
 }
