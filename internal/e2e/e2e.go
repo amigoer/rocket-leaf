@@ -69,6 +69,10 @@ const (
 	// IBMMQ is spelled with the vendor because "mq" on its own names every
 	// family in this app rather than this one.
 	IBMMQ Family = "ibmmq"
+	// Solace is the vendor rather than the product, which is PubSub+: the
+	// product name carries a character no shard variable should have to
+	// survive, and no other family here is Solace's.
+	Solace Family = "solace"
 )
 
 // AllFamilies is the list every other place derives from - the CI shard matrix
@@ -76,7 +80,7 @@ const (
 // twice is how the lists drift apart.
 var AllFamilies = []Family{
 	RocketMQ, RabbitMQ, Kafka, Pulsar, Redis, MQTT, NATS, ActiveMQ, NSQ, SQS,
-	GooglePubSub, AzureServiceBus, Kinesis, IBMMQ,
+	GooglePubSub, AzureServiceBus, Kinesis, IBMMQ, Solace,
 }
 
 // Env is one broker environment a live test needs.

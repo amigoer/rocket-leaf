@@ -20,6 +20,7 @@ import (
 	"github.com/amigoer/mq-studio/internal/driver/rabbitmq"
 	"github.com/amigoer/mq-studio/internal/driver/redisstream"
 	"github.com/amigoer/mq-studio/internal/driver/rocketmq"
+	solacedriver "github.com/amigoer/mq-studio/internal/driver/solace"
 	sqsdriver "github.com/amigoer/mq-studio/internal/driver/sqs"
 	"github.com/amigoer/mq-studio/internal/service/access"
 	activemqservice "github.com/amigoer/mq-studio/internal/service/activemq"
@@ -110,6 +111,7 @@ func New() (*Services, error) {
 	driver.Register(azureservicebusdriver.New())
 	driver.Register(kinesisdriver.New())
 	driver.Register(ibmmqdriver.New())
+	driver.Register(solacedriver.New())
 
 	registry := driver.NewRegistry()
 	settingsService := settings.New(paths.SettingsFile)
