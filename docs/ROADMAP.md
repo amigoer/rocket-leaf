@@ -248,7 +248,55 @@ This is the delivery plan. The contract it delivers against is
   no message-by-id lookup: an id is assigned on publish and echoed on delivery, and nothing
   indexes one.
 
-- **Designed, not yet implemented** — the four families below.
+- **Shipped** — Azure Service Bus through the Azure SDK. The third hosted family and the
+  first of the three that is reached by dialling something: a region and a project are not
+  addresses, and a namespace is - both halves of this driver dial it, AMQP for the messages and
+  Atom over HTTPS for the topology. Queues and topics on one board, subscriptions on another,
+  rules on the routing page, a browse that takes nothing, a send that carries what a rule
+  selects on, and the dead letters every entity is created with.
+
+  The messages page is what this phase was ordered here for. Peek is non-destructive in a way
+  neither hosted family before it could manage: it takes no lock, moves nothing, changes no
+  delivery count, and a consumer running at the same moment misses nothing. SQS's read hides
+  what it returns for a visibility timeout and Pub/Sub's raises a delivery attempt that counts
+  towards being dead-lettered, so both had to warn. This one does not, and the absence is
+  asserted in Go and in the renderer rather than left to be noticed - the way it would be lost
+  is silent, because swapping the peek for a receive would still return messages.
+
+  It also shows more than a consumer would ever be offered. A scheduled message is held back
+  until its enqueue time and a deferred one has been set aside by sequence number; neither is
+  handed to any receiver, and both appear on the page with a state saying which.
+
+  Rules are the second concept, and they earn the routing page. Every other family keeps its
+  filtering on the reader, where it is a field: a Pub/Sub subscription carries a filter string
+  fixed at creation, an SQS queue carries none. A Service Bus rule is an object with a name -
+  several may sit on one subscription, each a SQL or correlation filter plus an optional action
+  that rewrites the message on the way in - so which messages reach which subscription is a
+  topology, and it maps onto the page RabbitMQ used to have to itself. An exchange is a topic,
+  a binding is a rule, and the binding's properties key is the rule's name, which is what a
+  delete takes. What does not map is refused rather than approximated: a topic has no exchange
+  type, and accepting one would let a form claim a fanout topic that does not exist.
+
+  Dead letters are the third, and they settled a capability question. `CapDLQ` is a per-entity
+  store the broker names and fills; `CapDeadLetterTopology` is an ordinary object something
+  else points at, found by walking every object's configuration backwards. SQS and Pub/Sub are
+  both the second. A `$DeadLetterQueue` is the first: every queue and every subscription is
+  created with one, it is reached by suffixing the entity's own path, and it cannot be listed,
+  sent to, renamed or shared. So this page can only be empty when the namespace is.
+
+  What it deliberately does not have follows from Microsoft running the service: no cluster, no
+  node, no disk figure and no rate - the rates are Azure Monitor's. Nothing registers as a
+  consumer, so there is no reader count anywhere. And there is no message-by-id lookup: a
+  message id is the sender's own field, nothing indexes it, and what addresses a message is the
+  sequence number a browse resumes from.
+
+  Two things the emulator could not exercise, recorded rather than stepped around. It reports
+  no readable message count on any entity, so every depth and backlog is a dash there and the
+  backlog capability is degraded for that endpoint alone - a real namespace answers it. And it
+  refuses `ForwardDeadLetteredMessagesTo` unless the target is an absolute URI, where the real
+  service takes an entity name. Both have live tests that fail if the emulator ever changes.
+
+- **Designed, not yet implemented** — the three families below.
 
 ## Delivery order
 
@@ -266,7 +314,7 @@ This is the delivery plan. The contract it delivers against is
 | 12 | **NSQ** | Done. Topics and channels, with no message history and therefore no browse - confirmed. The management plane is the HTTP API of the daemons themselves, so the driver needs no wire client; what it had to get right instead is that every figure is a sum across daemons that each know only their own, that a delete has to reach the discovery tier, and that emptying a topic has to empty its channels |
 | 13 | **Amazon SQS** | Done. The seam phase 11 built, used: a descriptor with no endpoint field, a profile that saves with an empty `Endpoints`, and a connection row that shows the region where every other family shows an address. Confirmed: no subscriptions, so no consumers page and no lag; no cluster, because AWS runs the service; and one read, which is the one a consumer makes - so the browse carries a caveat rather than pretending to be non-destructive |
 | 14 | **Google Cloud Pub/Sub** | Done. Subscriptions are objects in their own right rather than a reader's position - created, listed and deleted independently of the topic, and carrying the whole of the delivery configuration. Their backlog does not map onto lag after all: `num_undelivered_messages` is a Cloud Monitoring metric and no call in the Pub/Sub API reports it, so the capability is degraded with a reason rather than filled in with a number that would have to be produced by pulling the backlog to count it |
-| 15 | **Azure Service Bus** | Peek is non-destructive, so this is the one hosted family whose messages page needs no caveat, and subscription rules reach the routing page |
+| 15 | **Azure Service Bus** | Done. Peek is non-destructive, so this is the one messages page in the app with no caveat at all - and the absence is asserted rather than left to be noticed. Subscription rules did reach the routing page: a rule is an object with a name rather than a field on the reader, so an exchange maps onto a topic and a binding onto a rule. Two the estimate missed: the dead letters are a per-entity store the broker creates rather than a topology to walk, and a peek reaches scheduled and deferred messages no consumer is ever offered |
 | 16 | **Amazon Kinesis** | Shards are not partitions: they get their own columns instead of borrowing the canonical ones |
 | 17 | **IBM MQ** | Channels are first-class and have no counterpart among the canonical pages, so they get a page of their own |
 | 18 | **Solace PubSub+** | A Message VPN is a scope selector, the shape Pulsar's namespaces already proved |
@@ -320,7 +368,7 @@ and `Access`.
 | --- | --- | --- | --- |
 | **Amazon SQS** | SQS API | Destinations, Messages, Publish, Dead letters, Alerts | Done. Confirmed: no consumer groups and no cluster, and receiving starts a visibility timeout so browsing carries a caveat. Two the estimate missed: the receive also raises the message's receive count, which a redrive policy compares against, so browsing can dead-letter a message with nothing having failed; and the dead-letter page is answerable after all, by walking every queue's redrive policy backwards |
 | **Google Cloud Pub/Sub** | Publisher and Subscriber admin APIs | Overview, Destinations, Subscriptions, Messages, Publish, Dead letters, Alerts | Done. Confirmed: subscriptions are real objects, and pulling consumes - so the browse carries a caveat. The estimate got the backlog wrong: it does not map onto lag at all, because `num_undelivered_messages` is a Cloud Monitoring metric rather than a field on the subscription, so the capability is degraded with a reason. Two the estimate missed: a topic holds nothing, so a publish to one with no subscription is accepted and discarded with no symptom anywhere; and a subscription outlives the topic it reads, which is a leak nothing else would show |
-| **Azure Service Bus** | Service Bus management API | Destinations, Subscriptions, Messages, Publish, plus rules on the routing page | No cluster; peek is non-destructive, so browse needs no caveat |
+| **Azure Service Bus** | Service Bus management API, and AMQP for the messages | Overview, Destinations, Subscriptions, Messages, Publish, Dead letters, Routing, Alerts | Done. Confirmed: no cluster, and peek is non-destructive - so the browse carries no caveat, which no other family here can say. Three the estimate missed: the management plane and the data plane are two different protocols on two different ports; the dead letters are a sub-entity of every queue and subscription rather than a topology to walk; and a peek reaches scheduled and deferred messages, which no consumer is offered at all |
 | **Amazon Kinesis** | Kinesis API | Destinations, Subscriptions, Messages, Publish | No cluster; shards are not partitions and need their own column set |
 
 ### Enterprise

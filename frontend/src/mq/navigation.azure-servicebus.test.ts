@@ -189,12 +189,15 @@ describe("the sidebar an Azure Service Bus connection draws", () => {
    * it would be lost is silent.
    */
   it("draws the messages page enabled and with nothing to warn about", () => {
-    const nav = navAvailability(state(SERVICEBUS_CAPABILITIES), true);
+    const capabilities = state(SERVICEBUS_CAPABILITIES);
+    const nav = navAvailability(capabilities, true);
 
     expect(nav.visible("messages")).toBe(true);
     expect(nav.disabled("messages")).toBe(false);
     expect(nav.reason("messages")).toBeUndefined();
-    expect(nav.caveat?.("messages")).toBeUndefined();
+    // And nothing behind it either: the caveat a page would show comes off the
+    // capability, and this family declares none for browsing.
+    expect(capabilities.caveat(Capability.CapMessageQuery)).toBeUndefined();
   });
 
   // Before the connection answers, nothing is known: hiding pages that would
