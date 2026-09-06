@@ -1,0 +1,51 @@
+name: mq-studio-e2e-google-pubsub
+
+# Google's own Pub/Sub emulator, and nothing else.
+#
+# Pub/Sub is the second family here with no broker to run: it is a Google Cloud
+# API behind OAuth, so an environment for it is either a real project or the
+# emulator Google ships inside the Cloud SDK image. The driver reaches it
+# through the emulator-host option, which is the same host:port the client
+# library's own PUBSUB_EMULATOR_HOST carries - so the option is exercised by
+# every test here rather than by none.
+#
+# There are no credentials below and none are needed. The emulator refuses to
+# check one, which is why the driver drops authentication entirely for a
+# connection that names an emulator host: gRPC would otherwise refuse to send
+# without a transport credential.
+#
+# What the emulator is not: it serves no Cloud Monitoring, so a subscription's
+# num_undelivered_messages cannot be read here or anywhere else in the API, and
+# it answers Unimplemented for Seek-with-a-timestamp and DetachSubscription.
+# Each of those is asserted in internal/driver/googlepubsub/live_test.go rather
+# than left as a gap the suite quietly steps around.
+
+services:
+  pubsub:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    hostname: pubsub
+    # --host-port binds inside the container, so it has to be 0.0.0.0: the
+    # emulator's own default is localhost, which nothing outside could reach.
+    command:
+      - gcloud
+      - beta
+      - emulators
+      - pubsub
+      - start
+      - --project=mq-studio-e2e
+      - --host-port=0.0.0.0:8085
+    ports:
+      - '127.0.0.1:8085:8085'
+    # The emulator serves the same REST surface as the real API on this port,
+    # so the probe is a real call rather than a socket that happens to be open:
+    # the JVM binds the port a second or two before it will answer one, and a
+    # port probe would hand the seed an API that is still starting.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -sf http://127.0.0.1:8085/v1/projects/mq-studio-e2e/topics
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped

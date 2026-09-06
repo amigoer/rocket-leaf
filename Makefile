@@ -22,6 +22,7 @@ ARCH ?=
 	e2e-activemq-classic-up e2e-activemq-classic-down \
 	e2e-nsq-up e2e-nsq-seed e2e-nsq-down \
 	e2e-sqs-up e2e-sqs-seed e2e-sqs-down \
+	e2e-google-pubsub-up e2e-google-pubsub-seed e2e-google-pubsub-down \
 	check ci clean \
 	website-dev website-build
 
@@ -189,6 +190,15 @@ e2e-sqs-seed: ## Fill the SQS region with queues for the cross-check
 
 e2e-sqs-down: ## Stop the SQS environment and remove its volumes
 	npm run e2e:sqs:down
+
+e2e-google-pubsub-up: ## Start the Google Pub/Sub emulator the live tests use
+	npm run e2e:google-pubsub:up
+
+e2e-google-pubsub-seed: ## Fill the Pub/Sub project with topics and subscriptions for the cross-check
+	npm run e2e:google-pubsub:seed
+
+e2e-google-pubsub-down: ## Stop the Pub/Sub environment and remove its volumes
+	npm run e2e:google-pubsub:down
 
 e2e: ## Run the live tests against a running, seeded RocketMQ E2E environment
 	npm run test:e2e

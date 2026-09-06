@@ -340,6 +340,18 @@ jobs:
             up: |
               npm run e2e:sqs:up
               npm run e2e:sqs:seed
+          - family: google-pubsub
+            packages: ./internal/app/... ./internal/driver/googlepubsub/...
+            # Google's own emulator rather than a broker, because there is no
+            # broker to run: Pub/Sub is a Cloud API, so the only environments
+            # are a real project and the emulator. The driver reaches it
+            # through the emulator-host option, so that option is exercised by
+            # every test here rather than by none. The seed is required - the
+            # cross-check compares what the app computes against the raw API,
+            # and comparing zero against zero proves nothing.
+            up: |
+              npm run e2e:google-pubsub:up
+              npm run e2e:google-pubsub:seed
     steps:
       - uses: actions/checkout@v7
 

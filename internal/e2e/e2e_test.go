@@ -163,8 +163,9 @@ func TestEveryFamilyHasACIShard(t *testing.T) {
 
 	// The matrix spells one family per line as `- family: <name>`. Matching
 	// the line rather than parsing YAML keeps this test off the dependency
-	// list; the format is pinned by the failure message below.
-	pattern := regexp.MustCompile(`(?m)^\s*-\s*family:\s*([a-z]+)\s*$`)
+	// list; the format is pinned by the failure message below. The hyphen is
+	// part of a name rather than a separator: google-pubsub is one family.
+	pattern := regexp.MustCompile(`(?m)^\s*-\s*family:\s*([a-z][a-z-]*)\s*$`)
 	matches := pattern.FindAllSubmatch(source, -1)
 	if len(matches) == 0 {
 		t.Fatalf("found no `- family: <name>` entries in %s; the shard matrix moved and this guard needs to follow it", workflow)
