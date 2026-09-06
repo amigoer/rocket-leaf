@@ -4501,7 +4501,7 @@
         "dedupScope": "去重范围",
         "throughputLimit": "吞吐限制",
         "arn": "ARN",
-        "created": "创建时间",
+        "created": "已创建 {{name}}",
         "modified": "最后修改",
         "section": {
           "messages": "消息",
@@ -4510,7 +4510,35 @@
           "identity": "标识"
         },
         "allInFlight": "全部 {{count}} 条都在处理中、没有一条可取——有消费者把它们取走了却一条都没处理完。等可见性超时到期后它们会重新出现。",
-        "note": "所有计数都是近似值：SQS 返回的是它各台服务器最近达成一致的数字。速率在 CloudWatch，不在这里。"
+        "note": "所有计数都是近似值：SQS 返回的是它各台服务器最近达成一致的数字。速率在 CloudWatch，不在这里。",
+        "create": "新建队列",
+        "createTitle": "新建队列",
+        "editTitle": "编辑 {{name}}",
+        "updated": "已保存 {{name}}",
+        "nameHint": "最多 80 个字符，可用字母、数字、连字符和下划线。创建后不能改名；队列删除后这个名字还会被 SQS 拒绝 60 秒。",
+        "nameProblem": {
+          "empty": "队列需要一个名字。",
+          "tooLong": "SQS 只允许 80 个字符，.fifo 后缀也算在内。",
+          "charset": "只能用字母、数字、连字符和下划线——唯一允许的点是 .fifo 后缀。"
+        },
+        "fifoHint": "保证顺序与去重，且每次发送都必须带分组 ID。它由名字决定：打开这个开关会自动加上 .fifo。",
+        "fifoFixed": "创建时就固定了，并写在名字里。要改只能新建一个队列再把消息搬过去。",
+        "visibilityTimeoutHint": "消息被取走后对其他消费者隐藏的秒数。设得太短，同一条消息会被处理两次。",
+        "retentionHint": "没被删除的消息 SQS 保留多少秒。范围 60 到 1209600——一分钟到十四天。",
+        "deliveryDelayHint": "每条消息在变为可取之前等待的秒数，发送时另行指定的除外。最多 900。",
+        "receiveWaitHint": "一次接收等待消息的秒数。0 是短轮询，只会抽查部分服务器，队列非空时也可能返回空。",
+        "deadLetterQueueHint": "失败消息转入的队列，按名字填。类型必须一致——FIFO 队列只能转入 FIFO 队列。留空表示不配置重驱策略。",
+        "maxReceiveCountHint": "消息被接收多少次后转入死信队列。本应用消息页的浏览也会计入这个次数。",
+        "contentDedupHint": "按消息内容去重，而不是按显式的去重 ID。",
+        "purgeAction": "清空",
+        "purgeTitle": "清空 {{name}}？",
+        "purgeDesc": "队列里的 {{count}} 条消息会全部丢弃。SQS 在后台执行清空，所以这个操作返回时队列并不一定已空——接下来一分钟内发送的消息也可能一并被删。每个队列每分钟只允许清空一次。",
+        "purged": "正在清空 {{name}}",
+        "purgeFailed": "清空队列失败",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "队列和其中所有消息都会删除，且无法撤销。之后 60 秒内 SQS 会拒绝这个名字，无法立刻重建。",
+        "deleted": "已删除 {{name}}",
+        "deleteFailed": "删除队列失败"
       }
     }
   }

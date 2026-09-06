@@ -4501,7 +4501,7 @@
         "dedupScope": "Deduplication scope",
         "throughputLimit": "Throughput limit",
         "arn": "ARN",
-        "created": "Created",
+        "created": "Created {{name}}",
         "modified": "Last changed",
         "section": {
           "messages": "Messages",
@@ -4510,7 +4510,35 @@
           "identity": "Identity"
         },
         "allInFlight": "All {{count}} messages are in flight and none are available — something took them and has finished none of them. They come back when the visibility timeout expires.",
-        "note": "Every count is approximate: SQS reports what its servers last agreed on. Rates live in CloudWatch, not here."
+        "note": "Every count is approximate: SQS reports what its servers last agreed on. Rates live in CloudWatch, not here.",
+        "create": "New queue",
+        "createTitle": "New queue",
+        "editTitle": "Edit {{name}}",
+        "updated": "Saved {{name}}",
+        "nameHint": "Up to 80 letters, digits, hyphens and underscores. A name cannot be changed afterwards, and SQS refuses it for 60 seconds after the queue is deleted.",
+        "nameProblem": {
+          "empty": "A queue needs a name.",
+          "tooLong": "SQS allows 80 characters, and a .fifo suffix counts towards them.",
+          "charset": "Letters, digits, hyphens and underscores only — the one dot allowed is the .fifo suffix."
+        },
+        "fifoHint": "Ordering and deduplication, and a group id on every send. It is decided by the name: turning this on appends .fifo.",
+        "fifoFixed": "Fixed when the queue was created and spelled in its name. To change it, create another queue and move the messages.",
+        "visibilityTimeoutHint": "Seconds a received message stays hidden from other consumers. Too short and the same message is handled twice.",
+        "retentionHint": "Seconds SQS keeps a message nobody deleted. 60 to 1209600 — one minute to fourteen days.",
+        "deliveryDelayHint": "Seconds every message waits before it becomes available, unless the send sets its own. Up to 900.",
+        "receiveWaitHint": "Seconds a receive waits for a message. 0 is a short poll, which samples only some of the servers and can come back empty on a queue that is not.",
+        "deadLetterQueueHint": "The queue failures are moved to, by name. It has to be the same kind — a FIFO queue can only dead-letter into a FIFO one. Leave blank for no redrive policy.",
+        "maxReceiveCountHint": "Receives before a message is moved to the dead-letter queue. Browsing this app's messages page counts towards it.",
+        "contentDedupHint": "Deduplicate on the message body rather than on an explicit deduplication id.",
+        "purgeAction": "Purge",
+        "purgeTitle": "Purge {{name}}?",
+        "purgeDesc": "Discards all {{count}} messages the queue holds. SQS purges in the background, so the queue is not empty the moment this returns — and anything sent in the next minute may go with it. One purge per queue per minute is allowed.",
+        "purged": "Purging {{name}}",
+        "purgeFailed": "Could not purge the queue",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "The queue and every message in it go, and there is no undo. SQS refuses the name for 60 seconds afterwards, so it cannot be recreated straight away.",
+        "deleted": "Deleted {{name}}",
+        "deleteFailed": "Could not delete the queue"
       }
     }
   }

@@ -16,6 +16,7 @@ import * as PulsarService from "./pulsarservice.js";
 import * as RabbitMQService from "./rabbitmqservice.js";
 import * as RedisStreamService from "./redisstreamservice.js";
 import * as RoutingService from "./routingservice.js";
+import * as SQSService from "./sqsservice.js";
 import * as SettingsService from "./settingsservice.js";
 import * as ShellService from "./shellservice.js";
 import * as SystemService from "./systemservice.js";
@@ -38,6 +39,7 @@ export {
     RabbitMQService,
     RedisStreamService,
     RoutingService,
+    SQSService,
     SettingsService,
     ShellService,
     SystemService,
@@ -105,6 +107,7 @@ export {
     RecordInput,
     ReplayInput,
     ResendInput,
+    SQSQueueInput,
     SendInput,
     SettingsInput,
     SettingsView,

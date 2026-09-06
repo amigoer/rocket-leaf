@@ -2,10 +2,14 @@ package sqs
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awssqs "github.com/aws/aws-sdk-go-v2/service/sqs"
 
 	"github.com/amigoer/mq-studio/internal/e2e"
 	"github.com/amigoer/mq-studio/internal/model"
@@ -363,5 +367,279 @@ func TestLiveDestinationDetailMatchesTheListing(t *testing.T) {
 
 	if _, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: "MQS-TEST-absent"}); err == nil {
 		t.Error("described a queue that does not exist")
+	}
+}
+
+// testName builds a name no other run collides with. SQS allows letters,
+// digits, hyphens and underscores, and 80 characters - and refuses a deleted
+// queue's name for 60 seconds, so a rerun cannot reuse one.
+func testName(t *testing.T, suffix string) string {
+	t.Helper()
+	safe := strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' {
+			return r
+		}
+		return '-'
+	}, t.Name())
+	if len(safe) > 40 {
+		safe = safe[:40]
+	}
+	return "MQS-TEST-" + safe + "-" + strconv.FormatInt(time.Now().UnixNano()%1e9, 36) + suffix
+}
+
+// makeQueue creates a queue for one test and removes it afterwards.
+func makeQueue(t *testing.T, conn *Conn, spec QueueSpec) string {
+	t.Helper()
+	if err := conn.CreateQueue(liveContext(t), spec); err != nil {
+		t.Fatalf("create %s: %v", spec.Name, err)
+	}
+	t.Cleanup(func() {
+		_ = conn.RemoveDestination(context.Background(), model.DestinationRef{Name: spec.Name})
+	})
+	url, err := conn.queueURL(liveContext(t), spec.Name)
+	if err != nil {
+		t.Fatalf("resolve %s: %v", spec.Name, err)
+	}
+	return url
+}
+
+// A queue is created with the settings the form collected, and reads back with
+// them: an attribute silently dropped between the form and the service would
+// otherwise look like a queue that took a default nobody chose.
+func TestLiveCreateQueueAppliesEverySetting(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+
+	makeQueue(t, conn, QueueSpec{
+		Name:                 name,
+		VisibilityTimeoutSec: 45,
+		DelaySec:             10,
+		RetentionSec:         3600,
+		MaxMessageBytes:      65536,
+		ReceiveWaitSec:       5,
+	})
+
+	queue, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	for _, want := range []struct{ key, value string }{
+		{AttrVisibilityTimeo, "45"},
+		{AttrDelaySeconds, "10"},
+		{AttrRetentionSec, "3600"},
+		{AttrMaxMessageBytes, "65536"},
+		{AttrReceiveWaitSec, "5"},
+		{AttrFIFO, "false"},
+	} {
+		if got := queue.Attribute(want.key); got != want.value {
+			t.Errorf("%s = %q, want %q", want.key, got, want.value)
+		}
+	}
+}
+
+/*
+ * FIFO is decided by the name and by nothing else, so the two have to agree
+ * before the request is sent. SQS's own refusal names the FifoQueue attribute,
+ * which is a field no form here draws.
+ */
+func TestLiveCreateQueueHoldsFIFOToItsName(t *testing.T) {
+	conn := liveConn(t)
+
+	t.Run("a fifo queue whose name says so", func(t *testing.T) {
+		name := testName(t, ".fifo")
+		makeQueue(t, conn, QueueSpec{Name: name, FIFO: true, ContentBasedDeduplication: true})
+
+		queue, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+		if err != nil {
+			t.Fatalf("detail: %v", err)
+		}
+		if queue.Attribute(AttrFIFO) != "true" {
+			t.Errorf("fifo = %q, want true", queue.Attribute(AttrFIFO))
+		}
+		if queue.Attribute(AttrContentDedup) != "true" {
+			t.Errorf("contentBasedDeduplication = %q, want true", queue.Attribute(AttrContentDedup))
+		}
+	})
+
+	t.Run("a fifo queue whose name does not", func(t *testing.T) {
+		err := conn.CreateQueue(liveContext(t), QueueSpec{Name: testName(t, ""), FIFO: true})
+		if err == nil {
+			t.Fatal("created a FIFO queue with no .fifo suffix")
+		}
+		if !strings.Contains(err.Error(), ".fifo") {
+			t.Errorf("error does not name the suffix: %v", err)
+		}
+	})
+
+	t.Run("a standard queue whose name says fifo", func(t *testing.T) {
+		err := conn.CreateQueue(liveContext(t), QueueSpec{Name: testName(t, ".fifo"), FIFO: false})
+		if err == nil {
+			t.Fatal("created a standard queue with a .fifo suffix")
+		}
+	})
+}
+
+// A redrive policy names the target by ARN and a person names it by name, so
+// the driver resolves one into the other. The listing reads it back the other
+// way, which is what puts the dead-letter column on the queues board.
+func TestLiveCreateQueueResolvesTheDeadLetterQueueByName(t *testing.T) {
+	conn := liveConn(t)
+	dlq := testName(t, "-dlq")
+	source := testName(t, "-src")
+
+	makeQueue(t, conn, QueueSpec{Name: dlq})
+	makeQueue(t, conn, QueueSpec{Name: source, DeadLetterQueue: dlq, MaxReceiveCount: 4})
+
+	queue, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: source})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if got := queue.Attribute(AttrDeadLetterQueue); got != dlq {
+		t.Errorf("dead-letter queue = %q, want %q", got, dlq)
+	}
+	if got := queue.Attribute(AttrMaxReceiveCount); got != "4" {
+		t.Errorf("max receive count = %q, want 4", got)
+	}
+
+	// A target that is not there has to say which queue it could not find,
+	// rather than surfacing the service's InvalidParameterValue.
+	err = conn.CreateQueue(liveContext(t), QueueSpec{
+		Name: testName(t, "-orphan"), DeadLetterQueue: "MQS-TEST-no-such-dlq",
+	})
+	if err == nil {
+		t.Fatal("created a queue pointing at a dead-letter queue that does not exist")
+	}
+	if !strings.Contains(err.Error(), "MQS-TEST-no-such-dlq") {
+		t.Errorf("error does not name the missing queue: %v", err)
+	}
+}
+
+/*
+ * An edit writes only what the form sent. SQS replaces exactly the attributes
+ * it is given, so a setting the form left alone has to survive - otherwise
+ * changing a visibility timeout would silently reset a queue's retention to
+ * the service default.
+ */
+func TestLiveUpdateQueueLeavesUnsentSettingsAlone(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: name, VisibilityTimeoutSec: 45, RetentionSec: 3600})
+
+	if err := conn.UpdateQueue(liveContext(t), QueueSpec{Name: name, VisibilityTimeoutSec: 90}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	queue, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if got := queue.Attribute(AttrVisibilityTimeo); got != "90" {
+		t.Errorf("visibility timeout = %q, want the edited 90", got)
+	}
+	if got := queue.Attribute(AttrRetentionSec); got != "3600" {
+		t.Errorf("retention = %q, want the untouched 3600", got)
+	}
+}
+
+// Whether a queue is FIFO is fixed at creation. SetQueueAttributes answers
+// "Unknown Attribute FifoQueue", which names something the form never drew, so
+// the driver refuses it with a message that says what to do instead.
+func TestLiveUpdateQueueRefusesToChangeFIFO(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: name})
+
+	err := conn.UpdateQueue(liveContext(t), QueueSpec{Name: name, FIFO: true})
+	if err == nil {
+		t.Fatal("turned an existing standard queue into a FIFO one")
+	}
+	if !strings.Contains(err.Error(), "create a new queue") {
+		t.Errorf("error does not say what to do instead: %v", err)
+	}
+}
+
+/*
+ * Purging is asynchronous, so this waits for the queue to report empty rather
+ * than asserting straight after the call. The wait is the assertion: a purge
+ * that did nothing never reaches zero.
+ */
+func TestLivePurgeQueueEmptiesIt(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	url := makeQueue(t, conn, QueueSpec{Name: name})
+	sendRaw(t, conn, url, 5)
+
+	if err := conn.PurgeQueue(liveContext(t), model.DestinationRef{Name: name}); err != nil {
+		t.Fatalf("purge: %v", err)
+	}
+	waitForDepth(t, conn, name, 0)
+}
+
+// A delete removes the queue from the listing, and the cached URL with it: a
+// call under the same name afterwards has to ask again rather than address a
+// queue that has gone.
+func TestLiveRemoveQueueTakesItOutOfTheListing(t *testing.T) {
+	conn := liveConn(t)
+	name := testName(t, "")
+	makeQueue(t, conn, QueueSpec{Name: name})
+
+	if err := conn.RemoveDestination(liveContext(t), model.DestinationRef{Name: name}); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		destinations, err := conn.ListDestinations(liveContext(t), model.DestinationFilter{})
+		if err != nil {
+			t.Fatalf("list: %v", err)
+		}
+		if destinationNamed(destinations, name) == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s is still listed 20s after it was deleted", name)
+		}
+		time.Sleep(time.Second)
+	}
+
+	if _, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name}); err == nil {
+		t.Error("described a queue that was deleted; the cached url outlived it")
+	}
+}
+
+// sendRaw puts messages on a queue through the SDK rather than through this
+// driver, which has no send until the publish capability lands.
+func sendRaw(t *testing.T, conn *Conn, url string, count int) {
+	t.Helper()
+	for index := range count {
+		_, err := conn.client.SendMessage(liveContext(t), &awssqs.SendMessageInput{
+			QueueUrl:    aws.String(url),
+			MessageBody: aws.String(fmt.Sprintf("body-%d", index+1)),
+		})
+		if err != nil {
+			t.Fatalf("send: %v", err)
+		}
+	}
+}
+
+// waitForDepth waits for a queue to report a depth, because every SQS figure
+// is what its servers last agreed on rather than what is true this instant.
+func waitForDepth(t *testing.T, conn *Conn, name string, want int64) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	var last int64
+	for {
+		queue, err := conn.DestinationDetail(liveContext(t), model.DestinationRef{Name: name})
+		if err != nil {
+			t.Fatalf("detail: %v", err)
+		}
+		last = queue.Depth
+		if last == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s reports a depth of %d after 30s, want %d", name, last, want)
+		}
+		time.Sleep(time.Second)
 	}
 }

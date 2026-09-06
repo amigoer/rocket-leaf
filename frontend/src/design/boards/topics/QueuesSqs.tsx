@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Page, PageBody, PageHeader, RefreshButton } from "@/design/shell";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -10,12 +12,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { KV, Panel, PanelHeader, SectionLabel } from "@/components";
+import { KV, Panel, PanelHeader, SectionLabel, useConfirm } from "@/components";
 import { BoardState } from "@/design/boards/BoardState";
 import { useSqsDestinations } from "@/hooks/sqs/useSqsDestinations";
 import { queue as readQueue, stalledInFlight, type SqsQueue } from "@/mq/sqs/destinations";
 import { formatBytes, formatCount } from "@/lib/format";
 import { formatMessageTime } from "@/lib/time";
+import { formatErrorMessage } from "@/lib/utils";
+import { useConnectionScope } from "@/mq/ConnectionScope";
+import * as sqsApi from "@/api/sqs";
+import { QueueDialogSqs } from "./QueueDialogSqs";
 
 const MONO11 = { fontSize: "11px" } as const;
 
@@ -55,8 +61,12 @@ function duration(seconds: number | null): string {
 export function QueuesSqs() {
   const { t } = useTranslation();
   const state = useSqsDestinations();
+  const { id: connID } = useConnectionScope();
+  const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [editing, setEditing] = useState<SqsQueue | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
 
   const queues = useMemo(() => (state.data ?? []).map(readQueue), [state.data]);
 
@@ -68,6 +78,71 @@ export function QueuesSqs() {
   const detail = useMemo(
     () => shown.find((entry) => entry.name === selected) ?? shown[0] ?? null,
     [shown, selected],
+  );
+
+  const save = useCallback(
+    async (input: sqsApi.SQSQueueInput) => {
+      if (editing == null) {
+        await sqsApi.createQueue(connID, input);
+        toast.success(t("board.sqs.queues.created", { name: input.name }));
+      } else {
+        await sqsApi.updateQueue(connID, input);
+        toast.success(t("board.sqs.queues.updated", { name: input.name }));
+      }
+      await state.refresh();
+    },
+    [connID, editing, state, t],
+  );
+
+  /*
+   * The confirmation names the count because that is what is about to go, and
+   * the note says what the service will not: the call returning is not the
+   * queue being empty, and anything sent in the following minute may go with
+   * it.
+   */
+  const purge = useCallback(
+    async (entry: SqsQueue) => {
+      const ok = await confirm({
+        title: t("board.sqs.queues.purgeTitle", { name: entry.name }),
+        description: t("board.sqs.queues.purgeDesc", { count: entry.depth ?? 0 }),
+        confirmLabel: t("board.sqs.queues.purgeAction"),
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await sqsApi.purgeQueue(connID, entry.name);
+        toast.success(t("board.sqs.queues.purged", { name: entry.name }));
+        await state.refresh();
+      } catch (purgeError) {
+        toast.error(t("board.sqs.queues.purgeFailed"), {
+          description: formatErrorMessage(purgeError),
+        });
+      }
+    },
+    [confirm, connID, state, t],
+  );
+
+  const remove = useCallback(
+    async (entry: SqsQueue) => {
+      const ok = await confirm({
+        title: t("board.sqs.queues.deleteTitle", { name: entry.name }),
+        description: t("board.sqs.queues.deleteDesc"),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await sqsApi.removeQueue(connID, entry.name);
+        toast.success(t("board.sqs.queues.deleted", { name: entry.name }));
+        setSelected(null);
+        await state.refresh();
+      } catch (deleteError) {
+        toast.error(t("board.sqs.queues.deleteFailed"), {
+          description: formatErrorMessage(deleteError),
+        });
+      }
+    },
+    [confirm, connID, state, t],
   );
 
   return (
@@ -83,6 +158,15 @@ export function QueuesSqs() {
               placeholder={t("board.sqs.queues.search")}
               onChange={(event) => setSearch(event.target.value)}
             />
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              {t("board.sqs.queues.create")}
+            </Button>
             <RefreshButton
               refreshing={state.refreshing}
               online={state.online}
@@ -90,6 +174,12 @@ export function QueuesSqs() {
             />
           </div>
         }
+      />
+      <QueueDialogSqs
+        open={formOpen}
+        editing={editing}
+        onOpenChange={setFormOpen}
+        onSubmit={save}
       />
       <BoardState state={state}>
         <PageBody>
@@ -155,7 +245,17 @@ export function QueuesSqs() {
               </Table>
             </Panel>
 
-            {detail != null && <QueueDetail entry={detail} />}
+            {detail != null && (
+              <QueueDetail
+                entry={detail}
+                onEdit={() => {
+                  setEditing(detail);
+                  setFormOpen(true);
+                }}
+                onPurge={() => void purge(detail)}
+                onRemove={() => void remove(detail)}
+              />
+            )}
           </div>
           <p
             style={{
@@ -173,7 +273,17 @@ export function QueuesSqs() {
   );
 }
 
-function QueueDetail({ entry }: { entry: SqsQueue }) {
+function QueueDetail({
+  entry,
+  onEdit,
+  onPurge,
+  onRemove,
+}: {
+  entry: SqsQueue;
+  onEdit: () => void;
+  onPurge: () => void;
+  onRemove: () => void;
+}) {
   const { t } = useTranslation();
   return (
     <Panel style={{ width: "300px", flex: "none", overflow: "auto" }}>
@@ -235,6 +345,18 @@ function QueueDetail({ entry }: { entry: SqsQueue }) {
             [t("board.sqs.queues.modified"), formatMessageTime(entry.modifiedAtMs)],
           ]}
         />
+
+        <div style={{ display: "flex", gap: "6px", marginTop: "12px" }}>
+          <Button size="sm" variant="outline" onClick={onEdit}>
+            {t("common.edit")}
+          </Button>
+          <Button size="sm" variant="destructive" onClick={onPurge}>
+            {t("board.sqs.queues.purgeAction")}
+          </Button>
+          <Button size="sm" variant="destructive" onClick={onRemove}>
+            {t("common.delete")}
+          </Button>
+        </div>
 
         {/* Said where the number is, because this is the one reading that
             looks like an idle queue and is not: something took every message
