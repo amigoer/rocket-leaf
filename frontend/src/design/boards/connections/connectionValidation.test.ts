@@ -15,6 +15,7 @@ import {
   emptyKafkaDraft,
   emptyMqttDraft,
   emptyNatsDraft,
+  emptyNsqDraft,
   emptyPulsarDraft,
   emptyRabbitMQDraft,
   emptyRedisDraft,
@@ -111,6 +112,14 @@ const RULES: Record<ProtocolDraft["protocol"], Rules> = {
     },
     bare: { protocol: "activemq", value: { ...emptyActiveMQDraft(), name: NAME } },
     firstAsk: "page.connections.endpointsRequired",
+  },
+  nsq: {
+    saveable: {
+      protocol: "nsq",
+      value: { ...emptyNsqDraft(), name: NAME, endpoints: "http://127.0.0.1:4151" },
+    },
+    bare: { protocol: "nsq", value: { ...emptyNsqDraft(), name: NAME } },
+    firstAsk: "page.connections.form.nsq.nsqdRequired",
   },
 };
 

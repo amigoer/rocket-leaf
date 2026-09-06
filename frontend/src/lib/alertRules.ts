@@ -44,7 +44,16 @@ export type AlertRuleKey =
    */
   | "streamNoLeader"
   | "streamUnderReplicated"
-  | "slowConsumer";
+  | "slowConsumer"
+  /*
+   * NSQ's own, and no other family here can raise it. A paused topic or
+   * channel keeps accepting publishes and delivers nothing, so every figure
+   * except the backlog stays healthy while it grows - and a pause is an
+   * operator action rather than a fault, which is exactly why it is the kind
+   * that gets left on. Neither of the backlog rules describes it: nothing is
+   * wrong with the consumers, and there may not be any.
+   */
+  | "deliveryPaused";
 
 export type AlertRulePrefs = Record<AlertRuleKey, boolean>;
 
@@ -52,6 +61,7 @@ export type AlertRulePrefs = Record<AlertRuleKey, boolean>;
 export const ALERT_RULE_KEYS: readonly AlertRuleKey[] = [
   "brokerOffline",
   "streamNoLeader",
+  "deliveryPaused",
   "subscriptionBlocked",
   "resourceAlarm",
   "nodePartition",
@@ -172,6 +182,29 @@ const RULES_BY_KIND: Partial<Record<MQKind, readonly AlertRuleKey[]>> = {
     "groupOffline",
     "groupLag",
   ],
+  /*
+   * No brokerOffline, no disk figure and no dead letters.
+   *
+   * A daemon that has stopped answering fails the whole read rather than
+   * appearing as an offline row: the node list is the profile's own addresses
+   * and every figure elsewhere is a sum over them, so a connection cannot
+   * half-succeed and a switch for it would be a switch for something that
+   * cannot fire. nsqd reports no disk figure of any kind - the overflow file
+   * sits wherever --data-path points and the daemon never looks at it - and it
+   * moves nothing aside when a consumer gives up, so there is no dead-letter
+   * queue to watch.
+   *
+   * groupOffline is narrowed rather than excluded, unlike ActiveMQ's: it fires
+   * only on a channel that has a backlog and nothing attached, because a
+   * channel holding messages for a consumer that is not connected is what a
+   * channel is for.
+   */
+  [MQKind.KindNSQ]: [
+    "deliveryPaused",
+    "groupOffline",
+    "queueNoConsumer",
+    "groupLag",
+  ],
 };
 
 const ROCKETMQ_RULES: readonly AlertRuleKey[] = [
@@ -203,6 +236,7 @@ const STORAGE_KEY = "mq-studio:alert-rules";
  * names which families pay it rather than making every family pay.
  */
 export const DESTINATION_RULES: readonly AlertRuleKey[] = [
+  "deliveryPaused",
   "queueNoConsumer",
   "queueBacklog",
   "dlqGrowth",
@@ -230,6 +264,7 @@ export const KINDS_NEEDING_DESTINATIONS: readonly MQKind[] = [
   MQKind.KindKafka,
   MQKind.KindNATS,
   MQKind.KindActiveMQ,
+  MQKind.KindNSQ,
 ];
 
 export const DEFAULT_ALERT_RULES: AlertRulePrefs = {
@@ -251,6 +286,7 @@ export const DEFAULT_ALERT_RULES: AlertRulePrefs = {
   streamNoLeader: true,
   streamUnderReplicated: true,
   slowConsumer: true,
+  deliveryPaused: true,
 };
 
 function read(): AlertRulePrefs {

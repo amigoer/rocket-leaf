@@ -1816,6 +1816,123 @@ export class NATSSubscribeInput {
 }
 
 /**
+ * NSQChannelInput names a channel, which takes two fields because a channel
+ * belongs to a topic: "analytics" under two topics is two channels with
+ * nothing in common.
+ */
+export class NSQChannelInput {
+    "topic": string;
+    "channel": string;
+
+    /** Creates a new NSQChannelInput instance. */
+    constructor($$source: Partial<NSQChannelInput> = {}) {
+        if (!("topic" in $$source)) {
+            this["topic"] = "";
+        }
+        if (!("channel" in $$source)) {
+            this["channel"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new NSQChannelInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): NSQChannelInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new NSQChannelInput($$parsedSource as Partial<NSQChannelInput>);
+    }
+}
+
+/**
+ * NSQPublishInput is a send as the NSQ console collects it.
+ * 
+ * Deliberately not MessageService.Send's shape. That one takes a topic, tags,
+ * keys and a delay level - RocketMQ's vocabulary, of which an NSQ message has
+ * only the topic and the delay. What it cannot carry is the one field that
+ * matters here: which nsqd takes the message, because the daemon that took it
+ * is the one holding it.
+ */
+export class NSQPublishInput {
+    "topic": string;
+    "body": string;
+
+    /**
+     * Count sends the same body more than once. One when left at zero.
+     */
+    "count": number;
+
+    /**
+     * DelaySec holds the message back from the channels. nsqd caps it at its
+     * --max-req-timeout, one hour by default.
+     */
+    "delaySec": number;
+
+    /**
+     * Node is host:port. Empty means the first nsqd in the connection.
+     */
+    "node": string;
+
+    /** Creates a new NSQPublishInput instance. */
+    constructor($$source: Partial<NSQPublishInput> = {}) {
+        if (!("topic" in $$source)) {
+            this["topic"] = "";
+        }
+        if (!("body" in $$source)) {
+            this["body"] = "";
+        }
+        if (!("count" in $$source)) {
+            this["count"] = 0;
+        }
+        if (!("delaySec" in $$source)) {
+            this["delaySec"] = 0;
+        }
+        if (!("node" in $$source)) {
+            this["node"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new NSQPublishInput instance from a string or object.
+     */
+    static createFrom($$source: any = {}): NSQPublishInput {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new NSQPublishInput($$parsedSource as Partial<NSQPublishInput>);
+    }
+}
+
+/**
+ * NSQPublishResult is what the send did, and where it went.
+ */
+export class NSQPublishResult {
+    "sent": number;
+    "node": string;
+
+    /** Creates a new NSQPublishResult instance. */
+    constructor($$source: Partial<NSQPublishResult> = {}) {
+        if (!("sent" in $$source)) {
+            this["sent"] = 0;
+        }
+        if (!("node" in $$source)) {
+            this["node"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new NSQPublishResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): NSQPublishResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new NSQPublishResult($$parsedSource as Partial<NSQPublishResult>);
+    }
+}
+
+/**
  * NamespaceInput creates or updates a virtual host.
  */
 export class NamespaceInput {

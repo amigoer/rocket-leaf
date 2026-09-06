@@ -315,6 +315,18 @@ jobs:
               npm run e2e:activemq:up
               npm run e2e:activemq:classic:up
               npm run e2e:activemq:seed
+          - family: nsq
+            packages: ./internal/app/... ./internal/driver/nsq/...
+            # Two nsqd and two nsqlookupd. One of each would let two mistakes
+            # through: a topic lives on the daemon it was created on, so only
+            # a second one proves a depth is a sum rather than one node's
+            # answer, and a directory of one cannot lose an entry. The seed is
+            # required - the cross-check compares what the app computes
+            # against raw /stats, and comparing zero against zero proves
+            # nothing.
+            up: |
+              npm run e2e:nsq:up
+              npm run e2e:nsq:seed
     steps:
       - uses: actions/checkout@v7
 

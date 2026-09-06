@@ -138,7 +138,41 @@ This is the delivery plan. The contract it delivers against is
   the limit is not readable over JMX, so the page reports the cap as a caveat rather than
   pretending the queue is 400 deep.
 
-- **Designed, not yet implemented** — the seven families below.
+- **Shipped** — NSQ 1.x over the HTTP APIs of nsqd and nsqlookupd. There is no admin protocol:
+  everything an operator can ask is a call on the same daemons that carry the messages, so this
+  driver needs no wire client at all. Topics with the depth they hold, split between the topic's
+  own queue and its channels' and summed across every nsqd carrying them; channels, which are
+  this family's consumer groups, with their backlog, in-flight, deferred and requeued counts;
+  creating, emptying, pausing and deleting either, on every daemon at once; publishing to one
+  named daemon, repeated or held back for a delivery time; the cluster's nsqd beside the
+  nsqlookupd that tell consumers where to find them; and who is connected, in both roles nsqd
+  reports them in - consumers with the ready count that says which of them has stopped asking
+  for work, and producers with what each has published.
+
+  Four things it deliberately does not have, and all four follow from one fact: nsqd hands a
+  message to a consumer and stops holding it. There is no browse, because there is no stored log
+  behind a depth and no call that reads one back. There is no message id, because one exists only
+  on the wire between nsqd and the consumer holding it. There are no dead letters, because a
+  message requeued past its limit is dropped rather than moved. And there is no offset, so a
+  channel's backlog can be consumed or emptied and moved no other way.
+
+  One client is invisible and no page can fix it: anything publishing over HTTP. /pub is a
+  request rather than a connection, so nsqd has nothing left to list once it has answered - only
+  a producer holding a connection over the wire protocol appears.
+
+  Three more absences are about what nsqd reports rather than what it stores. No rate of any
+  kind: it counts messages since it started and nothing else. No disk figure: a topic's overflow
+  file sits wherever --data-path points and the daemon never looks at it. And no credentials on
+  the connection form, because its HTTP API authenticates nobody - --auth-http-address delegates
+  authorisation for clients arriving over the TCP protocol and never touches these endpoints.
+
+  Two things the driver had to get right that no other family here tests. A delete has to reach
+  nsqlookupd as well as nsqd: the daemons forget a deleted topic and the directory does not, so a
+  delete that stopped at nsqd leaves the name where a consumer looking it up still finds it. And
+  emptying a topic has to empty its channels: nsqd copies each message into every channel as it
+  arrives, so /topic/empty on its own answers 200 and moves nothing a page can see.
+
+- **Designed, not yet implemented** — the six families below.
 
 ## Delivery order
 
@@ -153,7 +187,7 @@ This is the delivery plan. The contract it delivers against is
 | 9 | **NATS** | Done. Additive as predicted - no canonical page changed shape - but the first family whose driver reads the profile's auth mechanism rather than only its secrets, which is what found a dial-time bug that reset that mechanism on every family but RocketMQ |
 | 10 | **ActiveMQ / Artemis** | Done. JMS semantics fit the canonical pages everywhere except where those pages assume a log: no offsets, no partitions, no trim. What they gained is a dead-letter page that is finally full, and the first retry in the app |
 | 11 | **Connection shape** — the seam, not a driver | A family can declare it needs no address, and the connection form, the profile store and the probe path all honour that. The driver's own descriptor is what says so |
-| 12 | **NSQ** | Topics and channels, with no message history and therefore no browse |
+| 12 | **NSQ** | Done. Topics and channels, with no message history and therefore no browse - confirmed. The management plane is the HTTP API of the daemons themselves, so the driver needs no wire client; what it had to get right instead is that every figure is a sum across daemons that each know only their own, that a delete has to reach the discovery tier, and that emptying a topic has to empty its channels |
 | 13 | **Amazon SQS** | Queues, messages and a send console, on a connection that carries a region and a credential rather than an address |
 | 14 | **Google Cloud Pub/Sub** | Subscriptions are objects in their own right rather than a reader's position, and their backlog maps onto lag |
 | 15 | **Azure Service Bus** | Peek is non-destructive, so this is the one hosted family whose messages page needs no caveat, and subscription rules reach the routing page |
@@ -201,7 +235,7 @@ and `Access`.
 | **ActiveMQ / Artemis** | Jolokia REST over JMX, plus AMQP 1.0 for following a topic | All six, plus Dead letters, Connections and a live topic view | Done. The two products' trees share no ObjectName, no attribute name and no message-map key, and which one answered is read off the MBean domain. Browsing and sending are management operations, so both take nothing off a destination and need no wire client - the optional AMQP tier exists only because JMX cannot push. Confirmed: no offsets, no partitions and no trim, because JMS has none; no delayed delivery, because both send operations take Map<String,String> and the scheduling annotation must be a Long; no access page, because both configure authentication in XML; and Classic's browse stops at maxBrowsePageSize, which is not readable over JMX and is reported as a caveat |
 | **Redis Stream** | The Redis protocol itself, through go-redis | All six, plus Pending entries, Clients and ACL users | Confirmed: no per-destination access control - the key patterns are on the user. The prediction that there would be no cluster topology was wrong: `CLUSTER NODES` answers it, and the driver reads every master and replica. A stream has no partitions, nothing about it is editable, and there is no dead-letter queue - what replaces it is the pending entries list, which is delivery records rather than messages. No message rate and no disk figure are reported anywhere |
 | **NATS** | JetStream API, the server monitoring endpoints and the $SYS account | Destinations, Subscriptions, Messages, Publish, Subjects, Cluster, Connections, Accounts, Alerts | Done. Four tiers, each probed on connect: without JetStream the endpoint drops to publish and subscribe, and the cluster pages need either the monitoring endpoint or the system account - the monitoring endpoint answers for one server, $SYS for all of them |
-| **NSQ** | nsqd and nsqlookupd HTTP APIs | Destinations, Subscriptions, Publish, Cluster | No message history, so no browse |
+| **NSQ** | nsqd and nsqlookupd HTTP APIs | Destinations, Subscriptions, Publish, Cluster, Connections, Alerts | Done. Confirmed: no message history, so no browse and no message id; no dead letters, because a message past its retry limit is dropped rather than moved; no offsets, so a backlog is consumed or emptied and moved no other way; no rate and no disk figure anywhere; and no credentials, because nsqd's HTTP API authenticates nobody. nsqlookupd is optional and degrades with a reason when a profile names none |
 | **MQTT** | None in the protocol. Probed at connect time: the $SYS tree, and the broker's own REST API where it has one | Overview, Topics, Subscribe, Publish, Clients, Cluster, Alerts | No consumer groups, no offsets and no stored history — a message exists while it is in flight and is gone if nobody was subscribed. Topics are those holding a retained value, because nothing else is enumerable. Clients need a management API, which Mosquitto does not have |
 
 ### Hosted

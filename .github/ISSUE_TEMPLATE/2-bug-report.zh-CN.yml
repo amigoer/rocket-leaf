@@ -54,6 +54,7 @@ body:
         - NATS
         - MQTT
         - ActiveMQ
+        - NSQ
     validations:
       required: true
 

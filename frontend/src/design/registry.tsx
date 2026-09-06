@@ -56,6 +56,7 @@ import { ProducerRabbitMQ } from "./boards/producer/ProducerRabbitMQ";
 import { ProducerRedis } from "./boards/producer/ProducerRedis";
 import { ProducerNats } from "./boards/producer/ProducerNats";
 import { ProducerActiveMQ } from "./boards/producer/ProducerActiveMQ";
+import { ProducerNsq } from "./boards/producer/ProducerNsq";
 import { BrokerActiveMQ } from "./boards/cluster/BrokerActiveMQ";
 import { OverviewActiveMQ } from "./boards/overview/OverviewActiveMQ";
 import { ClientsActiveMQ } from "./boards/consumers/ClientsActiveMQ";
@@ -81,6 +82,11 @@ import { DestinationsActiveMQ } from "./boards/topics/DestinationsActiveMQ";
 import { SubscriptionsActiveMQ } from "./boards/consumers/SubscriptionsActiveMQ";
 import { MessagesActiveMQ } from "./boards/messages/MessagesActiveMQ";
 import { DlqActiveMQ } from "./boards/dlq/DlqActiveMQ";
+import { TopicsNsq } from "./boards/topics/TopicsNsq";
+import { ChannelsNsq } from "./boards/consumers/ChannelsNsq";
+import { ClientsNsq } from "./boards/consumers/ClientsNsq";
+import { ClusterNsq } from "./boards/cluster/ClusterNsq";
+import { OverviewNsq } from "./boards/overview/OverviewNsq";
 import { NotDesigned } from "./boards/misc/NotDesigned";
 
 /**
@@ -127,6 +133,7 @@ const BOARDS: Partial<
     mqtt: OverviewMqtt,
     nats: OverviewNats,
     activemq: OverviewActiveMQ,
+    nsq: OverviewNsq,
   },
   topics: {
     rocketmq: TopicsRocketMQ,
@@ -137,6 +144,7 @@ const BOARDS: Partial<
     mqtt: TopicsMqtt,
     nats: StreamsNats,
     activemq: DestinationsActiveMQ,
+    nsq: TopicsNsq,
   },
   exchanges: { rabbitmq: ExchangesRabbitMQ },
   vhosts: { rabbitmq: VhostsRabbitMQ, pulsar: NamespacesPulsar, nats: AccountsNats },
@@ -152,9 +160,16 @@ const BOARDS: Partial<
     redis: ConsumersRedis,
     nats: ConsumersNats,
     activemq: SubscriptionsActiveMQ,
+    nsq: ChannelsNsq,
   },
   subscribe: { mqtt: MqttWorkbench, nats: NatsWorkbench, activemq: ActiveMQWorkbench },
-  clients: { mqtt: ClientsMqtt, redis: ClientsRedis, nats: ClientsNats, activemq: ClientsActiveMQ },
+  clients: {
+    mqtt: ClientsMqtt,
+    redis: ClientsRedis,
+    nats: ClientsNats,
+    activemq: ClientsActiveMQ,
+    nsq: ClientsNsq,
+  },
   messages: {
     rocketmq: MessagesRocketMQ,
     kafka: MessagesKafka,
@@ -180,6 +195,7 @@ const BOARDS: Partial<
     mqtt: NodesMqtt,
     nats: ServersNats,
     activemq: BrokerActiveMQ,
+    nsq: ClusterNsq,
   },
 };
 
@@ -213,6 +229,12 @@ export function renderBoard(
        scheduling annotation has to be a Long, so a delay set here would be
        accepted, ignored, and reported as having worked. */
     if (protocol === "activemq") return <ProducerActiveMQ />;
+    /* NSQ's own too: the shared console collects tags, keys and a delay level,
+       and an NSQ message is bytes - no key, no header table, no property map
+       anywhere in the protocol. What it needs instead is the field no other
+       console has: which nsqd takes the message, because the daemon that took
+       it is the one holding it. */
+    if (protocol === "nsq") return <ProducerNsq />;
     return <Producer protocol={protocol} nav={nav} />;
   }
   /* Alerts is one board for every family: the rules are numeric comparisons

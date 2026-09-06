@@ -48,6 +48,11 @@ const RULE_SEVERITY: Record<AlertRuleKey, AlertSeverity> = {
   // says this happened, not that it is happening.
   streamNoLeader: "crit",
   streamUnderReplicated: "warn",
+  // A pause is deliberate, so it is a warning rather than an outage: someone
+  // asked for this and the messages are still there. What makes it worth
+  // raising at all is that it is invisible everywhere else - publishing keeps
+  // working and every other figure keeps looking healthy.
+  deliveryPaused: "warn",
   slowConsumer: "warn",
 };
 

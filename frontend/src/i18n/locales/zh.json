@@ -205,6 +205,7 @@
       "subscriptionBlocked": "订阅因未确认消息过多被阻塞",
       "streamNoLeader": "流没有 leader",
       "streamUnderReplicated": "流的副本落后或离线",
+      "deliveryPaused": "投递已暂停",
       "slowConsumer": "有客户端因为跟不上被踢掉"
     },
     "tabs": {
@@ -258,6 +259,7 @@
       "subscriptionBlocked": "{{subscription}} · {{unacked}} 条未确认，Broker 已停止投递",
       "streamNoLeader": "{{stream}} · {{replicas}} 个副本，没有一个是 leader——这个流既写不进也读不出",
       "streamUnderReplicated": "{{stream}} · {{replicas}} 个副本里有跟不上的",
+      "deliveryPaused": "{{target}} · {{lag}} 条在等待；暂停期间发送照常，但一条也不会投递",
       "slowConsumer": "{{broker}} · 服务器启动以来断开了 {{count}} 个客户端；它们错过的消息没有了"
     },
     "duration": {
@@ -606,6 +608,25 @@
       "caveat": {
         "browseCapped": "无论目的地有多深，Classic 一次浏览最多返回 maxBrowsePageSize 条消息，默认 400 条。页面显示的是 broker 实际返回的内容——要看得更远，请在目的地的 policyEntry 里调高这个上限。"
       }
+    },
+    "nsq": {
+      "name": "NSQ",
+      "terms": {
+        "destination": "主题",
+        "destinationPlural": "主题",
+        "subscription": "通道",
+        "subscriptionPlural": "通道",
+        "node": "nsqd",
+        "nodePlural": "nsqd",
+        "backlog": "堆积"
+      },
+      "form": {
+        "nsqd": "nsqd 地址",
+        "lookupd": "nsqlookupd 地址"
+      },
+      "degraded": {
+        "lookupdAbsent": "这个连接没有填 nsqlookupd，所以没有服务发现层可展示。其余功能都不依赖它——单节点 NSQ 本来就没有。想看它对外通告了哪些 nsqd、知道哪些主题，请在连接里补上 nsqlookupd 地址。"
+      }
     }
   },
   "shell": {
@@ -774,6 +795,15 @@
         "clients": "连接",
         "alerts": "告警",
         "subscribe": "订阅台"
+      },
+      "nsq": {
+        "overview": "概览",
+        "topics": "主题",
+        "consumers": "通道",
+        "producer": "发送",
+        "cluster": "集群",
+        "clients": "客户端",
+        "alerts": "告警"
       }
     }
   },
@@ -1064,6 +1094,14 @@
           "amqpPassword": "AMQP 密码",
           "note": "Classic 与 Artemis，连接时自动区分",
           "consoleScheme": "地址需要带 http:// 或 https:// —— 这里填的是 Web 控制台 URL，不是 broker 端口。"
+        },
+        "nsq": {
+          "nsqd": "nsqd 地址",
+          "nsqdHint": "填每个 nsqd 的 HTTP 地址，用逗号分隔。主题只存在于创建它的那个 nsqd 上，所以这里的堆积量是这份清单的求和——漏掉一个地址，各项数字就会悄悄少算。HTTP 端口默认 4151；4150 是生产者连的那个。",
+          "lookupd": "nsqlookupd 地址（可选）",
+          "lookupdHint": "服务发现层：它知道哪个 nsqd 上有什么，自身不存任何消息。只有集群的目录列表需要它，单节点 NSQ 根本没有。HTTP 端口默认 4161。",
+          "note": "两种守护进程，且无需凭据——nsqd 的 HTTP API 不做认证",
+          "nsqdRequired": "至少填一个 nsqd 地址——这里的集群是它们的集合，而不是由某一个代表其余。"
         }
       },
       "deleteTitle": "删除连接",
@@ -1271,7 +1309,7 @@
         "aheadOfRelease": "当前 v{{current}} 新于线上 v{{latest}}",
         "upToDate": "已是最新版本 v{{version}}",
         "updateCheckFailed": "无法检查更新",
-        "blurb": "本地优先的消息队列桌面客户端，无需额外部署控制台，即可管理 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS 与 ActiveMQ 的集群、主题、消费者与消息。"
+        "blurb": "本地优先的消息队列桌面客户端，无需额外部署控制台，即可管理 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ 与 NSQ 的集群、主题、消费者与消息。"
       }
     }
   },
@@ -4184,6 +4222,220 @@
         "waiting": "正在监听。这个主题还没有任何消息发布。",
         "notStarted": "选一个主题，然后开始监听。",
         "note": "只支持主题。JMS 的消费者会真的消费，挂到队列上会把消息取走——消息页用的是浏览，不会取走任何东西。这里的内容不做保存：本次监听开始之前发布的消息，本页从来就无从找起。"
+      }
+    },
+    "nsq": {
+      "topics": {
+        "count": "{{count}} 个主题",
+        "search": "按名称筛选",
+        "name": "主题",
+        "depth": "堆积",
+        "topicDepth": "滞留在主题",
+        "channelDepth": "滞留在通道",
+        "backendDepth": "落盘",
+        "channels": "通道",
+        "messages": "消息数",
+        "bytes": "字节数",
+        "inFlight": "投递中",
+        "deferred": "延迟待发",
+        "requeued": "重新入队",
+        "timedOut": "超时",
+        "nodes": "nsqd",
+        "pausedBadge": "已暂停",
+        "ephemeralBadge": "临时",
+        "section": {
+          "depth": "堆积",
+          "traffic": "流量",
+          "placement": "分布"
+        },
+        "heldPaused": "有 {{count}} 条消息滞留在主题里，因为它被暂停了。主题暂停期间不会往任何通道复制，但发送仍然可用——所以这个数字会一直涨到暂停解除。",
+        "heldNoChannel": "有 {{count}} 条消息滞留在主题里，因为还没有任何订阅。nsqd 在消息到达时把它复制进每个通道，没有通道时就先自己存着——之后创建的第一个通道会把它们全部接走。",
+        "note": "无论多少个 nsqd 承载，一个主题只占一行。堆积量可能超过消息总数：nsqd 会把每条消息复制进每个通道，两个通道就意味着两份。这些都不是速率——nsqd 只统计自启动以来的累计数，本身不上报任何速率。",
+        "create": "新建主题",
+        "createTitle": "新建主题",
+        "nameHint": "可用字母、数字、点、短横线和下划线，最长 64 个字符。它会在本连接的每个 nsqd 上创建，这样生产者连到哪一个都能直接找到。",
+        "nameEphemeral": "临时主题不落盘，最后一个客户端断开就会被删除。想要比消费者活得久的主题，请去掉 #ephemeral 后缀。",
+        "nameProblem": {
+          "empty": "主题需要一个名称。",
+          "tooLong": "nsqd 不接受超过 64 个字符的名称，#ephemeral 后缀也算在里面。",
+          "charset": "nsqd 只接受字母、数字、点、短横线和下划线，末尾可以带一个 #ephemeral。"
+        },
+        "created": "已在每个 nsqd 上创建 {{name}}",
+        "pauseAction": "暂停",
+        "resumeAction": "恢复",
+        "paused": "已暂停 {{name}}",
+        "resumed": "已恢复 {{name}}",
+        "pauseFailed": "无法切换暂停状态",
+        "emptyAction": "清空",
+        "emptyTitle": "清空 {{name}}？",
+        "emptyDesc": "将丢弃 {{count}} 条消息，主题本身和它下面的每个通道都会清空。此操作不可撤销。",
+        "emptied": "已清空 {{name}}",
+        "emptyFailed": "无法清空主题",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "主题、它的通道以及它们持有的全部消息都会删除，涉及每个 nsqd 和服务发现层。此操作不可撤销。",
+        "deleted": "已删除 {{name}}",
+        "deleteFailed": "无法删除主题"
+      },
+      "channels": {
+        "count": "{{count}} 个通道",
+        "search": "按通道或主题筛选",
+        "name": "通道",
+        "topic": "主题",
+        "topicHint": "该通道读取的主题。主题必须已存在——通道是在承载该主题的 nsqd 上创建的，主题不存在就没有可创建的地方。",
+        "nameHint": "可用字母、数字、点、短横线和下划线，最长 64 个字符。没有起始位点：如果主题下已经有通道，新通道从零开始；如果一个通道都没有，主题此前滞留的消息会全部转给它。",
+        "nameEphemeral": "临时通道在最后一个消费者断开时就会被删除，堆积的消息也一并丢弃。想要在无人消费时仍保留消息，请去掉 #ephemeral 后缀。",
+        "create": "新建通道",
+        "createTitle": "新建通道",
+        "created": "已创建 {{name}}",
+        "backlog": "堆积",
+        "backendDepth": "落盘",
+        "inFlight": "投递中",
+        "deferred": "延迟待发",
+        "requeued": "重新入队",
+        "timedOut": "超时",
+        "messages": "消息数",
+        "clients": "消费者",
+        "nodes": "nsqd",
+        "pausedBadge": "已暂停",
+        "idleBadge": "无消费者",
+        "ephemeralBadge": "临时",
+        "section": {
+          "backlog": "堆积",
+          "delivery": "投递"
+        },
+        "pauseAction": "暂停",
+        "resumeAction": "恢复",
+        "paused": "已暂停 {{name}}",
+        "resumed": "已恢复 {{name}}",
+        "pauseFailed": "无法切换暂停状态",
+        "emptyAction": "清空",
+        "emptyTitle": "清空 {{name}}？",
+        "emptyDesc": "将从该通道丢弃 {{count}} 条消息。主题本身和其它通道保留各自的副本。此操作不可撤销。",
+        "emptied": "已清空 {{name}}",
+        "emptyFailed": "无法清空通道",
+        "deleteTitle": "删除 {{name}}？",
+        "deleteDesc": "通道及其堆积消息都会删除，涉及承载 {{topic}} 的每个 nsqd 和服务发现层。已发布的消息不会在别处再送达它。此操作不可撤销。",
+        "deleted": "已删除 {{name}}",
+        "deleteFailed": "无法删除通道",
+        "stalled": "有 {{count}} 条消息在等待，因为该通道被暂停了。消费者仍连着并在请求消息，但暂停解除前 nsqd 一条也不会发。",
+        "note": "通道就是这个家族的消费组：主题下的每个通道都会收到每条消息的一份副本，通道深度即堆积量。深度背后没有位点，所以这里没有任何移动读取位置的操作——堆积只能被消费或被清空，没有第三种办法。投递中和延迟待发不计入堆积。"
+      },
+      "producer": {
+        "subtitle": "一条消息体，发往一个 nsqd",
+        "title": "发送",
+        "topic": "主题",
+        "topicHint": "向不存在的主题发送会顺带创建它，且只在接收这条消息的那个 nsqd 上创建——所以名字打错不会报错，而是留下一个多余的主题。",
+        "topicRequired": "请选择要发送到的主题。",
+        "body": "消息体",
+        "bodyHint": "NSQ 的消息就是一段字节。协议里没有 key、没有消息头、也没有属性表，消费者需要知道的一切都得写在这里。",
+        "bodyRequired": "nsqd 不接受空消息体。",
+        "section": {
+          "delivery": "投递"
+        },
+        "node": "经由",
+        "firstNode": "第一个 nsqd",
+        "nodeHint": "接收消息的那个 nsqd 就是持有它的那个。连在别的 nsqd 上的消费者，只有同样通过 nsqlookupd 找到这一个才看得到。",
+        "delay": "延迟（秒）",
+        "delayHint": "消息会被扣住这么久才进入通道。nsqd 以 --max-req-timeout 为上限，默认 {{max}} 秒，超过就拒绝——这个上限无法通过 API 读取，所以这里显示的是默认值而不是你的实际配置。",
+        "count": "重复",
+        "countHint": "把同一条消息体发送这么多次，最多 {{max}} 条，合并成一次批量请求。",
+        "countRange": "一次发送 1 到 1000 条。",
+        "oneAtATime": "这 {{count}} 条会一条一个请求地发，而不是批量：/mpub 用换行分隔消息，并且会直接忽略延迟参数。",
+        "send": "发送",
+        "sent": "已发送 {{count}} 条",
+        "sentTo": "已向 {{node}} 发送 {{count}} 条",
+        "failed": "发送失败",
+        "delayNegative": "延迟不能为负数。",
+        "delayCeiling": "超过了 nsqd 默认的 --max-req-timeout（{{max}} 秒）。发送仍会执行：这个上限是应用读不到的守护进程启动参数，配得更长的部署能正常工作，用默认值的则会返回 INVALID_DEFER。"
+      },
+      "cluster": {
+        "subtitle": "{{nodes}} 个 nsqd，{{directory}} 个 nsqlookupd",
+        "nsqd": "nsqd",
+        "lookupd": "nsqlookupd",
+        "noLookupd": "这个连接没有填 nsqlookupd。单节点 NSQ 本来就没有，其余功能也都不依赖它——想看服务发现层对外通告了什么，请在连接里补上地址。",
+        "address": "地址",
+        "version": "版本",
+        "nodes": "nsqd",
+        "online": "健康",
+        "topics": "主题",
+        "channels": "通道",
+        "clients": "消费者",
+        "depth": "堆积",
+        "producers": "已注册 nsqd",
+        "knownTopics": "已知主题",
+        "advertises": "对外通告",
+        "unhealthy": "不健康",
+        "hostname": "主机名",
+        "broadcast": "广播地址",
+        "tcpPort": "TCP 端口",
+        "httpPort": "HTTP 端口",
+        "health": "健康状态",
+        "heapInUse": "堆内存占用",
+        "heapObjects": "堆对象数",
+        "gcRuns": "GC 次数",
+        "section": {
+          "identity": "身份",
+          "memory": "内存",
+          "config": "配置"
+        },
+        "configNote": "这个守护进程实际运行的配置，由它自己上报。nsqd 只暴露这些——启动时的其它参数它一概不上报。",
+        "advertiseMismatch": "nsqlookupd 正在通告 {{addresses}}，而这个连接访问不到。通过服务发现查找 nsqd 的消费者会被指到那里；请检查各个守护进程的 --broadcast-address。"
+      },
+      "clients": {
+        "count": "{{count}} 个连接",
+        "search": "按客户端、主题、通道或 nsqd 筛选",
+        "peer": "客户端",
+        "topic": "主题",
+        "channel": "通道",
+        "ready": "可接收",
+        "inFlight": "投递中",
+        "messages": "已收到",
+        "finished": "已完成",
+        "requeued": "重新入队",
+        "node": "nsqd",
+        "clientId": "客户端 ID",
+        "hostname": "主机名",
+        "userAgent": "客户端库",
+        "protocol": "协议",
+        "state": "状态",
+        "connectedAt": "连接时间",
+        "tls": "TLS",
+        "snappy": "Snappy",
+        "notReadyBadge": "可接收 0",
+        "section": {
+          "identity": "身份",
+          "work": "工作",
+          "transport": "传输"
+        },
+        "notReady": "该消费者已告诉 nsqd 它不再接收任何消息。连接还在、通道也还占着，但在它重新请求消息之前堆积不会下降——通常是处理函数卡住了。",
+        "note": "两种角色都在这里，分别取自 nsqd 上报它们的两个位置：消费者列在它订阅的通道下面，生产者列在它连接的守护进程下面，并带上已发送的条数。生产者没有 ready 计数、也没有通道——那是订阅才有的。通过 HTTP 发送的客户端不会出现，因为 /pub 是一次请求而不是一条连接。一个客户端进程连了几个 nsqd 就会出现几行：那是各自持有不同消息的独立连接。",
+        "roleColumn": "角色",
+        "role": {
+          "consumer": "消费者",
+          "producer": "生产者"
+        },
+        "published": "已发送"
+      },
+      "overview": {
+        "subtitle": "{{nodes}} 个 nsqd、{{directory}} 个 nsqlookupd，版本 {{version}}",
+        "topics": "主题",
+        "channels": "通道",
+        "backlog": "堆积",
+        "backlogHint": "已发布但尚未完成",
+        "undrained": "无人消费",
+        "undrainedHint": "没有消费者连着的通道上的堆积",
+        "held": "滞留在主题",
+        "heldHint": "没进入任何通道：要么暂停了，要么从来没有订阅",
+        "paused": "已暂停",
+        "pausedHint": "仍在接收发送、但一条也不投递的主题和通道",
+        "consumers": "消费者",
+        "busiest": "堆积在哪里",
+        "channel": "通道",
+        "inFlight": "投递中",
+        "pausedBadge": "已暂停",
+        "idleBadge": "无消费者",
+        "nothingWaiting": "所有通道都没有积压。",
+        "note": "这里没有任何速率，也没有吞吐曲线：nsqd 只统计自启动以来的累计消息数，本身不上报速率。指标卡区分的是消息滞留在哪里——有消费者连着的堆积是消费慢，没有消费者的堆积是消费者没在跑，而滞留在主题里的则根本没进入任何通道。"
       }
     }
   }

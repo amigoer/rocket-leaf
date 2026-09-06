@@ -44,6 +44,8 @@ import {
   OPTION_ACTIVEMQ_JOLOKIA_PATH,
   OPTION_ACTIVEMQ_ORIGIN,
   OPTION_ACTIVEMQ_TLS_SKIP_VERIFY,
+  OPTION_NSQ_LOOKUPD,
+  OPTION_NSQ_TLS_SKIP_VERIFY,
   OPTION_NATS_CREDS_FILE,
   OPTION_NATS_JS_DOMAIN,
   OPTION_NATS_MONITOR_URL,
@@ -70,6 +72,7 @@ import {
   OPTION_VHOST,
   emptyKafkaDraft,
   emptyMqttDraft,
+  emptyNsqDraft,
   emptyActiveMQDraft,
   emptyNatsDraft,
   emptyPulsarDraft,
@@ -83,6 +86,7 @@ import {
   type MqttProtocol,
   type MqttTransport,
   type NatsDraft,
+  type NsqDraft,
   type ActiveMQDraft,
   type ActiveMQMechanism,
   type NatsMechanism,
@@ -108,7 +112,8 @@ export type ProtocolDraft =
   | { protocol: "redis"; value: RedisDraft }
   | { protocol: "mqtt"; value: MqttDraft }
   | { protocol: "nats"; value: NatsDraft }
-  | { protocol: "activemq"; value: ActiveMQDraft };
+  | { protocol: "activemq"; value: ActiveMQDraft }
+  | { protocol: "nsq"; value: NsqDraft };
 
 /** The protocols this file can build a submission for. */
 export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
@@ -120,6 +125,7 @@ export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
   "mqtt",
   "nats",
   "activemq",
+  "nsq",
 ];
 
 export function isDraftable(protocol: ProtocolId): protocol is ProtocolDraft["protocol"] {
@@ -142,6 +148,8 @@ export function emptyDraft(protocol: ProtocolDraft["protocol"]): ProtocolDraft {
       return { protocol, value: emptyNatsDraft() };
     case "activemq":
       return { protocol, value: emptyActiveMQDraft() };
+    case "nsq":
+      return { protocol, value: emptyNsqDraft() };
     default:
       return { protocol, value: emptyRocketMQDraft() };
   }
@@ -163,6 +171,8 @@ export function toSubmission(draft: ProtocolDraft): Submission {
       return natsSubmission(draft.value);
     case "activemq":
       return activeMQSubmission(draft.value);
+    case "nsq":
+      return nsqSubmission(draft.value);
     default:
       return rocketMQSubmission(draft.value);
   }
@@ -185,6 +195,8 @@ export function toDraft(profile: ConnectionProfile): ProtocolDraft {
       return { protocol: "nats", value: toNatsDraft(profile) };
     case MQKind.KindActiveMQ:
       return { protocol: "activemq", value: toActiveMQDraft(profile) };
+    case MQKind.KindNSQ:
+      return { protocol: "nsq", value: toNsqDraft(profile) };
     default:
       return { protocol: "rocketmq", value: toRocketMQDraft(profile) };
   }
@@ -784,5 +796,46 @@ function toActiveMQDraft(profile: ConnectionProfile): ActiveMQDraft {
     timeoutSec: profile.timeoutSec,
     credentialsStored: profile.secretsConfigured.length > 0,
     clearCredentials: false,
+  };
+}
+
+/**
+ * NSQ stores no credential, so this is the one submission with nothing to
+ * decide about secrets.
+ *
+ * "replace" rather than "preserve": the mode governs a secrets map, and an
+ * empty one written every time is the honest instruction for a family whose
+ * management API takes no credential at all. Preserving would keep whatever a
+ * profile of another kind had left behind if its kind were ever changed.
+ */
+function nsqSubmission(draft: NsqDraft): Submission {
+  return {
+    draft: {
+      name: draft.name.trim(),
+      group: draft.group,
+      kind: MQKind.KindNSQ,
+      endpoints: draft.endpoints.trim(),
+      timeoutSec: draft.timeoutSec,
+      authMechanism: AuthMechanism.AuthNone,
+      options: {
+        [OPTION_NSQ_LOOKUPD]: draft.lookupdEndpoints.trim(),
+        [OPTION_NSQ_TLS_SKIP_VERIFY]: String(draft.tlsSkipVerify),
+      },
+      secrets: {},
+      remark: draft.remark,
+    },
+    credentialsMode: "replace",
+  };
+}
+
+function toNsqDraft(profile: ConnectionProfile): NsqDraft {
+  return {
+    name: profile.name,
+    endpoints: profile.endpoints,
+    lookupdEndpoints: profile.options?.[OPTION_NSQ_LOOKUPD] ?? "",
+    tlsSkipVerify: profile.options?.[OPTION_NSQ_TLS_SKIP_VERIFY] === "true",
+    group: profile.group,
+    remark: profile.remark,
+    timeoutSec: profile.timeoutSec,
   };
 }

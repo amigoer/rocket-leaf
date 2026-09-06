@@ -1,7 +1,7 @@
 <div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.zh-CN.svg">
-    <img src="docs/images/hero-light.zh-CN.svg" width="100%" alt="MQ Studio — 本地优先的消息队列桌面客户端。一套界面连接 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS 与 ActiveMQ，更多驱动陆续接入，无需部署 Web 控制台。">
+    <img src="docs/images/hero-light.zh-CN.svg" width="100%" alt="MQ Studio — 本地优先的消息队列桌面客户端。一套界面连接 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ 与 NSQ，更多驱动陆续接入，无需部署 Web 控制台。">
   </picture>
 </div>
 
@@ -45,7 +45,7 @@ MQ Studio 是它们共同的客户端。每一种消息中间件都通过一个�
 - **数据留在本机** — 配置保存在当前设备，凭证加密存储
 - **跨平台与双语** — 支持 macOS、Windows、Linux，提供中英文界面
 
-目前可以连接的驱动是 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS 和 ActiveMQ，其余进度见[驱动支持](#驱动支持)。
+目前可以连接的驱动是 RocketMQ、RabbitMQ、Kafka、Pulsar、Redis Stream、MQTT、NATS、ActiveMQ 和 NSQ，其余进度见[驱动支持](#驱动支持)。
 
 ## 功能
 
@@ -123,6 +123,7 @@ MQ Studio 通过可插拔驱动对接各类消息中间件。每个驱动声明�
 | **MQTT** 3.1.1 / 5.0 | ✅ 已支持 | 带 QoS、retain 与 5.0 属性的发布；实时订阅工作台，会报告丢弃了多少条、会话何时断开；从 broker 的保留消息得出的主题列表；broker 发布 $SYS 时读取它；以及在 broker 提供管理 API 时（EMQX 等）读取在线客户端与会话、它们的订阅、集群节点，并可断开某个会话。支持 Mosquitto、EMQX、HiveMQ、VerneMQ |
 | **NATS** 2.x | ✅ 已支持 | JetStream 的流，含主题、留存策略、存储方式与副本集；push / pull 两种消费者，带待处理、未确认与重投计数；按 sequence 浏览与实时跟随；按 subject 发布，支持等待回复的 request；为核心 NATS 准备的订阅台——它什么都不存，只发给此刻在听的人；按条数、sequence 或 subject 清理，以及删除单条消息；集群里的服务器及其路由与生效配置，走 $SYS 或监控端点读取；客户端连接及各自订阅了什么，并可以断开其中一条；还有账户页，显示各账户的 JetStream 用量与它们被给到的上限 |
 | **ActiveMQ** Classic 5.x / 6.x · Artemis 2.x | ✅ 已支持 | 一个家族，两种 broker，连接建立时自动区分。队列与主题及其堆积、计数器和配置；两种产品上的持久订阅，可创建可删除；浏览不会取走任何消息——在两个产品上它都是管理操作；带 JMS 消息头、属性和优先级的发送；沿声明反向查出死信目的地，并把消息重投回它们当初失败的地方；broker 的存储、journal 与生效配置，以及它桥接到的其他 broker；客户端连接及各自使用的协议，并可断开；以及——当 broker 的 AMQP 接入点可达时——实时监听一个主题 |
+| **NSQ** 1.x | ✅ 已支持 | 一个家族，没有独立的管理协议：运维需要问的一切，都是对承载消息的守护进程发一次 HTTP 调用。主题及其堆积量——区分滞留在主题自身队列与滞留在通道里的部分，并对承载它的每个 nsqd 求和；通道，也就是这个家族的消费组，带堆积、投递中与延迟待发的计数；创建、清空、暂停和删除两者，一次覆盖所有守护进程，并同步到服务发现层；向指定的某个守护进程发送，可重复发送或延迟投递；集群里的 nsqd 与告诉消费者去哪里找它们的 nsqlookupd 并列展示，两边不一致时给出告警；以及已连接的客户端，涵盖 nsqd 上报它们的两种角色：消费者带 ready 计数，指出谁已经不再请求消息；生产者带各自已发送的条数。没有消息浏览，也没有死信：nsqd 把消息交给消费者之后就不再持有它 |
 | SQS · Pub/Sub · Service Bus 等 | 📋 计划中 | 完整矩阵见下方折叠内容 |
 
 <details>
@@ -131,7 +132,6 @@ MQ Studio 通过可插拔驱动对接各类消息中间件。每个驱动声明�
 
 | 驱动 | 状态 | 说明 |
 | --- | --- | --- |
-| **NSQ** | 📋 计划中 | 通过 nsqd HTTP 接口访问 Topic 与 Channel |
 | **Amazon SQS** | 📋 计划中 | 队列、属性与死信重投 |
 | **Google Cloud Pub/Sub** | 📋 计划中 | Topic、Subscription 与积压量 |
 | **Azure Service Bus** | 📋 计划中 | 队列、Topic、Subscription、规则与死信队列 |
@@ -167,8 +167,9 @@ ACL 与部分高级操作是否可用，取决于 Broker 版本和配置。表�
 | 6 | MQTT | ✅ 已完成 |
 | 7 | NATS | ✅ 已完成 |
 | 8 | ActiveMQ Classic / Artemis | ✅ 已完成 |
-| 9 | 其余驱动，按「驱动支持」中列出的顺序推进 | 📋 计划中 |
-| 10 | Agent 相关功能 | 📋 计划中 |
+| 9 | NSQ | ✅ 已完成 |
+| 10 | 其余驱动，按「驱动支持」中列出的顺序推进 | 📋 计划中 |
+| 11 | Agent 相关功能 | 📋 计划中 |
 
 Agent 相关的功能会等驱动接入完成之后再开始，不会提前。每个驱动都会声明所连中间件真正支持
 的能力，这套能力模型正是 Agent 跨中间件工作的前提 —— 不会给出中间件本身做不到的操作。

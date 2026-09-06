@@ -205,6 +205,7 @@
       "subscriptionBlocked": "Subscription blocked by unacknowledged messages",
       "streamNoLeader": "Stream with no leader",
       "streamUnderReplicated": "Stream replica behind or offline",
+      "deliveryPaused": "Delivery paused",
       "slowConsumer": "Clients dropped for falling behind"
     },
     "tabs": {
@@ -258,6 +259,7 @@
       "subscriptionBlocked": "{{subscription}} · {{unacked}} unacknowledged; the broker has stopped delivering",
       "streamNoLeader": "{{stream}} · {{replicas}} replica(s), none leading — the stream takes no publishes and answers no reads",
       "streamUnderReplicated": "{{stream}} · not all {{replicas}} replicas are current",
+      "deliveryPaused": "{{target}} · {{lag}} waiting; publishing carries on and nothing is delivered while it is paused",
       "slowConsumer": "{{broker}} · {{count}} client(s) disconnected since the server started; what they missed is gone"
     },
     "duration": {
@@ -606,6 +608,25 @@
       "caveat": {
         "browseCapped": "Classic returns at most maxBrowsePageSize messages per browse, 400 by default, however deep the destination is. The page shows what the broker sent — raise the limit in the destination's policy entry to see further."
       }
+    },
+    "nsq": {
+      "name": "NSQ",
+      "terms": {
+        "destination": "Topic",
+        "destinationPlural": "Topics",
+        "subscription": "Channel",
+        "subscriptionPlural": "Channels",
+        "node": "nsqd",
+        "nodePlural": "nsqd",
+        "backlog": "Depth"
+      },
+      "form": {
+        "nsqd": "nsqd addresses",
+        "lookupd": "nsqlookupd addresses"
+      },
+      "degraded": {
+        "lookupdAbsent": "This connection names no nsqlookupd, so there is no discovery tier to describe. Everything else works without one — a single-node NSQ has none at all. Add the nsqlookupd addresses to this connection to see which daemons it is advertising and which topics it knows."
+      }
     }
   },
   "shell": {
@@ -774,6 +795,15 @@
         "clients": "Connections",
         "alerts": "Alerts",
         "subscribe": "Watch"
+      },
+      "nsq": {
+        "overview": "Overview",
+        "topics": "Topics",
+        "consumers": "Channels",
+        "producer": "Publish",
+        "cluster": "Cluster",
+        "clients": "Clients",
+        "alerts": "Alerts"
       }
     }
   },
@@ -1064,6 +1094,14 @@
           "amqpPassword": "AMQP password",
           "note": "Classic and Artemis, told apart on connect",
           "consoleScheme": "The address needs an http:// or https:// scheme — this field takes the web console's URL, not a broker port."
+        },
+        "nsq": {
+          "nsqd": "nsqd addresses",
+          "nsqdHint": "Every nsqd's HTTP address, separated by commas. A topic lives on the daemon it was created on, so a depth here is the sum across this list and an address left out makes every figure quietly short. The HTTP port defaults to 4151; 4150 is the one producers dial.",
+          "lookupd": "nsqlookupd addresses (optional)",
+          "lookupdHint": "The discovery tier: it knows which nsqd holds what and holds nothing itself. Only the cluster's directory list needs it, and a single-node NSQ has none. The HTTP port defaults to 4161.",
+          "note": "Two daemons, and no credentials — nsqd's HTTP API takes none",
+          "nsqdRequired": "Name at least one nsqd address — a cluster here is the set of them, not one that speaks for the rest."
         }
       },
       "deleteTitle": "Delete connection",
@@ -1271,7 +1309,7 @@
         "aheadOfRelease": "Local v{{current}} is newer than published v{{latest}}",
         "upToDate": "You are on the latest version v{{version}}",
         "updateCheckFailed": "Could not check for updates",
-        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, and ActiveMQ without deploying a separate console."
+        "blurb": "A local-first desktop client for message queues. Manage clusters, topics, consumers and messages across RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, and NSQ without deploying a separate console."
       }
     }
   },
@@ -4184,6 +4222,220 @@
         "waiting": "Listening. Nothing has been published to this topic yet.",
         "notStarted": "Choose a topic and start watching.",
         "note": "Topics only. A JMS consumer consumes, so attaching one to a queue would take its messages — the message page browses instead, which takes nothing. Nothing here is stored: a message published before this stream started was never anywhere this page could find it."
+      }
+    },
+    "nsq": {
+      "topics": {
+        "count": "{{count}} topics",
+        "search": "Filter by name",
+        "name": "Topic",
+        "depth": "Depth",
+        "topicDepth": "Held by the topic",
+        "channelDepth": "Held by channels",
+        "backendDepth": "On disk",
+        "channels": "Channels",
+        "messages": "Messages",
+        "bytes": "Bytes",
+        "inFlight": "In flight",
+        "deferred": "Deferred",
+        "requeued": "Requeued",
+        "timedOut": "Timed out",
+        "nodes": "nsqd",
+        "pausedBadge": "Paused",
+        "ephemeralBadge": "Ephemeral",
+        "section": {
+          "depth": "Depth",
+          "traffic": "Traffic",
+          "placement": "Placement"
+        },
+        "heldPaused": "{{count}} messages are sitting in the topic because it is paused. Nothing is copied into a channel while a topic is paused, and publishing still works — so this number grows until the pause is lifted.",
+        "heldNoChannel": "{{count}} messages are sitting in the topic because nothing has subscribed to it. nsqd copies a message into every channel as it arrives, and a topic with no channel holds them instead — the first channel created takes the lot.",
+        "note": "One row per topic, however many nsqd carry it. Depth can exceed the message count: nsqd copies each message into every channel, so a topic with two channels holds two copies of everything. Neither figure is a rate — nsqd counts since it started and reports no rate at all.",
+        "create": "New topic",
+        "createTitle": "New topic",
+        "nameHint": "Letters, digits, dot, dash and underscore, up to 64 characters. It is created on every nsqd in this connection, so a producer reaching any of them finds it already there.",
+        "nameEphemeral": "An ephemeral topic keeps nothing on disk and is deleted the moment its last client disconnects. Drop the #ephemeral suffix for a topic that outlives its consumers.",
+        "nameProblem": {
+          "empty": "A topic needs a name.",
+          "tooLong": "nsqd refuses a name longer than 64 characters, and the #ephemeral suffix counts towards that.",
+          "charset": "nsqd accepts letters, digits, dot, dash and underscore only, with an optional #ephemeral suffix."
+        },
+        "created": "Created {{name}} on every nsqd",
+        "pauseAction": "Pause",
+        "resumeAction": "Resume",
+        "paused": "Paused {{name}}",
+        "resumed": "Resumed {{name}}",
+        "pauseFailed": "Could not change the pause state",
+        "emptyAction": "Empty",
+        "emptyTitle": "Empty {{name}}?",
+        "emptyDesc": "{{count}} messages are discarded, from the topic and from every channel under it. There is no undo.",
+        "emptied": "Emptied {{name}}",
+        "emptyFailed": "Could not empty the topic",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "The topic, its channels and everything they hold go, on every nsqd and in the discovery tier. There is no undo.",
+        "deleted": "Deleted {{name}}",
+        "deleteFailed": "Could not delete the topic"
+      },
+      "channels": {
+        "count": "{{count}} channels",
+        "search": "Filter by channel or topic",
+        "name": "Channel",
+        "topic": "Topic",
+        "topicHint": "The topic this channel reads. It has to exist already — a channel is created on the daemons carrying its topic, and there are none for a topic that is not there.",
+        "nameHint": "Letters, digits, dot, dash and underscore, up to 64 characters. There is no starting position: on a topic that already has a channel it begins at nothing, and on one that has none it takes the queue the topic has been holding.",
+        "nameEphemeral": "An ephemeral channel is deleted the moment its last consumer disconnects, and its backlog goes with it. Drop the #ephemeral suffix for a channel that keeps messages while nothing is reading.",
+        "create": "New channel",
+        "createTitle": "New channel",
+        "created": "Created {{name}}",
+        "backlog": "Backlog",
+        "backendDepth": "On disk",
+        "inFlight": "In flight",
+        "deferred": "Deferred",
+        "requeued": "Requeued",
+        "timedOut": "Timed out",
+        "messages": "Messages",
+        "clients": "Consumers",
+        "nodes": "nsqd",
+        "pausedBadge": "Paused",
+        "idleBadge": "No consumers",
+        "ephemeralBadge": "Ephemeral",
+        "section": {
+          "backlog": "Backlog",
+          "delivery": "Delivery"
+        },
+        "pauseAction": "Pause",
+        "resumeAction": "Resume",
+        "paused": "Paused {{name}}",
+        "resumed": "Resumed {{name}}",
+        "pauseFailed": "Could not change the pause state",
+        "emptyAction": "Empty",
+        "emptyTitle": "Empty {{name}}?",
+        "emptyDesc": "{{count}} messages are discarded from this channel. The topic and its other channels keep their own copies. There is no undo.",
+        "emptied": "Emptied {{name}}",
+        "emptyFailed": "Could not empty the channel",
+        "deleteTitle": "Delete {{name}}?",
+        "deleteDesc": "The channel and its backlog go, on every nsqd carrying {{topic}} and in the discovery tier. Messages already published reach it nowhere else. There is no undo.",
+        "deleted": "Deleted {{name}}",
+        "deleteFailed": "Could not delete the channel",
+        "stalled": "{{count}} messages are waiting because this channel is paused. Its consumers are connected and asking for work; nsqd is sending none until the pause is lifted.",
+        "note": "A channel is this family's consumer group: every channel under a topic receives a copy of every message, and its depth is the backlog. There is no offset behind that depth, so nothing here moves a read position — a backlog is consumed or emptied, and there is no third way. In flight and deferred sit outside it."
+      },
+      "producer": {
+        "subtitle": "One body, to one nsqd",
+        "title": "Send",
+        "topic": "Topic",
+        "topicHint": "Publishing to a topic that does not exist creates it, on the daemon that took the message and nowhere else — so a name typed wrong leaves a topic behind rather than failing.",
+        "topicRequired": "Choose a topic to publish to.",
+        "body": "Body",
+        "bodyHint": "An NSQ message is bytes. There is no key, no header table and no property map anywhere in the protocol, so anything a consumer needs to know goes in here.",
+        "bodyRequired": "nsqd refuses an empty body.",
+        "section": {
+          "delivery": "Delivery"
+        },
+        "node": "Through",
+        "firstNode": "The first nsqd",
+        "nodeHint": "The daemon that takes the message is the one holding it. A consumer attached to another sees it only if it also finds this one through nsqlookupd.",
+        "delay": "Delay (seconds)",
+        "delayHint": "Held back from the channels for this long. nsqd caps it at its --max-req-timeout, {{max}} seconds by default, and refuses anything longer — the limit is not readable over the API, so this is the default rather than your daemon's.",
+        "count": "Repeat",
+        "countHint": "Sends the same body this many times, up to {{max}}, as one batch.",
+        "countRange": "Send between 1 and 1000 messages at a time.",
+        "oneAtATime": "These {{count}} go one request at a time rather than as a batch: /mpub separates messages with a newline and ignores a delay outright.",
+        "send": "Send",
+        "sent": "Sent {{count}} messages",
+        "sentTo": "Sent {{count}} to {{node}}",
+        "failed": "Could not send",
+        "delayNegative": "A delay cannot be negative.",
+        "delayCeiling": "Past nsqd's default --max-req-timeout of {{max}} seconds. The send still goes: that limit is a daemon flag this app cannot read, so a deployment started with a longer one works and one on the default will answer INVALID_DEFER."
+      },
+      "cluster": {
+        "subtitle": "{{nodes}} nsqd, {{directory}} nsqlookupd",
+        "nsqd": "nsqd",
+        "lookupd": "nsqlookupd",
+        "noLookupd": "This connection names no nsqlookupd. A single-node NSQ has none, and everything else works without one — add the addresses to the connection to see what the discovery tier is advertising.",
+        "address": "Address",
+        "version": "Version",
+        "nodes": "nsqd",
+        "online": "Healthy",
+        "topics": "Topics",
+        "channels": "Channels",
+        "clients": "Consumers",
+        "depth": "Depth",
+        "producers": "Registered nsqd",
+        "knownTopics": "Topics known",
+        "advertises": "Advertises",
+        "unhealthy": "Unhealthy",
+        "hostname": "Hostname",
+        "broadcast": "Broadcast address",
+        "tcpPort": "TCP port",
+        "httpPort": "HTTP port",
+        "health": "Health",
+        "heapInUse": "Heap in use",
+        "heapObjects": "Heap objects",
+        "gcRuns": "GC runs",
+        "section": {
+          "identity": "Identity",
+          "memory": "Memory",
+          "config": "Settings"
+        },
+        "configNote": "What this daemon is running with, as it reports itself. nsqd exposes only these — everything else it was started with is a flag it does not report.",
+        "advertiseMismatch": "nsqlookupd is advertising {{addresses}}, which this connection cannot reach. Consumers that find their nsqd through discovery are being sent there; check each daemon's --broadcast-address."
+      },
+      "clients": {
+        "count": "{{count}} connected",
+        "search": "Filter by client, topic, channel or nsqd",
+        "peer": "Client",
+        "topic": "Topic",
+        "channel": "Channel",
+        "ready": "Ready",
+        "inFlight": "In flight",
+        "messages": "Messages",
+        "finished": "Finished",
+        "requeued": "Requeued",
+        "node": "nsqd",
+        "clientId": "Client id",
+        "hostname": "Hostname",
+        "userAgent": "Library",
+        "protocol": "Protocol",
+        "state": "State",
+        "connectedAt": "Connected",
+        "tls": "TLS",
+        "snappy": "Snappy",
+        "notReadyBadge": "Ready 0",
+        "section": {
+          "identity": "Identity",
+          "work": "Work",
+          "transport": "Transport"
+        },
+        "notReady": "This consumer has told nsqd it will accept nothing. It is connected and holding its channel, and the backlog will not move until it asks for messages again — usually a handler that has stopped returning.",
+        "note": "Both roles, from the two places nsqd reports them: a consumer is listed under the channel it subscribed to, a producer under the daemon it is connected to with what it has published. A producer has no ready count and no channel — those are a subscription's. Anything publishing over HTTP is absent, because /pub is a request rather than a connection. One client process appears once per nsqd it found: those are separate connections holding separate messages.",
+        "roleColumn": "Role",
+        "role": {
+          "consumer": "Consumer",
+          "producer": "Producer"
+        },
+        "published": "Published"
+      },
+      "overview": {
+        "subtitle": "{{nodes}} nsqd and {{directory}} nsqlookupd, on {{version}}",
+        "topics": "Topics",
+        "channels": "Channels",
+        "backlog": "Backlog",
+        "backlogHint": "Published and not yet finished",
+        "undrained": "Nobody draining",
+        "undrainedHint": "Backlog on channels with no consumer attached",
+        "held": "Held by topics",
+        "heldHint": "Reached no channel: paused, or nothing has ever subscribed",
+        "paused": "Paused",
+        "pausedHint": "Topics and channels still accepting publishes and delivering nothing",
+        "consumers": "Consumers",
+        "busiest": "Where the backlog is",
+        "channel": "Channel",
+        "inFlight": "In flight",
+        "pausedBadge": "Paused",
+        "idleBadge": "No consumers",
+        "nothingWaiting": "Nothing is waiting on any channel.",
+        "note": "No rate anywhere, and no throughput chart: nsqd counts messages since it started and reports no rate at all. What the tiles separate instead is where the messages are — a backlog with consumers attached is a slow consumer, one with none is a consumer that is not running, and anything held by a topic reached no channel at all."
       }
     }
   }
