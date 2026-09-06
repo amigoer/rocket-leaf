@@ -8,7 +8,7 @@ import {
   SelectField,
 } from "@/components";
 
-/** Label (with optional grey hint) above the control. */
+/** Label above the control, with the grey explanation under it. */
 function Fld({
   label,
   hint,
@@ -27,19 +27,20 @@ function Fld({
       style={span ? { gridColumn: "1/3" } : undefined}
     >
       {/*
-        * The free space goes above the label, not below it.
+        * The hint sits under the control, not on the label line.
         *
-        * Both fields in a row are as tall as the taller hint, which is what
-        * lines their inputs up. Growing the label instead put that space
-        * between a short label and its own input: "连接名称" sat four lines
-        * clear of the box it names, while the wrapped hint beside it ran right
-        * down to its own. Pushing the pair down keeps the inputs aligned and
-        * the label against the thing it labels.
+        * Both cells in a row are as tall as the taller one, so an explanation
+        * that wraps to four lines has to spend that height somewhere. Above
+        * the input it spent it twice over: it ran the label and the prose into
+        * one paragraph, and it left the one-line field beside it an empty band
+        * where its own label should have been. Below, every label and every
+        * input in the row still line up and only the slack falls ragged.
         */}
-      <span className="mt-auto font-medium">
-        {label} {hint != null && <span className="font-normal text-(--c-muted-2)">{hint}</span>}
-      </span>
+      <span className="font-medium">{label}</span>
       {children}
+      {hint != null && (
+        <span className="text-[11px] leading-[1.6] text-(--c-muted-2)">{hint}</span>
+      )}
     </div>
   );
 }
@@ -47,7 +48,9 @@ function Fld({
 const GRID = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: "12px 14px",
+  // Rows are further apart than the 6px inside a field so a hint reads as
+  // belonging to the input above it rather than the label below.
+  gap: "16px 14px",
 } as const;
 
 const MONO = { fontSize: "11.5px" } as const;
