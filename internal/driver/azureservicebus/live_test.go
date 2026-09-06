@@ -2,6 +2,7 @@ package azureservicebus
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -921,5 +922,222 @@ func TestLiveBacklogIsDegradedOnlyAgainstTheEmulator(t *testing.T) {
 	real := &Conn{closed: make(chan struct{}), config: clientConfig{namespace: "real.servicebus.windows.net"}}
 	if !real.declare().Has(model.CapSubscriptionLag) {
 		t.Error("a real namespace does not offer the backlog, and Service Bus reports it")
+	}
+}
+
+/*
+ * The point of this family's messages page, exercised end to end.
+ *
+ * A peek takes nothing. This browses the same entity twice and asserts the
+ * second run sees exactly what the first did - which is the whole difference
+ * from SQS and Pub/Sub, where the second read of a browsed message either
+ * cannot see it or sees a higher delivery count.
+ *
+ * The delivery count is the sharper half of it: a receive would raise it and a
+ * peek must not, so a message browsed a hundred times is no closer to being
+ * dead-lettered than one browsed never.
+ */
+func TestLivePeekTakesNothingAndRepeats(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	first, err := conn.QueryMessages(ctx, model.MessageQueryParams{
+		Topic: seedOrders, MaxResults: 50,
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(first) == 0 {
+		e2e.Missing(t, "%s holds nothing; run npm run e2e:azure-servicebus:seed", seedOrders)
+	}
+
+	second, err := conn.QueryMessages(ctx, model.MessageQueryParams{
+		Topic: seedOrders, MaxResults: 50,
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages, second run: %v", err)
+	}
+	if len(second) != len(first) {
+		t.Fatalf("the second browse saw %d messages and the first saw %d; a peek took something",
+			len(second), len(first))
+	}
+	for index := range first {
+		if first[index].QueueOffset != second[index].QueueOffset {
+			t.Errorf("row %d moved from sequence %d to %d between two browses",
+				index, first[index].QueueOffset, second[index].QueueOffset)
+		}
+		if first[index].RetryTimes != second[index].RetryTimes {
+			t.Errorf("sequence %d went from %d to %d retries; a peek raised a delivery count",
+				first[index].QueueOffset, first[index].RetryTimes, second[index].RetryTimes)
+		}
+	}
+
+	// And what a consumer would still be offered afterwards is everything: a
+	// receive after two browses gets the first message rather than the third.
+	receiver, err := conn.receiver(seedOrders, "", false)
+	if err != nil {
+		t.Fatalf("opening a receiver: %v", err)
+	}
+	defer func() { _ = receiver.Close(context.Background()) }()
+
+	waitCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	batch, err := receiver.ReceiveMessages(waitCtx, 1, nil)
+	if err != nil {
+		t.Fatalf("ReceiveMessages: %v", err)
+	}
+	if len(batch) == 0 {
+		t.Fatal("a consumer was offered nothing after two browses")
+	}
+	// Put it straight back, so the seed's counts survive this test.
+	if err := receiver.AbandonMessage(context.WithoutCancel(ctx), batch[0], nil); err != nil {
+		t.Errorf("abandoning: %v", err)
+	}
+	lowest := first[len(first)-1].QueueOffset
+	if batch[0].SequenceNumber == nil || *batch[0].SequenceNumber != lowest {
+		t.Errorf("a consumer was offered sequence %v after two browses, want the oldest %d",
+			batch[0].SequenceNumber, lowest)
+	}
+}
+
+/*
+ * What a peek reaches that a receive never would.
+ *
+ * The seed schedules one message on mqs-seed-orders for an hour from now. No
+ * consumer is offered it - the service holds it until its enqueue time - and
+ * it appears here with a state saying so. That is the second half of why this
+ * page is a peek rather than a read.
+ */
+func TestLivePeekReachesAScheduledMessage(t *testing.T) {
+	conn := liveConn(t)
+
+	held, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: seedOrders, MaxResults: 50,
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+
+	scheduled := 0
+	for _, message := range held {
+		if message.Properties[PropState] == StateScheduled {
+			scheduled++
+			if message.Properties[PropScheduledEnqueueTime] == "" {
+				t.Errorf("sequence %d is scheduled and says nothing about when",
+					message.QueueOffset)
+			}
+		}
+	}
+	if scheduled != 1 {
+		e2e.Missing(t, "%s holds %d scheduled messages, seeded 1; run npm run e2e:azure-servicebus:seed",
+			seedOrders, scheduled)
+	}
+}
+
+/*
+ * The browse resumes from a sequence number, which is what makes it
+ * repeatable at all.
+ *
+ * A receiver keeps a cursor that advances with every peek, so a second call
+ * with no starting position returns what follows the first. The driver always
+ * sends one; this asserts what that buys - a page from the middle that begins
+ * where it was asked to.
+ */
+func TestLivePeekResumesFromASequenceNumber(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	all, err := conn.QueryMessages(ctx, model.MessageQueryParams{Topic: seedOrders, MaxResults: 50})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	if len(all) < 4 {
+		e2e.Missing(t, "%s holds %d messages, need at least 4", seedOrders, len(all))
+	}
+	// The rows come back newest first, so the oldest is last.
+	third := all[len(all)-3].QueueOffset
+
+	from, err := conn.QueryMessages(ctx, model.MessageQueryParams{
+		Topic:      seedOrders,
+		MaxResults: 50,
+		Filters:    map[string]string{FilterFromSequence: strconv.FormatInt(third, 10)},
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages from a sequence: %v", err)
+	}
+	if len(from) != len(all)-2 {
+		t.Errorf("starting at the third message returned %d rows, want %d", len(from), len(all)-2)
+	}
+	for _, message := range from {
+		if message.QueueOffset < third {
+			t.Errorf("a browse starting at %d returned sequence %d", third, message.QueueOffset)
+		}
+	}
+}
+
+/*
+ * A subscription is browsed through its topic, and what comes back is what its
+ * rules let through.
+ *
+ * The three seeded subscriptions share one topic and hold different sets
+ * because of their rules, which is the one thing a topic's own board could
+ * never show: the topic holds nothing at all.
+ */
+func TestLivePeekReadsASubscriptionThroughItsRules(t *testing.T) {
+	conn := liveConn(t)
+	ctx := liveContext(t)
+
+	expected := map[string]int{seedSubAll: 9, seedSubRed: 4, seedSubOrders: 3}
+	for name, want := range expected {
+		held, err := conn.QueryMessages(ctx, model.MessageQueryParams{
+			Topic:      seedEvents,
+			MaxResults: 50,
+			Filters:    map[string]string{FilterSubscription: name},
+		})
+		if err != nil {
+			t.Fatalf("QueryMessages(%s): %v", name, err)
+		}
+		if len(held) != want {
+			e2e.Missing(t, "%s/%s holds %d messages, seeded %d; run npm run e2e:azure-servicebus:seed",
+				seedEvents, name, len(held), want)
+		}
+		for _, message := range held {
+			if message.Topic != seedEvents+"/"+name {
+				t.Errorf("a row from %s says it came from %q", name, message.Topic)
+			}
+		}
+	}
+
+	// The rows carry what a rule selects on: the sender's own properties, and
+	// the subject a correlation filter matches by name.
+	red, err := conn.QueryMessages(ctx, model.MessageQueryParams{
+		Topic:      seedEvents,
+		MaxResults: 50,
+		Filters:    map[string]string{FilterSubscription: seedSubRed},
+	})
+	if err != nil {
+		t.Fatalf("QueryMessages: %v", err)
+	}
+	for _, message := range red {
+		if message.Properties[PropAttributePrefix+"colour"] != "red" {
+			t.Errorf("sequence %d reached the red-only subscription with colour %q",
+				message.QueueOffset, message.Properties[PropAttributePrefix+"colour"])
+		}
+		if message.Tags == "" {
+			t.Errorf("sequence %d carries no subject, which is what a correlation filter matches",
+				message.QueueOffset)
+		}
+	}
+}
+
+// Browsing something that is not there is an error naming it, not an empty
+// page: an empty entity and a mistyped one are different answers.
+func TestLivePeekRefusesAnEntityThatIsNotThere(t *testing.T) {
+	conn := liveConn(t)
+
+	if _, err := conn.QueryMessages(liveContext(t), model.MessageQueryParams{
+		Topic: "mqs-test-absent", MaxResults: 10,
+	}); err == nil {
+		t.Error("browsed an entity that does not exist")
 	}
 }

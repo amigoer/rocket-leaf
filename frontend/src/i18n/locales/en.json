@@ -5028,6 +5028,36 @@
           "separator": "A subscription name cannot start or end with a separator."
         },
         "note": "A subscription is where a topic's messages actually are: each send is copied into every subscription whose rules let it through. Nothing registers as a consumer, so there is no reader count to show."
+      },
+      "messages": {
+        "title": "Messages",
+        "subtitle": "Peeked, not received — nothing here is taken or locked, and no consumer misses it",
+        "pickEntity": "Pick a queue or a subscription",
+        "peek": "Peek",
+        "more": "More",
+        "found": "{{count}} message(s)",
+        "foundFrom": "{{count}} message(s) from sequence {{from}}",
+        "nothingHeld": "Nothing here.",
+        "startHere": "Pick a queue or a subscription and peek. A peek takes nothing: the messages stay where they are, their delivery counts do not move, and a running consumer misses none of them.",
+        "sequence": "Seq",
+        "enqueued": "Enqueued",
+        "state": "State",
+        "stateActive": "active",
+        "stateScheduled": "scheduled",
+        "stateDeferred": "deferred",
+        "deliveries": "Deliveries",
+        "body": "Body",
+        "messageId": "Message id",
+        "subject": "Subject",
+        "groupingKey": "Session / partition key",
+        "correlationId": "Correlation id",
+        "contentType": "Content type",
+        "expires": "Expires",
+        "scheduledNote": "Held back until {{at}}. No consumer is offered a scheduled message, so nothing but a peek would show it.",
+        "deferredNote": "Set aside by a consumer and reachable only by its sequence number. It will not be offered to anyone until something asks for it by that number.",
+        "section": {
+          "properties": "Sender properties"
+        }
       }
     }
   }

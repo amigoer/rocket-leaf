@@ -364,3 +364,96 @@ func isTranslationKey(text string) bool {
 	const prefix = "mq.azure-servicebus."
 	return strings.HasPrefix(text, prefix) && !strings.Contains(text, " ")
 }
+
+/*
+ * Browsing carries no caveat, and pinning that absence is the point of this
+ * test.
+ *
+ * It is the one thing this family does that neither hosted family before it
+ * could. SQS's only read is ReceiveMessage, which hides what it read for a
+ * visibility timeout and raises its receive count; Pub/Sub's only read is
+ * Pull, which holds what it read away from consumers and raises its delivery
+ * attempt, counting towards being dead-lettered. Both had to warn that
+ * browsing perturbs delivery.
+ *
+ * PeekMessages takes no lock, moves nothing, changes no delivery count, and a
+ * consumer running at the same moment misses nothing. So there is no caveat -
+ * and this asserts the absence rather than leaving it to be noticed, because
+ * the way it would be lost is silent: swapping the peek for a receive would
+ * still return messages, and the page would go on saying nothing while
+ * browsing quietly started taking them.
+ */
+func TestBrowsingCarriesNoCaveatAtAll(t *testing.T) {
+	for _, endpoint := range []*Conn{
+		{closed: make(chan struct{}), config: clientConfig{namespace: "real.servicebus.windows.net"}},
+		{closed: make(chan struct{}), config: clientConfig{
+			namespace: "localhost:5672", emulatorManagement: "127.0.0.1:5300"}},
+	} {
+		declared := endpoint.declare()
+		if !declared.Has(model.CapMessageQuery) {
+			t.Fatal("browsing is not declared at all")
+		}
+		if caveat, warned := declared.Caveat(model.CapMessageQuery); warned {
+			t.Errorf("browsing warns %q; a peek takes nothing, and a caveat here would be "+
+				"either a lie or a sign the read stopped being a peek", caveat)
+		}
+		if _, degraded := declared.DegradedReason(model.CapMessageQuery); degraded {
+			t.Error("browsing is both supported and degraded")
+		}
+	}
+
+	// And no caveat anywhere else either: this family has none, so a caveat
+	// appearing is a change worth reviewing rather than one to discover.
+	live := (&Conn{closed: make(chan struct{})}).declare()
+	if len(live.Caveats) != 0 {
+		t.Errorf("the connection declares caveats %v, and this family has none", live.Caveats)
+	}
+}
+
+// Reading one message by id is not offered, and the reason is the service's:
+// a message id is whatever the sender put there, it need not be unique, and no
+// call takes one. What addresses a message here is its sequence number.
+func TestMessageByIDIsNotOffered(t *testing.T) {
+	if offlineConn().Capabilities().Has(model.CapMessageByID) {
+		t.Error("declares a lookup by message id, and Service Bus indexes none")
+	}
+	if _, err := offlineConn().MessageByID(t.Context(), "orders", "1"); err == nil {
+		t.Error("returned a message for an id nothing can look up")
+	}
+}
+
+// The browse resumes from a sequence number, so a malformed one has to be
+// refused where the message can name the field rather than at the call.
+func TestBrowseRefusesAStartingPositionThatIsNotASequence(t *testing.T) {
+	_, err := offlineConn().QueryMessages(t.Context(), model.MessageQueryParams{
+		Topic:   "orders",
+		Filters: map[string]string{FilterFromSequence: "the beginning"},
+	})
+	if err == nil {
+		t.Fatal("accepted a starting position that is not a sequence number")
+	}
+}
+
+// What was browsed is what the rows say they came from, because a queue, a
+// subscription and a dead-letter sub-entity are three different places and the
+// messages page shows one at a time.
+func TestBrowseLabelNamesWhatWasRead(t *testing.T) {
+	tests := []struct {
+		entity       string
+		subscription string
+		deadLetters  bool
+		want         string
+	}{
+		{"orders", "", false, "orders"},
+		{"orders", "", true, "orders/$DeadLetterQueue"},
+		{"events", "worker", false, "events/worker"},
+		{"events", "worker", true, "events/worker/$DeadLetterQueue"},
+	}
+	for _, test := range tests {
+		got := browseLabel(test.entity, test.subscription, test.deadLetters)
+		if got != test.want {
+			t.Errorf("browseLabel(%q, %q, %v) = %q, want %q",
+				test.entity, test.subscription, test.deadLetters, got, test.want)
+		}
+	}
+}

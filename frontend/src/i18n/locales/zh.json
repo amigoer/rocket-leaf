@@ -5028,6 +5028,36 @@
           "separator": "订阅名称不能以分隔符开头或结尾。"
         },
         "note": "订阅才是主题消息真正所在的地方：每次发送都会复制进规则放行的每个订阅。这里没有任何东西登记为消费者，所以也没有读取方数量可显示。"
+      },
+      "messages": {
+        "title": "消息",
+        "subtitle": "只窥视，不接收——这里的消息不会被取走或锁定，消费者也不会漏掉任何一条",
+        "pickEntity": "选择队列或订阅",
+        "peek": "窥视",
+        "more": "继续",
+        "found": "{{count}} 条消息",
+        "foundFrom": "从序号 {{from}} 起的 {{count}} 条消息",
+        "nothingHeld": "这里没有消息。",
+        "startHere": "选一个队列或订阅，然后窥视。窥视不会取走任何东西：消息留在原处，投递计数不变，正在运行的消费者一条也不会漏掉。",
+        "sequence": "序号",
+        "enqueued": "入队时间",
+        "state": "状态",
+        "stateActive": "活跃",
+        "stateScheduled": "已排程",
+        "stateDeferred": "已延期",
+        "deliveries": "投递次数",
+        "body": "消息体",
+        "messageId": "消息 ID",
+        "subject": "主题标签",
+        "groupingKey": "会话 / 分区键",
+        "correlationId": "关联 ID",
+        "contentType": "内容类型",
+        "expires": "过期时间",
+        "scheduledNote": "被保留到 {{at}}。已排程的消息不会交给任何消费者，因此只有窥视才看得到它。",
+        "deferredNote": "被消费者搁置，只能凭序号取回。在有人按序号索取之前，它不会再交给任何人。",
+        "section": {
+          "properties": "发送方属性"
+        }
       }
     }
   }
