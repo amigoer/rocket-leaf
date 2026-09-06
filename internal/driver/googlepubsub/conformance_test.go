@@ -26,6 +26,268 @@ func TestConnDeclaresOnlyWhatItImplements(t *testing.T) {
 	}
 }
 
+/*
+ * What Pub/Sub has no concept of, and why.
+ *
+ * Every entry is a capability another family in this app declares and this one
+ * must not, and each reason is about Pub/Sub rather than about how far the
+ * driver has got. Without this list the cheapest way to add a family is to
+ * copy a neighbour's capability set, and the result is a sidebar full of pages
+ * that open onto nothing.
+ *
+ * Three roots cover nearly all of it. A topic stores nothing and a
+ * subscription's state is a set of acknowledgements rather than a position in
+ * a log; Pub/Sub keeps no record of who is reading or publishing; and Google
+ * runs the service, so there is no node, no process and no setting an operator
+ * here could read or change.
+ *
+ * The backlog is deliberately not on this list. It is degraded rather than
+ * absent, because the family does have the concept - the number just lives in
+ * Cloud Monitoring - and TestSubscriptionLagIsDegradedRatherThanInvented is
+ * where that is pinned.
+ */
+func TestConnDeclaresNoConceptPubSubDoesNotHave(t *testing.T) {
+	absent := []struct {
+		capability model.Capability
+		because    string
+	}{
+		{
+			model.CapDestinationPurge,
+			"a topic holds nothing to empty. What has a backlog is each subscription, " +
+				"and emptying one is a seek - a different gesture on a different object, " +
+				"which the position capability already covers.",
+		},
+		{
+			model.CapDestinationMove,
+			"nothing drains one topic into another. A dead-letter policy moves what a " +
+				"subscription gave up on, which is the service's own decision rather than " +
+				"a move the caller chooses.",
+		},
+		{
+			model.CapStreamTrim,
+			"there is no log to trim. A topic's retention is a duration the service " +
+				"enforces, not a bound a caller names.",
+		},
+		{
+			model.CapPartitions,
+			"a topic is not split. Pub/Sub spreads one across its own servers and reports " +
+				"no shard, no count and no range.",
+		},
+		{
+			model.CapQueueRebalance,
+			"placement is Google's. There is nothing to spread and no node to spread it " +
+				"across that this app can see.",
+		},
+		{
+			model.CapReassign,
+			"and no replicas either: nothing in the API says where a message is kept.",
+		},
+		{
+			model.CapSubscriptionRuntime,
+			"nothing registers as a consumer. A subscription is read by whoever calls " +
+				"Pull or holds a streaming pull open, and the service reports neither - so " +
+				"there is no connected member to ask what it is working on.",
+		},
+		{
+			model.CapOffsetClone,
+			"a subscription has no position to copy. Its state is a set of " +
+				"acknowledgements, and the only way to move it onto another subscription " +
+				"is to take a snapshot - an object with an expiry that makes the topic " +
+				"hold everything it could restore - and seek to it, which is the two " +
+				"visible steps the position control already offers.",
+		},
+		{
+			model.CapQueueOffset,
+			"with no partitions there is not even a per-partition position to write.",
+		},
+		{
+			model.CapMessageTrack,
+			"there is no trace. Pub/Sub reports how many times a message has been " +
+				"delivered and nothing about who received it or what they did.",
+		},
+		{
+			model.CapMessageLiveTail,
+			"tailing is an incremental read of a durable log, and a subscription holds no " +
+				"log to keep a cursor in. Reading twice is not re-reading - it takes " +
+				"whatever is undelivered now.",
+		},
+		{
+			model.CapLiveStream,
+			"a streaming pull is not a push. It is the same delivery an ordinary pull is, " +
+				"with the same consequence for a real consumer - which is the browse page's " +
+				"caveat rather than a second kind of read.",
+		},
+		{
+			model.CapDLQ,
+			"a dead-letter topic here is an ordinary topic a subscription's policy points " +
+				"at. Nothing is named after the subscription, so it is found by walking the " +
+				"topology - which is the dead-letter capability this driver does declare.",
+		},
+		{
+			model.CapMessageResend,
+			"and there is no per-subscription retry path to put a copy back on. A dead " +
+				"letter is an ordinary message on another topic; putting it back means " +
+				"publishing it again, which the send console does.",
+		},
+		{
+			model.CapMessageReplay,
+			"there is nothing connected to hand a message to. The service knows of no " +
+				"consumer, so there is no listener to run and no result to report.",
+		},
+		{
+			model.CapPendingEntries,
+			"outstanding deliveries are not enumerable. A message is held for its ack " +
+				"deadline and there is no call that lists what is being held or by whom.",
+		},
+		{
+			model.CapPendingAdmin,
+			"and with no list to read there is nothing to acknowledge or reassign.",
+		},
+		{
+			model.CapDelayedDelivery,
+			"pub/sub cannot hold a message back. It is delivered as soon as there is a " +
+				"subscription to deliver it to, and a console that took a delay would " +
+				"report holding back a message that went out at once.",
+		},
+		{
+			model.CapEntryPublish,
+			"a message is a body and a table of string attributes, not an ordered list of " +
+				"named fields with an id the caller chooses.",
+		},
+		{
+			model.CapProducerInspect,
+			"nothing records who is publishing. A publisher authenticates, sends, and is " +
+				"forgotten.",
+		},
+		{
+			model.CapClusterTopology,
+			"there is no cluster. Pub/Sub is a global service with no node, address or " +
+				"process an operator here could be shown, and a topology board would have " +
+				"exactly one invented row on it.",
+		},
+		{
+			model.CapClusterMetrics,
+			"and no node to attribute a figure to. What the admin API reports is the shape " +
+				"of the topology; every number about it is in Cloud Monitoring, which is a " +
+				"different API with a different credential.",
+		},
+		{
+			model.CapDirectory,
+			"there is no discovery tier. Every project is reached at the same address, and " +
+				"nothing has to be asked where a topic lives.",
+		},
+		{
+			model.CapNodeConfig,
+			"a topic's and a subscription's settings are already on their own pages. There " +
+				"is no node underneath with settings of its own.",
+		},
+		{
+			model.CapNodeMaintenance,
+			"nothing here is maintained by its user. Retention is enforced on Google's own " +
+				"schedule.",
+		},
+		{
+			model.CapLogDirs,
+			"Google reports no storage figure at all - not size, not free space, not a " +
+				"percentage.",
+		},
+		{
+			model.CapClusterHealth,
+			"Pub/Sub answers no question about itself. Service health is the Google Cloud " +
+				"status dashboard, which is not an API this connection is signed for.",
+		},
+		{
+			model.CapClusterCensus,
+			"there is no project-wide total. Every figure worth having is per topic or per " +
+				"subscription, and summing them would mean a request each and a number that " +
+				"was never true at any single moment.",
+		},
+		{
+			model.CapClientInspect,
+			"nothing holds a connection this app can see. A publisher and a subscriber each " +
+				"authenticate and are forgotten, so there is no session to list.",
+		},
+		{
+			model.CapClientClose,
+			"and nothing to disconnect for the same reason.",
+		},
+		{
+			model.CapAccessControl,
+			"access is IAM's, not the topic's. A topic and a subscription each carry an IAM " +
+				"policy, but who may call what is decided by principals in a service this " +
+				"connection is not signed for - and a page editing half of that would claim " +
+				"to control access it cannot see.",
+		},
+		{
+			model.CapAccessDirectory,
+			"same reason: the directory of principals is IAM, one service further out.",
+		},
+		{
+			model.CapAclUsers,
+			"and Pub/Sub keeps no users of its own to attach rules to.",
+		},
+		{
+			model.CapNamespaceList,
+			"the project is the boundary and one connection is one project. There is no " +
+				"tenant, vhost or namespace inside Pub/Sub for a topic to live in.",
+		},
+		{
+			model.CapPolicyList,
+			"settings are set on the object rather than matched to it by pattern. There is " +
+				"no policy to list.",
+		},
+		{
+			model.CapRouting,
+			"there is no exchange. A publish reaches every subscription on the topic; what " +
+				"narrows that is a subscription's own filter, which is a field on it rather " +
+				"than a routing topology.",
+		},
+		{
+			model.CapDefinitionsExport,
+			"nothing hands back the project's topology as one document, and nothing takes " +
+				"one back.",
+		},
+		{
+			model.CapReplication,
+			"there is no shovel and no federation. Moving messages between projects means " +
+				"running something that reads one and publishes to the other.",
+		},
+		{
+			model.CapStreamClients,
+			"there is no second protocol. Everything reads Pub/Sub over the same API, so " +
+				"there is no set of clients the ordinary listing cannot see.",
+		},
+		{
+			model.CapTransactions,
+			"a publish is one message. Nothing spans topics, so there is no transaction " +
+				"with an identity to list.",
+		},
+		{
+			model.CapQuotaList,
+			"the limits are the service's own and are set per project in a different " +
+				"console. They are not stored on a topic, cannot be read back here, and " +
+				"nothing in this API could change one.",
+		},
+		{
+			model.CapConnectionScope,
+			"the name prefix on this form filters a listing; it does not re-point the " +
+				"connection. A name outside it is still perfectly reachable, which is not " +
+				"what a scope means anywhere else in this app.",
+		},
+	}
+
+	live := offlineConn().Capabilities()
+	for _, entry := range absent {
+		if live.Has(entry.capability) {
+			t.Errorf("declares %s, but %s", entry.capability, entry.because)
+		}
+		if _, degraded := live.DegradedReason(entry.capability); degraded {
+			t.Errorf("degrades %s, which implies the family has it; %s",
+				entry.capability, entry.because)
+		}
+	}
+}
+
 // The descriptor is read before anything is dialled, so it has to stand on its
 // own: a form that writes into a target nothing reads, or a capability the
 // connection cannot honour, would both surface as a dead control.
