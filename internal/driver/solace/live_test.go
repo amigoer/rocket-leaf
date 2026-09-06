@@ -716,11 +716,33 @@ func TestLiveListScopesReportsEveryMsgVPN(t *testing.T) {
 
 	// The counts come from the same collection counts the listing page uses,
 	// so they are compared against the raw API rather than against a literal.
-	want, err := rawCollectionCount(liveVPN, "queues")
-	if err != nil {
-		t.Fatalf("counting queues over http: %v", err)
+	//
+	// Both sides are read again when they disagree. The rest of this suite
+	// creates and deletes queues in this same Message VPN, so a scope listing
+	// and a raw count taken one after the other can land either side of one of
+	// those - and the figure was never wrong, only sampled twice.
+	got, want := found[liveVPN].Destinations, -1
+	for attempt := 0; attempt < 10; attempt++ {
+		counted, err := rawCollectionCount(liveVPN, "queues")
+		if err != nil {
+			t.Fatalf("counting queues over http: %v", err)
+		}
+		want = counted
+		if got == want {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+		refreshed, err := conn.ListScopes(liveContext(t))
+		if err != nil {
+			t.Fatalf("list scopes: %v", err)
+		}
+		for _, scope := range refreshed {
+			if scope.Name == liveVPN {
+				got = scope.Destinations
+			}
+		}
 	}
-	if got := found[liveVPN].Destinations; got != want {
+	if got != want {
 		t.Errorf("%s reports %d queues, want %d", liveVPN, got, want)
 	}
 	if want == 0 {
