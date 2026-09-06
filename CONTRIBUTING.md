@@ -273,6 +273,16 @@ After adding a family, update all of these:
   the two a family has before copying either: the shapes are not
   interchangeable, and the page reads very differently.
 
+- A capability the shared vocabulary has no entry for is a new port, not a
+  corner of `Attributes`. The map is documented as a contract between one
+  driver's Go side and its own frontend module, so what goes in it is a
+  variation on a canonical object - a permission, a durability flag, a
+  replication factor. A Kinesis shard is not a variation on a partition: it has
+  an identity, a hash key range and a parent, and putting that in a string map
+  would have made it unreadable by anything except one board. Redis Stream set
+  the precedent with four ports; ask which of the two a concept is before
+  reaching for the map.
+
 Do not count the families by eye. The capability declarations settle which
 drivers answer which page:
 

@@ -87,10 +87,10 @@ const requires: Record<string, Capability | Capability[]> = {
    * Alerts needs no particular capability, only a connection with figures to
    * compare - which the connected check below already covers. What the two
    * entries settle is where those figures come from: most families report
-   * cluster metrics, and a hosted one has no cluster at all. Everything SQS,
-   * Pub/Sub and Service Bus report belongs to a queue or a topic, so their
-   * rules read the destination listing, and gating on a metric none of them
-   * can ever declare would hide a page that works.
+   * cluster metrics, and a hosted one has no cluster at all. Everything the
+   * four hosted families report belongs to a queue, a topic or a stream, so
+   * their rules read the destination listing, and gating on a metric none of
+   * them can ever declare would hide a page that works.
    */
   alerts: [Capability.CapClusterMetrics, Capability.CapDestinationList],
 };

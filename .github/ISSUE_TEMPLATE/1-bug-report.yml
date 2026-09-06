@@ -59,6 +59,7 @@ body:
         - Amazon SQS
         - Google Pub/Sub
         - Azure Service Bus
+        - Amazon Kinesis
     validations:
       required: true
 

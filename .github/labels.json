@@ -109,7 +109,8 @@
     { "name": "driver:nsq", "color": "BFDADC", "description": "NSQ" },
     { "name": "driver:sqs", "color": "BFDADC", "description": "Amazon SQS" },
     { "name": "driver:google-pubsub", "color": "BFDADC", "description": "Google Cloud Pub/Sub" },
-    { "name": "driver:azure-servicebus", "color": "BFDADC", "description": "Azure Service Bus" }
+    { "name": "driver:azure-servicebus", "color": "BFDADC", "description": "Azure Service Bus" },
+    { "name": "driver:kinesis", "color": "BFDADC", "description": "Amazon Kinesis Data Streams" }
   ],
 
   "workflow": [

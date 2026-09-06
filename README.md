@@ -1,7 +1,7 @@
 <div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.svg">
-    <img src="docs/images/hero-light.svg" width="100%" alt="MQ Studio — see inside your message queues. One local-first desktop app for RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, and Azure Service Bus, with more drivers landing and no web console to deploy.">
+    <img src="docs/images/hero-light.svg" width="100%" alt="MQ Studio — see inside your message queues. One local-first desktop app for RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, Azure Service Bus, and Amazon Kinesis, with more drivers landing and no web console to deploy.">
   </picture>
 </div>
 
@@ -47,7 +47,7 @@ component to deploy, secure, or keep alive.
 - **Private by default** — configuration stays on your device and credentials are encrypted at rest
 - **Cross-platform** — macOS, Windows, and Linux, with English and Chinese interfaces
 
-RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, and Azure Service Bus are the drivers available today; [Driver support](#driver-support) has the rest.
+RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, Azure Service Bus, and Amazon Kinesis are the drivers available today; [Driver support](#driver-support) has the rest.
 
 ## Features
 
@@ -129,7 +129,8 @@ capabilities, so the interface only offers what the connected broker can actuall
 | **Amazon SQS** | ✅ Available | The first family with no address to type: a connection is a region and an AWS credential, and the SDK resolves the rest. Queues with what they are holding split three ways — available, in flight and delayed, which are three different problems; creating, editing, purging and deleting them, standard or FIFO; browsing, which goes through ReceiveMessage and carries the caveat that says so; sending with named attributes, a delay, a repeat, and the group and deduplication ids a FIFO queue requires; and dead letters found by walking every queue's redrive policy backwards. No consumer groups and no cluster, because SQS has neither |
 | **Google Pub/Sub** | ✅ Available | The second family with no address to type: a connection is a project and a Google credential. The first whose objects come in two kinds — a topic holds nothing and fans a publish out to whatever subscribes at that instant, so the topics board leads with a subscription count and a topic with none is the fault it marks. Subscriptions as objects in their own right, with the whole of the delivery configuration on them: ack deadline, retention, retry backoff, filters, ordering, and where they give up to; creating and deleting either; browsing a subscription, which goes through Pull and carries the caveat that says so; publishing with attributes and an ordering key; restore points, and moving a subscription to one or to a moment in time; and dead letters found by inverting every subscription's policy. No backlog figure, because that one lives in Cloud Monitoring |
 | **Azure Service Bus** | ✅ Available | The third hosted family and the first of them reached by dialling something: a namespace is a real address, so this one has an endpoint field where SQS has a region and Pub/Sub a project. Queues and topics on one board, because they are the same thing to create, configure and delete — a queue holds its messages and a topic holds none, copying each send into the subscriptions whose rules let it through. Subscriptions with the whole delivery contract on them, and rules on the routing page: objects with names, several to a subscription, each a SQL or correlation filter and optionally an action that rewrites the message on the way in. Browsing is a peek, so it is the one messages page here with no caveat at all — nothing is taken, nothing is locked, no delivery count moves, and a scheduled or deferred message no consumer would be offered shows up anyway. Sending with a subject, properties, a session key and a real delay; and dead letters read from the $DeadLetterQueue every queue and subscription is created with, and put back one at a time |
-| Kinesis · IBM MQ · Solace and more | 📋 Planned | Full matrix below |
+| **Amazon Kinesis** | ✅ Available | The fourth hosted family, back to a region and an AWS credential with no address to type. The one family whose central object the canonical pages had no room for: a shard is not a partition number, so it gets a page of its own — every shard a stream has, open or closed, with the slice of the hash space that decides which records land on it, the parent it was split from or the two it was merged out of, and the closed ones kept in the listing because they still hold their records until retention expires. Streams with their open shard count, capacity mode and retention; creating, resizing and deleting them, provisioned or on demand. Browsing that takes nothing at all — no record is hidden, consumed or marked, and any number of readers can read the same one — carrying instead the caveat that it spends the shard's read allowance, which every consumer on that shard shares. Sending with the partition key that places a record and the explicit hash key that aims it at a shard by name. Registered fan-out consumers, which are the only readers a stream knows about. No backlog, because nothing anywhere in the service keeps a reader's position |
+| IBM MQ · Solace and more | 📋 Planned | Full matrix below |
 
 <details>
 <summary><strong>Planned drivers, wire-compatible systems, and scope</strong></summary>
@@ -137,7 +138,6 @@ capabilities, so the interface only offers what the connected broker can actuall
 
 | Driver | Status | Notes |
 | --- | --- | --- |
-| **Amazon Kinesis** | 📋 Planned | Streams and shards |
 | **IBM MQ** | 📋 Planned | Queues and channels over the administrative REST API |
 | **Solace PubSub+** | 📋 Planned | Queues and topic endpoints over SEMP |
 
@@ -176,8 +176,9 @@ half-wired set of pages.
 | 10 | Amazon SQS | ✅ Done |
 | 11 | Google Cloud Pub/Sub | ✅ Done |
 | 12 | Azure Service Bus | ✅ Done |
-| 13 | The remaining drivers, in the order listed under Driver support | 📋 Next |
-| 14 | Agent features | 📋 Planned |
+| 13 | Amazon Kinesis | ✅ Done |
+| 14 | The remaining drivers, in the order listed under Driver support | 📋 Next |
+| 15 | Agent features | 📋 Planned |
 
 Agent work starts once driver coverage is in place, not before. Every driver already declares
 what the connected broker can actually do, and that capability model is the foundation an agent

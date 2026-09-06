@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="t d">
   <title id="t">MQ Studio</title>
-  <desc id="d">MQ Studio — see inside your message queues. One local-first desktop app for RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, and Azure Service Bus, with more drivers landing and no web console to deploy.</desc>
+  <desc id="d">MQ Studio — see inside your message queues. One local-first desktop app for RocketMQ, RabbitMQ, Kafka, Pulsar, Redis Stream, MQTT, NATS, ActiveMQ, NSQ, Amazon SQS, Google Pub/Sub, Azure Service Bus, and Amazon Kinesis, with more drivers landing and no web console to deploy.</desc>
 
   <!-- eyebrow -->
   <text x="10" y="50" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="16.5" letter-spacing="3" fill="#9B9BA3">LOCAL-FIRST · NOTHING TO DEPLOY · OPEN SOURCE</text>
@@ -24,125 +24,133 @@
   <g id="meta">
     <rect x="10" y="286" width="244" height="36" rx="18" fill="none" stroke="#2E2E33" stroke-width="1.5"/>
     <circle cx="32" cy="304" r="4.5" fill="#3DBB81"/>
-    <text x="46" y="310" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="16.5" fill="#B4B4BC">12 drivers available</text>
+    <text x="46" y="310" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="16.5" fill="#B4B4BC">13 drivers available</text>
     <text x="282" y="310" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="16.5" fill="#9B9BA3">macOS · Windows · Linux&#160;&#160;·&#160;&#160;Apache-2.0</text>
   </g>
 
   <!-- one client, a driver per broker: each lane carries its own messages -->
   <g id="drivers">
-    <rect x="700" y="175" width="44" height="44" rx="9.9" fill="#EC3013"/>
-    <g transform="translate(706.43 185.38) scale(0.23239)" fill="none" stroke-width="10">
+    <rect x="700" y="168" width="44" height="44" rx="9.9" fill="#EC3013"/>
+    <g transform="translate(706.43 178.38) scale(0.23239)" fill="none" stroke-width="10">
       <path d="M12 74 L12 26 L34 55 L56 26 L56 74" stroke="#F3F2F2" stroke-linejoin="round" stroke-linecap="round"/>
       <circle cx="98" cy="50" r="24" stroke="#F3F2F2"/>
       <line x1="109" y1="63" x2="120" y2="74" stroke="#201E1D" stroke-linecap="round"/>
     </g>
-    <line x1="744" y1="194" x2="768" y2="194" stroke="#3A3A40" stroke-width="1.5"/>
-    <line x1="768" y1="45" x2="768" y2="342" stroke="#3A3A40" stroke-width="1.5"/>
-    <line x1="776" y1="45" x2="842" y2="45" stroke="#3A3A40" stroke-width="1.5"/>
-    <text x="928" y="50" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">RocketMQ</text>
-    <line x1="940" y1="45" x2="1178" y2="45" stroke="#2A2A2E" stroke-width="1.5"/>
-    <circle cx="768" cy="45" r="4.5" fill="#9B9BA3"/>
-    <circle cx="1178" cy="45" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
-    <rect x="962" y="33" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1016" y="33" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1070" y="33" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1124" y="33" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <line x1="776" y1="72" x2="842" y2="72" stroke="#3A3A40" stroke-width="1.5"/>
-    <text x="928" y="77" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">RabbitMQ</text>
-    <line x1="940" y1="72" x2="1178" y2="72" stroke="#2A2A2E" stroke-width="1.5"/>
-    <circle cx="768" cy="72" r="4.5" fill="#9B9BA3"/>
-    <circle cx="1178" cy="72" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
-    <rect x="954" y="60" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1008" y="60" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1100" y="60" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <line x1="776" y1="99" x2="869" y2="99" stroke="#3A3A40" stroke-width="1.5"/>
-    <text x="928" y="104" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">Kafka</text>
-    <line x1="940" y1="99" x2="1178" y2="99" stroke="#2A2A2E" stroke-width="1.5"/>
-    <circle cx="768" cy="99" r="4.5" fill="#9B9BA3"/>
-    <circle cx="1178" cy="99" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
-    <rect x="950" y="87" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1004" y="87" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1110" y="87" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1045" y="87" width="30" height="24" rx="8" fill="#EC3013"/>
-    <line x1="776" y1="126" x2="860" y2="126" stroke="#3A3A40" stroke-width="1.5"/>
-    <text x="928" y="131" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">Pulsar</text>
-    <line x1="940" y1="126" x2="1178" y2="126" stroke="#2A2A2E" stroke-width="1.5"/>
-    <circle cx="768" cy="126" r="4.5" fill="#9B9BA3"/>
-    <circle cx="1178" cy="126" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
-    <rect x="968" y="114" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1022" y="114" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1120" y="114" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <line x1="776" y1="153" x2="806" y2="153" stroke="#3A3A40" stroke-width="1.5"/>
-    <text x="928" y="158" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">Redis Stream</text>
-    <line x1="940" y1="153" x2="1178" y2="153" stroke="#2A2A2E" stroke-width="1.5"/>
-    <circle cx="768" cy="153" r="4.5" fill="#9B9BA3"/>
-    <circle cx="1178" cy="153" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
-    <rect x="958" y="141" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1012" y="141" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1066" y="141" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1132" y="141" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <line x1="776" y1="180" x2="878" y2="180" stroke="#3A3A40" stroke-width="1.5"/>
-    <text x="928" y="185" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">MQTT</text>
-    <line x1="940" y1="180" x2="1178" y2="180" stroke="#2A2A2E" stroke-width="1.5"/>
-    <circle cx="768" cy="180" r="4.5" fill="#9B9BA3"/>
-    <circle cx="1178" cy="180" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
-    <rect x="976" y="168" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1030" y="168" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1108" y="168" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <line x1="776" y1="207" x2="826" y2="207" stroke="#3A3A40" stroke-width="1.5"/>
-    <text x="928" y="212" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">NATS</text>
-    <line x1="940" y1="207" x2="1178" y2="207" stroke="#2A2A2E" stroke-width="1.5"/>
-    <circle cx="768" cy="207" r="4.5" fill="#9B9BA3"/>
-    <circle cx="1178" cy="207" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
-    <rect x="944" y="195" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="998" y="195" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1088" y="195" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1128" y="195" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <line x1="776" y1="234" x2="826" y2="234" stroke="#3A3A40" stroke-width="1.5"/>
-    <text x="928" y="239" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">ActiveMQ</text>
-    <line x1="940" y1="234" x2="1178" y2="234" stroke="#2A2A2E" stroke-width="1.5"/>
-    <circle cx="768" cy="234" r="4.5" fill="#9B9BA3"/>
-    <circle cx="1178" cy="234" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
-    <rect x="944" y="222" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="998" y="222" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1088" y="222" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1128" y="222" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <line x1="776" y1="261" x2="872" y2="261" stroke="#3A3A40" stroke-width="1.5"/>
-    <text x="928" y="266" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">NSQ</text>
-    <line x1="940" y1="261" x2="1178" y2="261" stroke="#2A2A2E" stroke-width="1.5"/>
-    <circle cx="768" cy="261" r="4.5" fill="#9B9BA3"/>
-    <circle cx="1178" cy="261" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
-    <rect x="952" y="249" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1006" y="249" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1078" y="249" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1132" y="249" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <line x1="776" y1="288" x2="862" y2="288" stroke="#3A3A40" stroke-width="1.5"/>
-    <text x="928" y="293" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">Amazon SQS</text>
-    <line x1="940" y1="288" x2="1178" y2="288" stroke="#2A2A2E" stroke-width="1.5"/>
-    <circle cx="768" cy="288" r="4.5" fill="#9B9BA3"/>
-    <circle cx="1178" cy="288" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
-    <rect x="946" y="276" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1000" y="276" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1054" y="276" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1120" y="276" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <line x1="776" y1="315" x2="852" y2="315" stroke="#3A3A40" stroke-width="1.5"/>
-    <text x="928" y="320" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">Google Pub/Sub</text>
+    <line x1="744" y1="190" x2="768" y2="190" stroke="#3A3A40" stroke-width="1.5"/>
+    <line x1="768" y1="40" x2="768" y2="340" stroke="#3A3A40" stroke-width="1.5"/>
+    <line x1="776" y1="40" x2="842" y2="40" stroke="#3A3A40" stroke-width="1.5"/>
+    <text x="928" y="45" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">RocketMQ</text>
+    <line x1="940" y1="40" x2="1178" y2="40" stroke="#2A2A2E" stroke-width="1.5"/>
+    <circle cx="768" cy="40" r="4.5" fill="#9B9BA3"/>
+    <circle cx="1178" cy="40" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
+    <rect x="962" y="29" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1016" y="29" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1070" y="29" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1124" y="29" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <line x1="776" y1="65" x2="842" y2="65" stroke="#3A3A40" stroke-width="1.5"/>
+    <text x="928" y="70" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">RabbitMQ</text>
+    <line x1="940" y1="65" x2="1178" y2="65" stroke="#2A2A2E" stroke-width="1.5"/>
+    <circle cx="768" cy="65" r="4.5" fill="#9B9BA3"/>
+    <circle cx="1178" cy="65" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
+    <rect x="954" y="54" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1008" y="54" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1100" y="54" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <line x1="776" y1="90" x2="869" y2="90" stroke="#3A3A40" stroke-width="1.5"/>
+    <text x="928" y="95" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">Kafka</text>
+    <line x1="940" y1="90" x2="1178" y2="90" stroke="#2A2A2E" stroke-width="1.5"/>
+    <circle cx="768" cy="90" r="4.5" fill="#9B9BA3"/>
+    <circle cx="1178" cy="90" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
+    <rect x="950" y="79" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1004" y="79" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1110" y="79" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1045" y="79" width="30" height="22" rx="8" fill="#EC3013"/>
+    <line x1="776" y1="115" x2="860" y2="115" stroke="#3A3A40" stroke-width="1.5"/>
+    <text x="928" y="120" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">Pulsar</text>
+    <line x1="940" y1="115" x2="1178" y2="115" stroke="#2A2A2E" stroke-width="1.5"/>
+    <circle cx="768" cy="115" r="4.5" fill="#9B9BA3"/>
+    <circle cx="1178" cy="115" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
+    <rect x="968" y="104" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1022" y="104" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1120" y="104" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <line x1="776" y1="140" x2="806" y2="140" stroke="#3A3A40" stroke-width="1.5"/>
+    <text x="928" y="145" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">Redis Stream</text>
+    <line x1="940" y1="140" x2="1178" y2="140" stroke="#2A2A2E" stroke-width="1.5"/>
+    <circle cx="768" cy="140" r="4.5" fill="#9B9BA3"/>
+    <circle cx="1178" cy="140" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
+    <rect x="958" y="129" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1012" y="129" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1066" y="129" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1132" y="129" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <line x1="776" y1="165" x2="878" y2="165" stroke="#3A3A40" stroke-width="1.5"/>
+    <text x="928" y="170" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">MQTT</text>
+    <line x1="940" y1="165" x2="1178" y2="165" stroke="#2A2A2E" stroke-width="1.5"/>
+    <circle cx="768" cy="165" r="4.5" fill="#9B9BA3"/>
+    <circle cx="1178" cy="165" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
+    <rect x="976" y="154" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1030" y="154" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1108" y="154" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <line x1="776" y1="190" x2="826" y2="190" stroke="#3A3A40" stroke-width="1.5"/>
+    <text x="928" y="195" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">NATS</text>
+    <line x1="940" y1="190" x2="1178" y2="190" stroke="#2A2A2E" stroke-width="1.5"/>
+    <circle cx="768" cy="190" r="4.5" fill="#9B9BA3"/>
+    <circle cx="1178" cy="190" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
+    <rect x="944" y="179" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="998" y="179" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1088" y="179" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1128" y="179" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <line x1="776" y1="215" x2="826" y2="215" stroke="#3A3A40" stroke-width="1.5"/>
+    <text x="928" y="220" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">ActiveMQ</text>
+    <line x1="940" y1="215" x2="1178" y2="215" stroke="#2A2A2E" stroke-width="1.5"/>
+    <circle cx="768" cy="215" r="4.5" fill="#9B9BA3"/>
+    <circle cx="1178" cy="215" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
+    <rect x="944" y="204" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="998" y="204" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1088" y="204" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1128" y="204" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <line x1="776" y1="240" x2="872" y2="240" stroke="#3A3A40" stroke-width="1.5"/>
+    <text x="928" y="245" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">NSQ</text>
+    <line x1="940" y1="240" x2="1178" y2="240" stroke="#2A2A2E" stroke-width="1.5"/>
+    <circle cx="768" cy="240" r="4.5" fill="#9B9BA3"/>
+    <circle cx="1178" cy="240" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
+    <rect x="952" y="229" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1006" y="229" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1078" y="229" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1132" y="229" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <line x1="776" y1="265" x2="862" y2="265" stroke="#3A3A40" stroke-width="1.5"/>
+    <text x="928" y="270" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">Amazon SQS</text>
+    <line x1="940" y1="265" x2="1178" y2="265" stroke="#2A2A2E" stroke-width="1.5"/>
+    <circle cx="768" cy="265" r="4.5" fill="#9B9BA3"/>
+    <circle cx="1178" cy="265" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
+    <rect x="946" y="254" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1000" y="254" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1054" y="254" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1120" y="254" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <line x1="776" y1="290" x2="852" y2="290" stroke="#3A3A40" stroke-width="1.5"/>
+    <text x="928" y="295" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">Google Pub/Sub</text>
+    <line x1="940" y1="290" x2="1178" y2="290" stroke="#2A2A2E" stroke-width="1.5"/>
+    <circle cx="768" cy="290" r="4.5" fill="#9B9BA3"/>
+    <circle cx="1178" cy="290" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
+    <rect x="958" y="279" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1012" y="279" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1084" y="279" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1138" y="279" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <line x1="776" y1="315" x2="836" y2="315" stroke="#3A3A40" stroke-width="1.5"/>
+    <text x="928" y="320" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">Azure Service Bus</text>
     <line x1="940" y1="315" x2="1178" y2="315" stroke="#2A2A2E" stroke-width="1.5"/>
     <circle cx="768" cy="315" r="4.5" fill="#9B9BA3"/>
     <circle cx="1178" cy="315" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
-    <rect x="958" y="303" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1012" y="303" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1084" y="303" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1138" y="303" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <line x1="776" y1="342" x2="836" y2="342" stroke="#3A3A40" stroke-width="1.5"/>
-    <text x="928" y="347" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">Azure Service Bus</text>
-    <line x1="940" y1="342" x2="1178" y2="342" stroke="#2A2A2E" stroke-width="1.5"/>
-    <circle cx="768" cy="342" r="4.5" fill="#9B9BA3"/>
-    <circle cx="1178" cy="342" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
-    <rect x="968" y="330" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1022" y="330" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1076" y="330" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
-    <rect x="1130" y="330" width="30" height="24" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="968" y="304" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1022" y="304" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1076" y="304" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1130" y="304" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/><line x1="776" y1="340" x2="788" y2="340" stroke="#3A3A40" stroke-width="1.5"/>
+    <text x="928" y="345" text-anchor="end" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="15" fill="#B4B4BC">Amazon Kinesis</text>
+    <line x1="940" y1="340" x2="1178" y2="340" stroke="#2A2A2E" stroke-width="1.5"/>
+    <circle cx="768" cy="340" r="4.5" fill="#9B9BA3"/>
+    <circle cx="1178" cy="340" r="5.5" fill="none" stroke="#9B9BA3" stroke-width="2"/>
+    <rect x="946" y="329" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1000" y="329" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1072" y="329" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
+    <rect x="1126" y="329" width="30" height="22" rx="8" fill="#1B1B1F" stroke="#3A3A40" stroke-width="1.5"/>
   </g>
 
   <!-- magnifier echoing the logo's Q: any driver, same inspection -->

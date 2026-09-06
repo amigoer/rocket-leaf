@@ -296,7 +296,56 @@ This is the delivery plan. The contract it delivers against is
   refuses `ForwardDeadLetteredMessagesTo` unless the target is an absolute URI, where the real
   service takes an entity name. Both have live tests that fail if the emulator ever changes.
 
-- **Designed, not yet implemented** — the three families below.
+- **Shipped** — Amazon Kinesis Data Streams through the AWS API. The fourth hosted family and
+  the second AWS one, reached the same way SQS is: a region and a signed request, with no
+  address anywhere on the form.
+
+  It is the family the canonical model pushed back on, and the shard is why. `Destination`
+  offers `Partitions`, an int, and a stream really is divided into N shards taking writes - so
+  the count is true and it is what the streams board shows. It is also the only true thing a
+  number can say. A shard has an id, owns the slice of the 128-bit hash space that decides
+  which records land on it, has a read quota of its own, and is changed by being split in two
+  or merged with a neighbour rather than resized - which leaves the old shard in place, closed,
+  still holding its records until retention expires, and named as its children's parent. So the
+  detail got a port and a page of its own, `ShardInspector` behind `CapShards`, following Redis
+  Stream's precedent of adding ports where the shared vocabulary has no home. `CapPartitions`
+  is deliberately not declared: it is answered by `DestinationStats`, whose page is a read
+  range per partition number, and a shard put through it would lose every field above.
+
+  Two predictions the estimate got wrong, both about what browsing costs. Reading takes
+  nothing: `GetRecords` removes no record, hides none and marks none, and any number of readers
+  can read the same one until retention expires - so the caveat SQS and Pub/Sub carry, that a
+  browse takes a message away from a consumer, is simply false here and a conformance test
+  names their keys as the ones it must not be. What is true instead is a different consequence
+  and gets a caveat of its own: a shard allows five `GetRecords` a second and two megabytes a
+  second, shared with every classic consumer reading it, so a browse can throttle a running
+  application without having taken anything from it. The driver's per-shard budget is five
+  calls for that reason rather than as a tuning choice.
+
+  The consumers page is enhanced fan-out and only that. A registration is a real object with a
+  name and an ARN, created and removed on its own, and it is the only reader a stream knows
+  about - everything else that reads one registers nothing and keeps its position in a DynamoDB
+  table this connection never sees. So the backlog is degraded with a reason rather than filled
+  in, and unlike Pub/Sub's the number does not exist in a second API either. `MillisBehindLatest`
+  on a read is this app's own lag and is used for nothing but deciding when a shard has been
+  read to its end.
+
+  What it deliberately does not have follows from AWS running the service and from nothing ever
+  being moved aside: no cluster, no node, no disk figure and no rate - the rates are
+  CloudWatch's; no dead-letter page of either kind, because a record stays where it was written
+  until retention expires whether it was read or not; and no purge or trim, because retention
+  is the only thing that removes a record and it is a setting on the stream.
+
+  Two alerts the other hosted families have are absent for a reason worth separating from
+  "there is nothing to read": `topicUnsubscribed` and `queueNoConsumer` would fire on nearly
+  every healthy stream here, because the ordinary way to read one registers no consumer at all.
+
+  One thing LocalStack could not exercise, recorded rather than stepped around. It enforces
+  neither half of the per-shard read quota - twenty calls in a quarter of a second all succeed
+  against it - so the caveat's mechanism is asserted through the driver's own call budget, and
+  a live test says so and fails if the emulator ever starts enforcing it.
+
+- **Designed, not yet implemented** — the two families below.
 
 ## Delivery order
 
@@ -315,7 +364,7 @@ This is the delivery plan. The contract it delivers against is
 | 13 | **Amazon SQS** | Done. The seam phase 11 built, used: a descriptor with no endpoint field, a profile that saves with an empty `Endpoints`, and a connection row that shows the region where every other family shows an address. Confirmed: no subscriptions, so no consumers page and no lag; no cluster, because AWS runs the service; and one read, which is the one a consumer makes - so the browse carries a caveat rather than pretending to be non-destructive |
 | 14 | **Google Cloud Pub/Sub** | Done. Subscriptions are objects in their own right rather than a reader's position - created, listed and deleted independently of the topic, and carrying the whole of the delivery configuration. Their backlog does not map onto lag after all: `num_undelivered_messages` is a Cloud Monitoring metric and no call in the Pub/Sub API reports it, so the capability is degraded with a reason rather than filled in with a number that would have to be produced by pulling the backlog to count it |
 | 15 | **Azure Service Bus** | Done. Peek is non-destructive, so this is the one messages page in the app with no caveat at all - and the absence is asserted rather than left to be noticed. Subscription rules did reach the routing page: a rule is an object with a name rather than a field on the reader, so an exchange maps onto a topic and a binding onto a rule. Two the estimate missed: the dead letters are a per-entity store the broker creates rather than a topology to walk, and a peek reaches scheduled and deferred messages no consumer is ever offered |
-| 16 | **Amazon Kinesis** | Shards are not partitions: they get their own columns instead of borrowing the canonical ones |
+| 16 | **Amazon Kinesis** | Done. Shards are not partitions, and they got a port and a page rather than columns: a shard is named, owns a slice of the hash space, and is split and merged rather than resized - so a resize leaves a closed parent still holding its records. Two the estimate got wrong: browsing takes nothing at all, which no other hosted family here can say, and what it does spend is the shard's read allowance, so the caveat says that instead; and the backlog does not exist anywhere, not even in a second API, because a classic consumer's position lives in DynamoDB and a registered one has none |
 | 17 | **IBM MQ** | Channels are first-class and have no counterpart among the canonical pages, so they get a page of their own |
 | 18 | **Solace PubSub+** | A Message VPN is a scope selector, the shape Pulsar's namespaces already proved |
 
@@ -369,7 +418,7 @@ and `Access`.
 | **Amazon SQS** | SQS API | Destinations, Messages, Publish, Dead letters, Alerts | Done. Confirmed: no consumer groups and no cluster, and receiving starts a visibility timeout so browsing carries a caveat. Two the estimate missed: the receive also raises the message's receive count, which a redrive policy compares against, so browsing can dead-letter a message with nothing having failed; and the dead-letter page is answerable after all, by walking every queue's redrive policy backwards |
 | **Google Cloud Pub/Sub** | Publisher and Subscriber admin APIs | Overview, Destinations, Subscriptions, Messages, Publish, Dead letters, Alerts | Done. Confirmed: subscriptions are real objects, and pulling consumes - so the browse carries a caveat. The estimate got the backlog wrong: it does not map onto lag at all, because `num_undelivered_messages` is a Cloud Monitoring metric rather than a field on the subscription, so the capability is degraded with a reason. Two the estimate missed: a topic holds nothing, so a publish to one with no subscription is accepted and discarded with no symptom anywhere; and a subscription outlives the topic it reads, which is a leak nothing else would show |
 | **Azure Service Bus** | Service Bus management API, and AMQP for the messages | Overview, Destinations, Subscriptions, Messages, Publish, Dead letters, Routing, Alerts | Done. Confirmed: no cluster, and peek is non-destructive - so the browse carries no caveat, which no other family here can say. Three the estimate missed: the management plane and the data plane are two different protocols on two different ports; the dead letters are a sub-entity of every queue and subscription rather than a topology to walk; and a peek reaches scheduled and deferred messages, which no consumer is offered at all |
-| **Amazon Kinesis** | Kinesis API | Destinations, Subscriptions, Messages, Publish | No cluster; shards are not partitions and need their own column set |
+| **Amazon Kinesis** | Kinesis API | Overview, Destinations, Shards, Subscriptions, Messages, Publish, Alerts | Done. Confirmed: no cluster, and shards are not partitions - but they needed a port and a page rather than a column set, because a listing has to carry closed shards and their lineage. Three the estimate missed: browsing takes nothing, so the caveat is about the shard's shared read allowance instead; a record has no id, so what addresses one is its shard and sequence number together; and the only readers the service knows about are the registered fan-out kind, which carry no position - so the backlog is degraded rather than reported |
 
 ### Enterprise
 

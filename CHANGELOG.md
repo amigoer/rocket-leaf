@@ -22,6 +22,59 @@ was open now redials instead of going on with the old one in silence.
 
 ### Added
 
+- Amazon Kinesis Data Streams is the thirteenth driver, the fourth hosted one,
+  and the second reached by naming a region and signing a request rather than
+  by dialling an address. Its connection form has no address row at all, the
+  same as SQS's, and the connection list shows the region where every other
+  family shows a host.
+
+  It is also the family the canonical pages had to grow for. A shard is not a
+  partition number. It has an id, owns the slice of the 128-bit hash space that
+  decides which records land on it, has a read quota of its own, and is changed
+  by being split in two or merged with a neighbour rather than resized — which
+  leaves the old shard in place, closed, still holding every record written to
+  it until retention expires, and named as its children's parent. A count says
+  none of that, so shards get a page: every shard a stream has, open or closed,
+  with its key range, its share of the key space, its parents and its children.
+  The streams board keeps the count, because a stream really does have N shards
+  taking writes.
+
+  Browsing takes nothing, and here that is the plain truth rather than a
+  careful phrasing. GetRecords removes no record, hides none and marks none,
+  and any number of readers can read the same one until it expires — so a
+  browse cannot take a message away from a consumer the way SQS's and Pub/Sub's
+  can. What it does spend is the shard's read allowance: five reads a second
+  and two megabytes a second, shared with every classic consumer on that shard.
+  That is the caveat the messages page carries, and it is why a browse of a
+  whole stream is capped and a shard can be named to spend only its own budget.
+
+  A record has no id of its own. The sender's partition key is not unique and
+  the sequence number is unique only within its shard, so what addresses one is
+  the pair — which the service insists on too: a sequence number offered
+  against the wrong shard is refused. The send console shows both back after a
+  send, and the messages page spells it out.
+
+  Sending carries the two fields that decide where a record lands: the
+  partition key, which is required and is hashed to choose a shard, and an
+  explicit hash key, which replaces that hash and is the only way anywhere in
+  the service to aim a record at a shard by name. A repeated body gets a key
+  per copy, so it spreads rather than piling on one shard.
+
+  The consumers page lists registered enhanced fan-out consumers, because they
+  are the only readers a stream knows about — everything else that reads one
+  registers nothing and keeps its position in a DynamoDB table this connection
+  never sees. That is also why there is no backlog: it is reported as
+  unavailable with a reason rather than filled in, since no call in the API
+  returns a reader's position and the number does not exist in a second service
+  either.
+
+  There is no cluster page, no dead-letter page and no access page, and none is
+  an omission. AWS runs the service, so there is no node, no session and no disk
+  figure, and the throughput figures are CloudWatch's. Nothing is ever moved
+  aside — a record stays where it was written until retention expires, read or
+  not — so there is no dead-letter store to read and nothing pointing at one.
+  Access is IAM's, one service further out.
+
 - Azure Service Bus is the twelfth driver, the third hosted one, and the first
   of those three that is reached by dialling something. A region and a project
   are not addresses; a namespace is, and both halves of this driver dial it —
