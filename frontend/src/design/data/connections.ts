@@ -51,6 +51,7 @@ const PROTOCOL_BY_KIND: Partial<Record<MQKind, ProtocolId>> = {
   [MQKind.KindNSQ]: "nsq",
   [MQKind.KindSQS]: "sqs",
   [MQKind.KindGooglePubSub]: "google-pubsub",
+  [MQKind.KindAzureServiceBus]: "azure-servicebus",
 };
 
 export function protocolOfKind(kind: MQKind): ProtocolId | null {
@@ -61,19 +62,40 @@ export function protocolOfKind(kind: MQKind): ProtocolId | null {
  * What the address column shows, which is not always an address.
  *
  * Most families here are reached by dialling something, so the profile's
- * endpoints field is what identifies it. The two hosted ones are not: SQS is
- * reached by naming a region and signing a request, Pub/Sub by naming a
+ * endpoints field is what identifies it. Two of the three hosted ones are not:
+ * SQS is reached by naming a region and signing a request, Pub/Sub by naming a
  * project and authenticating, and both leave endpoints deliberately empty - so
  * a row that printed it would leave the column blank on a perfectly good
  * connection, and two of them would look identical.
  *
  * What goes there instead is whichever field says where the objects are, which
  * is the same field each form makes required.
+ *
+ * Service Bus is the hosted family that breaks that pattern, and it belongs
+ * here for the opposite reason: its namespace *is* an address, and the field
+ * takes three spellings of one - a bare host, a host:port for an emulator, and
+ * the sb:// URL out of a connection string. The row shows the host the driver
+ * actually dials rather than whichever of the three was typed, which is what
+ * internal/driver/azureservicebus's namespaceOf does with the same value.
  */
 function addressOf(profile: ConnectionProfile): string {
   if (profile.kind === MQKind.KindSQS) return profile.options?.region ?? "";
   if (profile.kind === MQKind.KindGooglePubSub) return profile.options?.projectId ?? "";
+  if (profile.kind === MQKind.KindAzureServiceBus) return namespaceOf(profile.endpoints);
   return profile.endpoints;
+}
+
+/**
+ * The host out of whatever a Service Bus endpoint field holds.
+ *
+ * Deliberately string work rather than `new URL`: the field's ordinary value
+ * is a bare host, which URL refuses outright, and its emulator value carries a
+ * port that has to survive.
+ */
+function namespaceOf(endpoints: string): string {
+  const first = (endpoints.split(/[,;\n]/)[0] ?? "").trim().replace(/\/+$/, "");
+  const scheme = first.indexOf("://");
+  return scheme < 0 ? first : first.slice(scheme + 3);
 }
 
 /** Only RocketMQ scopes a connection by name today. */

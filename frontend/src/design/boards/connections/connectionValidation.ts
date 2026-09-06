@@ -235,6 +235,34 @@ export function draftInvalidReason(draft: ProtocolDraft, t: Translate): string |
     }
     return null;
   }
+  if (draft.protocol === "azure-servicebus") {
+    // The namespace is an address, unlike the other two hosted families' first
+    // field, and both of this driver's clients are built from it.
+    if (draft.value.endpoints.trim() === "") {
+      return t("page.connections.form.azure-servicebus.namespaceRequired");
+    }
+    // A credential is genuinely required here: Service Bus has no ambient
+    // identity to fall back on the way SQS and Pub/Sub do, so an empty form
+    // would fail at the first call with a signature error naming nothing.
+    const stored = draft.value.credentialsStored && !draft.value.clearCredentials;
+    const key = draft.value.sharedAccessKey.trim();
+    const connectionString = draft.value.connectionString.trim();
+    if (!stored && key === "" && connectionString === "") {
+      return t("page.connections.form.azure-servicebus.credentialRequired");
+    }
+    // The commonest mistake with the pasted field is the namespace rather
+    // than the string, which the SDK reports as a missing Endpoint key.
+    if (connectionString !== "" && !connectionString.includes("Endpoint=")) {
+      return t("page.connections.form.azure-servicebus.connectionStringMalformed");
+    }
+    // A host:port, not a URL. The admin client is pointed at it directly, and
+    // a scheme in front would become part of the hostname.
+    const emulator = draft.value.emulatorManagement.trim();
+    if (emulator !== "" && /^[a-z][a-z0-9+.-]*:\/\//i.test(emulator)) {
+      return t("page.connections.form.azure-servicebus.emulatorManagementNoScheme");
+    }
+    return null;
+  }
   if (draft.protocol === "rocketmq") {
     if (draft.value.endpoints.trim() === "") return t("page.connections.endpointsRequired");
     if (draft.value.version === "5.x" && draft.value.access === "proxy") {

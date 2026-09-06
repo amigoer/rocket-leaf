@@ -672,6 +672,27 @@
       "caveat": {
         "pullDelivers": "浏览走的是 Pull，也就是消费者用的那个调用：读到的消息在本应用放回去之前对其他消费者不可见，投递次数还会永久加一。如果订阅配了死信主题，这个次数会计入转入死信的判定。"
       }
+    },
+    "azure-servicebus": {
+      "name": "Azure Service Bus",
+      "terms": {
+        "destination": "实体",
+        "destinationPlural": "队列与主题",
+        "subscription": "订阅",
+        "subscriptionPlural": "订阅",
+        "backlog": "待处理"
+      },
+      "form": {
+        "namespace": "命名空间",
+        "keyName": "共享访问策略",
+        "sharedAccessKey": "共享访问密钥",
+        "connectionString": "连接字符串",
+        "entityPrefix": "名称前缀",
+        "emulatorManagement": "模拟器管理地址"
+      },
+      "degraded": {
+        "countsNotInEmulator": "Service Bus 模拟器不报告消息数量：队列和主题的描述里根本没有 CountDetails 元素，订阅的那个 SDK 也读不了。因此这里——也只有这里——深度和积压是空的；真实命名空间两者都会报告。"
+      }
     }
   },
   "shell": {
@@ -865,6 +886,16 @@
         "messages": "消息",
         "dlq": "死信",
         "producer": "发布",
+        "alerts": "告警"
+      },
+      "azure-servicebus": {
+        "overview": "概览",
+        "topics": "队列与主题",
+        "consumers": "订阅",
+        "exchanges": "规则",
+        "messages": "消息",
+        "dlq": "死信",
+        "producer": "发送",
         "alerts": "告警"
       }
     }
@@ -1195,6 +1226,25 @@
           "projectRequired": "请填写 Google Cloud 项目——每个主题和订阅的名字都由它拼成。",
           "credentialsNotJson": "请粘贴服务账号密钥本身，而不是它的路径——密钥以花括号开头。想改用本机自己的 Google 身份，把这一项留空即可。",
           "emulatorHostNoScheme": "模拟器地址只要主机和端口，前面不要加 https://——例如 127.0.0.1:8085。"
+        },
+        "azure-servicebus": {
+          "namespace": "命名空间",
+          "namespaceHint": "门户里写的完全限定命名空间。它和区域、项目不同，是一个真实地址：消息经 AMQP 发到它，拓扑经 HTTPS 从它读取。",
+          "keyName": "共享访问策略",
+          "keyNameHint": "密钥所属的授权规则。每个命名空间创建时都带 RootManageSharedAccessKey；按最小权限部署的会另建。",
+          "sharedAccessKey": "共享访问密钥",
+          "sharedAccessKeyHint": "该策略的主密钥或辅助密钥。只有改为粘贴完整连接字符串时才能留空——Service Bus 没有可回退的环境凭据。",
+          "connectionString": "连接字符串（可选）",
+          "connectionStringHint": "如果你手里是门户给的整串，就贴这里。它优先于上面的策略与密钥，因为它自带 Endpoint。",
+          "entityPrefix": "名称前缀（可选）",
+          "entityPrefixHint": "把所有列表收窄到名称以此开头的队列、主题和订阅。命名空间里的实体属于所有使用者，而 API 本身没有过滤条件。",
+          "emulatorManagement": "模拟器管理地址（可选）",
+          "emulatorManagementHint": "Service Bus 模拟器管理端口的 host:port，它是上面 AMQP 端口之外的第二个端口。不带协议头。填了它就表示连的是模拟器，驱动会据此说明模拟器做不到什么。",
+          "note": "一个命名空间加一把共享访问密钥——或者一串包含两者的连接字符串",
+          "namespaceRequired": "请填写命名空间，例如 my-namespace.servicebus.windows.net。这个驱动的两个客户端都要连它。",
+          "credentialRequired": "请填写共享访问密钥，或粘贴连接字符串。Service Bus 每次调用都要签名，没有可回退的环境凭据。",
+          "connectionStringMalformed": "这不是连接字符串——Service Bus 的连接字符串以 Endpoint=sb:// 开头，并带有 SharedAccessKeyName 和 SharedAccessKey。",
+          "emulatorManagementNoScheme": "模拟器管理地址是 host 加端口，前面不要写 http://，例如 127.0.0.1:5300。"
         }
       },
       "deleteTitle": "删除连接",

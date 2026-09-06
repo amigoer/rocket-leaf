@@ -44,7 +44,8 @@ export type ProtocolId =
   | "activemq"
   | "nsq"
   | "sqs"
-  | "google-pubsub";
+  | "google-pubsub"
+  | "azure-servicebus";
 
 export type PageId =
   | "overview"
@@ -454,6 +455,52 @@ export const PROTOCOLS: Record<ProtocolId, Protocol> = {
       },
     ],
   },
+  "azure-servicebus": {
+    id: "azure-servicebus",
+    name: "Azure Service Bus",
+    badge: "SB",
+    badgeClass: "pASB",
+    /* Eight entries, and the new one is the point. Every other family's
+       routing lives on the object that holds the messages: a Pub/Sub
+       subscription carries a filter as a field, an SQS queue carries none at
+       all. A Service Bus subscription carries *rules* - separate objects,
+       created and deleted on their own, each a filter and optionally an
+       action that rewrites the message on the way in - so which messages
+       reach which subscription is a topology rather than a setting, and it
+       takes the same slot RabbitMQ's exchanges do.
+
+       Queues and topics share the topics slot. They are the same kind of
+       thing to create, configure and delete, and what separates them is
+       whether anything has to exist before a message can be read - which the
+       subscriptions page is where to see.
+
+       There is no cluster page and no clients page, because Microsoft runs
+       the service and shows no node or session. There is no access page,
+       because who may call what is a shared access policy on the namespace,
+       which is what this connection authenticated with rather than something
+       it can enumerate. */
+    nav: [
+      { items: [{ id: "overview", icon: House, label: "shell.nav.azure-servicebus.overview" }] },
+      {
+        label: BROWSE,
+        items: [
+          { id: "topics", icon: Layers, label: "shell.nav.azure-servicebus.topics" },
+          { id: "consumers", icon: Users, label: "shell.nav.azure-servicebus.consumers" },
+          { id: "exchanges", icon: Waypoints, label: "shell.nav.azure-servicebus.exchanges" },
+          { id: "messages", icon: Mail, label: "shell.nav.azure-servicebus.messages" },
+          /* Not a queue something else points at: every queue and every
+             subscription has a $DeadLetterQueue of its own that the broker
+             names, so this reads a sub-entity rather than walking a topology. */
+          { id: "dlq", icon: TriangleAlert, label: "shell.nav.azure-servicebus.dlq" },
+          { id: "producer", icon: Send, label: "shell.nav.azure-servicebus.producer" },
+        ],
+      },
+      {
+        label: OPS,
+        items: [{ id: "alerts", icon: BellRing, label: "shell.nav.azure-servicebus.alerts" }],
+      },
+    ],
+  },
 };
 
 export const PROTOCOL_ORDER: ProtocolId[] = [
@@ -468,6 +515,7 @@ export const PROTOCOL_ORDER: ProtocolId[] = [
   "nsq",
   "sqs",
   "google-pubsub",
+  "azure-servicebus",
 ];
 
 /** Every page the protocol's sidebar can reach, flattened. */
@@ -502,6 +550,7 @@ const READY: ReadonlySet<ProtocolId> = new Set<ProtocolId>([
   "nsq",
   "sqs",
   "google-pubsub",
+  "azure-servicebus",
 ]);
 
 export function isProtocolReady(protocol: ProtocolId): boolean {

@@ -672,6 +672,27 @@
       "caveat": {
         "pullDelivers": "Browsing goes through Pull, which is the same call a consumer makes: what it reads is held away from other consumers until this app hands it back, and its delivery attempt goes up for good. On a subscription with a dead-letter topic, that counts towards being moved there."
       }
+    },
+    "azure-servicebus": {
+      "name": "Azure Service Bus",
+      "terms": {
+        "destination": "Entity",
+        "destinationPlural": "Queues & topics",
+        "subscription": "Subscription",
+        "subscriptionPlural": "Subscriptions",
+        "backlog": "Active"
+      },
+      "form": {
+        "namespace": "Namespace",
+        "keyName": "Shared access policy",
+        "sharedAccessKey": "Shared access key",
+        "connectionString": "Connection string",
+        "entityPrefix": "Name prefix",
+        "emulatorManagement": "Emulator management host"
+      },
+      "degraded": {
+        "countsNotInEmulator": "The Service Bus emulator reports no message counts: a queue's and a topic's description carry no CountDetails element at all, and a subscription's carries one the SDK cannot read. Depths and backlogs are blank here and only here — a real namespace reports both."
+      }
     }
   },
   "shell": {
@@ -865,6 +886,16 @@
         "messages": "Messages",
         "dlq": "Dead letters",
         "producer": "Publish",
+        "alerts": "Alerts"
+      },
+      "azure-servicebus": {
+        "overview": "Overview",
+        "topics": "Queues & topics",
+        "consumers": "Subscriptions",
+        "exchanges": "Rules",
+        "messages": "Messages",
+        "dlq": "Dead letters",
+        "producer": "Send",
         "alerts": "Alerts"
       }
     }
@@ -1195,6 +1226,25 @@
           "projectRequired": "Name a Google Cloud project — it is what every topic and subscription name is built from.",
           "credentialsNotJson": "Paste the service account key itself, not the path to it — it starts with a brace. Leave the field blank to use this machine's own Google identity instead.",
           "emulatorHostNoScheme": "The emulator host is a host and a port, with no https:// in front — 127.0.0.1:8085."
+        },
+        "azure-servicebus": {
+          "namespace": "Namespace",
+          "namespaceHint": "The fully qualified namespace, as the portal spells it. Unlike a region or a project this is a real address: messages go to it over AMQP and the topology is read from it over HTTPS.",
+          "keyName": "Shared access policy",
+          "keyNameHint": "Which authorization rule the key belongs to. RootManageSharedAccessKey is the one every namespace is created with; a least-privilege deployment has others.",
+          "sharedAccessKey": "Shared access key",
+          "sharedAccessKeyHint": "The key's primary or secondary value. Leave it blank only if you paste a whole connection string instead — Service Bus has no ambient credential to fall back on.",
+          "connectionString": "Connection string (optional)",
+          "connectionStringHint": "The whole string from the portal, if that is what you have. It wins over the policy and key above, because it carries an endpoint of its own.",
+          "entityPrefix": "Name prefix (optional)",
+          "entityPrefixHint": "Narrows every listing to queues, topics and subscriptions whose name starts with this. A namespace's entities belong to everyone using it, and the API offers no filter of its own.",
+          "emulatorManagement": "Emulator management host (optional)",
+          "emulatorManagementHint": "host:port of a Service Bus emulator's management port, which is a second port beside the AMQP one above. No scheme. A connection that names one is talking to an emulator, and reports what the emulator cannot do.",
+          "note": "A namespace and a shared access key — or the connection string that holds both",
+          "namespaceRequired": "Name the namespace — my-namespace.servicebus.windows.net. Both halves of this driver dial it.",
+          "credentialRequired": "Give a shared access key, or paste a connection string. Service Bus signs every call and has no ambient credential to fall back on.",
+          "connectionStringMalformed": "That is not a connection string — a Service Bus one starts with Endpoint=sb:// and carries SharedAccessKeyName and SharedAccessKey.",
+          "emulatorManagementNoScheme": "The emulator management host is a host and a port, with no http:// in front — 127.0.0.1:5300."
         }
       },
       "deleteTitle": "Delete connection",

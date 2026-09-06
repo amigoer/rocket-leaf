@@ -30,6 +30,7 @@ import {
   RocketMQForm,
   SqsForm,
   GooglePubSubForm,
+  AzureServiceBusForm,
 } from "./ConnectionForms";
 import {
   emptyDraft,
@@ -59,6 +60,10 @@ const TILE: Record<ProtocolId, { name: string; versions: string }> = {
   // Managed for the same reason SQS is, and what varies is the project rather
   // than a region: one address serves every project there is.
   "google-pubsub": { name: "Google Pub/Sub", versions: "managed" },
+  // Managed too, and what varies is the namespace - which unlike a region or
+  // a project is an address, so it is the one hosted family with an endpoint
+  // row rather than a field standing in for one.
+  "azure-servicebus": { name: "Azure Service Bus", versions: "managed" },
 };
 
 /** What the probe last reported, drawn in the footer beside the test button. */
@@ -251,6 +256,11 @@ export function NewConnectionDialog({
         <GooglePubSubForm
           value={draft.value}
           onChange={(next) => setDraft({ protocol: "google-pubsub", value: next })}
+        />
+      ) : draft.protocol === "azure-servicebus" ? (
+        <AzureServiceBusForm
+          value={draft.value}
+          onChange={(next) => setDraft({ protocol: "azure-servicebus", value: next })}
         />
       ) : (
         <RocketMQForm

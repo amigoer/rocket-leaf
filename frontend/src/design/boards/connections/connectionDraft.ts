@@ -52,6 +52,9 @@ import {
   OPTION_PUBSUB_EMULATOR_HOST,
   OPTION_PUBSUB_PROJECT_ID,
   OPTION_PUBSUB_RESOURCE_PREFIX,
+  OPTION_SB_EMULATOR_MANAGEMENT,
+  OPTION_SB_ENTITY_PREFIX,
+  OPTION_SB_KEY_NAME,
   OPTION_NATS_CREDS_FILE,
   OPTION_NATS_JS_DOMAIN,
   OPTION_NATS_MONITOR_URL,
@@ -81,6 +84,7 @@ import {
   emptyNsqDraft,
   emptySqsDraft,
   emptyGooglePubSubDraft,
+  emptyAzureServiceBusDraft,
   emptyActiveMQDraft,
   emptyNatsDraft,
   emptyPulsarDraft,
@@ -97,6 +101,7 @@ import {
   type NsqDraft,
   type SqsDraft,
   type GooglePubSubDraft,
+  type AzureServiceBusDraft,
   type ActiveMQDraft,
   type ActiveMQMechanism,
   type NatsMechanism,
@@ -125,7 +130,8 @@ export type ProtocolDraft =
   | { protocol: "activemq"; value: ActiveMQDraft }
   | { protocol: "nsq"; value: NsqDraft }
   | { protocol: "sqs"; value: SqsDraft }
-  | { protocol: "google-pubsub"; value: GooglePubSubDraft };
+  | { protocol: "google-pubsub"; value: GooglePubSubDraft }
+  | { protocol: "azure-servicebus"; value: AzureServiceBusDraft };
 
 /** The protocols this file can build a submission for. */
 export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
@@ -140,6 +146,7 @@ export const DRAFTABLE: readonly ProtocolDraft["protocol"][] = [
   "nsq",
   "sqs",
   "google-pubsub",
+  "azure-servicebus",
 ];
 
 export function isDraftable(protocol: ProtocolId): protocol is ProtocolDraft["protocol"] {
@@ -168,6 +175,8 @@ export function emptyDraft(protocol: ProtocolDraft["protocol"]): ProtocolDraft {
       return { protocol, value: emptySqsDraft() };
     case "google-pubsub":
       return { protocol, value: emptyGooglePubSubDraft() };
+    case "azure-servicebus":
+      return { protocol, value: emptyAzureServiceBusDraft() };
     default:
       return { protocol, value: emptyRocketMQDraft() };
   }
@@ -195,6 +204,8 @@ export function toSubmission(draft: ProtocolDraft): Submission {
       return sqsSubmission(draft.value);
     case "google-pubsub":
       return googlePubSubSubmission(draft.value);
+    case "azure-servicebus":
+      return azureServiceBusSubmission(draft.value);
     default:
       return rocketMQSubmission(draft.value);
   }
@@ -223,6 +234,8 @@ export function toDraft(profile: ConnectionProfile): ProtocolDraft {
       return { protocol: "sqs", value: toSqsDraft(profile) };
     case MQKind.KindGooglePubSub:
       return { protocol: "google-pubsub", value: toGooglePubSubDraft(profile) };
+    case MQKind.KindAzureServiceBus:
+      return { protocol: "azure-servicebus", value: toAzureServiceBusDraft(profile) };
     default:
       return { protocol: "rocketmq", value: toRocketMQDraft(profile) };
   }
@@ -1003,6 +1016,76 @@ function toGooglePubSubDraft(profile: ConnectionProfile): GooglePubSubDraft {
     timeoutSec: profile.timeoutSec,
     // A profile using the machine's own identity has no credential to keep,
     // whatever is still sitting in the secret store.
+    credentialsStored:
+      profile.authMechanism === AuthMechanism.AuthPlain && profile.secretsConfigured.length > 0,
+    clearCredentials: false,
+  };
+}
+
+/*
+ * The third hosted submission and the first with something to put in
+ * `endpoints`.
+ *
+ * The namespace goes there rather than into an option because it is an
+ * address: the driver builds its connection string from it and both clients
+ * dial it. That is the whole difference from the two hosted families before
+ * this one, and it is why RequiresEndpoints is true here and false there.
+ *
+ * Two secrets rather than one, because there are two ways to hold a Service
+ * Bus credential and people have both. Neither is accessKey or secretKey -
+ * those names are reserved for RocketMQ's ACL and are cleared on save for any
+ * other family.
+ */
+function azureServiceBusSubmission(draft: AzureServiceBusDraft): Submission {
+  const key = draft.sharedAccessKey.trim();
+  const connectionString = draft.connectionString.trim();
+  const keepStored = draft.credentialsStored && !draft.clearCredentials;
+  const given = key !== "" || connectionString !== "" || keepStored;
+
+  return {
+    draft: {
+      name: draft.name.trim(),
+      group: draft.group,
+      kind: MQKind.KindAzureServiceBus,
+      endpoints: draft.endpoints.trim(),
+      timeoutSec: draft.timeoutSec,
+      // There is no ambient credential here the way SQS and Pub/Sub have one,
+      // so a profile with nothing signed is a profile that cannot connect -
+      // but the mechanism still drops to none rather than claiming plain, so
+      // the connection list says so rather than showing a credential it has
+      // not got.
+      authMechanism: given ? AuthMechanism.AuthPlain : AuthMechanism.AuthNone,
+      options: {
+        [OPTION_SB_KEY_NAME]: draft.keyName.trim(),
+        [OPTION_SB_ENTITY_PREFIX]: draft.entityPrefix.trim(),
+        [OPTION_SB_EMULATOR_MANAGEMENT]: draft.emulatorManagement.trim(),
+      },
+      secrets: {
+        azureSharedAccessKey: key,
+        azureConnectionString: connectionString,
+      },
+      remark: draft.remark,
+    },
+    credentialsMode: draft.clearCredentials ? "clear" : keepStored ? "preserve" : "replace",
+  };
+}
+
+function toAzureServiceBusDraft(profile: ConnectionProfile): AzureServiceBusDraft {
+  return {
+    name: profile.name,
+    endpoints: profile.endpoints,
+    // The portal's own default, so an edit of a profile saved before this
+    // field existed reads as the policy it was actually using.
+    keyName: profile.options?.[OPTION_SB_KEY_NAME] || "RootManageSharedAccessKey",
+    // Secrets never come back from the store. Blank with credentialsStored set
+    // is what tells the form to say "kept" rather than "empty".
+    sharedAccessKey: "",
+    connectionString: "",
+    entityPrefix: profile.options?.[OPTION_SB_ENTITY_PREFIX] ?? "",
+    emulatorManagement: profile.options?.[OPTION_SB_EMULATOR_MANAGEMENT] ?? "",
+    group: profile.group,
+    remark: profile.remark,
+    timeoutSec: profile.timeoutSec,
     credentialsStored:
       profile.authMechanism === AuthMechanism.AuthPlain && profile.secretsConfigured.length > 0,
     clearCredentials: false,
