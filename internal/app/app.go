@@ -89,7 +89,8 @@ func New() (*Services, error) {
 
 	registry := driver.NewRegistry()
 	settingsService := settings.New(paths.SettingsFile)
-	connections := connection.New(paths.ConnectionsFile, settingsService, newRegistryRuntime(registry))
+	connections := connection.New(
+		paths.ConnectionsFile, settingsService, newRegistryRuntime(registry), newDescriptorEndpoints())
 	configurationService := configuration.New(paths, settingsService, connections)
 	conns := newConnSource(registry)
 	clusterService := cluster.New(paths.TPSHistoryFile, conns, settingsService)

@@ -74,3 +74,15 @@ type DriverDescriptor struct {
 	// editing its profile.
 	ScopeOption string `json:"scopeOption"`
 }
+
+// RequiresEndpoints reports whether the family must be given an address.
+// Hosted families declare no endpoint field: they are reached by a region
+// and a credential.
+func (d DriverDescriptor) RequiresEndpoints() bool {
+	for _, field := range d.Form {
+		if field.Target == TargetEndpoints && field.Required {
+			return true
+		}
+	}
+	return false
+}

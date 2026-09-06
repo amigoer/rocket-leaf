@@ -86,11 +86,13 @@ func (s *Service) resolveForDial(connection *model.ConnectionProfile) model.Conn
 // to name, so the probe takes the draft itself. Nothing is persisted and no
 // client is kept: it is TestConnection for a connection that does not exist.
 func (s *Service) ProbeProfile(profile model.ConnectionProfile) error {
-	if strings.TrimSpace(profile.Endpoints) == "" {
-		return fmt.Errorf("connection endpoints cannot be empty")
-	}
+	// Settle the family first: whether an address is required is its answer,
+	// and a draft that names no kind is a RocketMQ one.
 	if profile.Kind == "" {
 		profile.Kind = model.KindRocketMQ
+	}
+	if s.requiresEndpoints(profile.Kind) && strings.TrimSpace(profile.Endpoints) == "" {
+		return fmt.Errorf("connection endpoints cannot be empty")
 	}
 	return s.runtime.Test(s.resolveForDial(&profile))
 }

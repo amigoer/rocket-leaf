@@ -73,7 +73,8 @@ func liveMqttStack(t *testing.T) (*connection.Service, *mqttservice.Service, *dr
 	registry := driver.NewRegistry()
 	t.Cleanup(registry.CloseAll)
 
-	connections := connection.New(paths.ConnectionsFile, settingsService, newRegistryRuntime(registry))
+	connections := connection.New(
+		paths.ConnectionsFile, settingsService, newRegistryRuntime(registry), newDescriptorEndpoints())
 	return connections, mqttservice.New(newConnSource(registry), settingsService), registry
 }
 
